@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"strconv"
 )
 
 type PDFEntry struct {
@@ -71,19 +72,19 @@ type Session struct {
 	SummaryAt int    `json:"summary_at"`
 }
 
+// ExtractPDFPageCount returns the page count parsed from the PDF
+// /Count entry, or 0 if it cannot be determined.
 func ExtractPDFPageCount(data []byte) int {
 	re := regexp.MustCompile(`/Count\s+(\d+)`)
 	matches := re.FindSubmatch(data)
-	if len(matches) >= 2 {
-		count := 0
-		var dummy int
-		dummy, _ = fmt.Sscanf(string(matches[1]), "%d", &count)
-		_ = dummy
-		if count > 0 {
-			return count
-		}
+	if len(matches) < 2 {
+		return 0
 	}
-	return 0
+	count, err := strconv.Atoi(string(matches[1]))
+	if err != nil || count <= 0 {
+		return 0
+	}
+	return count
 }
 
 func CountTasks(p *JSONPlan) (done, total int) {
@@ -109,8 +110,10 @@ func CountTasks(p *JSONPlan) (done, total int) {
 	return
 }
 
-func LoadPlan(id string) *JSONPlan {
-	path := VaultPath("data", "plans", id+".json")
+// LoadPlan reads the plan JSON for the given id from the vault.
+// Returns nil if the plan file is missing or malformed.
+func (a *App) LoadPlan(id string) *JSONPlan {
+	path := a.VaultPath("data", "plans", id+".json")
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil
@@ -122,8 +125,11 @@ func LoadPlan(id string) *JSONPlan {
 	return &p
 }
 
-func SavePlan(p *JSONPlan) error {
-	path := VaultPath("data", "plans", p.ID+".json")
-	data, _ := json.MarshalIndent(p, "", "  ")
+func (a *App) SavePlan(p *JSONPlan) error {
+	path := a.VaultPath("data", "plans", p.ID+".json")
+	data, err := json.MarshalIndent(p, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal plan: %w", err)
+	}
 	return os.WriteFile(path, data, 0644)
 }

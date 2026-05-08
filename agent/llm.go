@@ -3,11 +3,11 @@ package agent
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"html"
 	"io"
-	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -18,23 +18,40 @@ type Message struct {
 	Content string `json:"content"`
 }
 
-var LastAssistantContent string
+// LLMClient is the minimal interface ProcessWithTools needs against an
+// OpenAI-compatible API. It's wrapped in a struct so callers can
+// configure the timeout and base URL once.
+type LLMClient struct {
+	APIKey string
+	APIURL string
+	Model  string
+	HTTP   *http.Client
+}
 
-func CallLLM(history []Message, tools []ToolDef, sysPrompt, model, apiKey, apiURL string) (*http.Response, error) {
+// NewLLMClient returns a client with sensible default timeouts.
+func NewLLMClient(apiKey, apiURL, model string) *LLMClient {
+	return &LLMClient{
+		APIKey: apiKey,
+		APIURL: apiURL,
+		Model:  model,
+		HTTP:   &http.Client{Timeout: 120 * time.Second},
+	}
+}
+
+// CallLLM sends a chat completion request and returns the streaming
+// response. Caller must Close the response body.
+func (c *LLMClient) CallLLM(ctx context.Context, history []Message, tools []ToolDef, sysPrompt string) (*http.Response, error) {
 	body := map[string]interface{}{
-		"model":      model,
+		"model":      c.Model,
 		"stream":     true,
 		"max_tokens": 8192,
 	}
-
-	prompt := sysPrompt
-	sysMsg := map[string]string{"role": "system", "content": prompt}
 	if tools != nil {
 		body["tools"] = tools
 	}
 
-	var msgs []interface{}
-	msgs = append(msgs, sysMsg)
+	msgs := make([]interface{}, 0, len(history)+1)
+	msgs = append(msgs, map[string]string{"role": "system", "content": sysPrompt})
 	for _, m := range history {
 		msgs = append(msgs, map[string]string{"role": m.Role, "content": m.Content})
 	}
@@ -42,68 +59,66 @@ func CallLLM(history []Message, tools []ToolDef, sysPrompt, model, apiKey, apiUR
 
 	payload, err := json.Marshal(body)
 	if err != nil {
-		return nil, fmt.Errorf("marshal error: %w", err)
+		return nil, fmt.Errorf("marshal request: %w", err)
 	}
 
-	req, err := http.NewRequest("POST", apiURL+"/chat/completions", bytes.NewReader(payload))
+	req, err := http.NewRequestWithContext(ctx, "POST", c.APIURL+"/chat/completions", bytes.NewReader(payload))
 	if err != nil {
-		return nil, fmt.Errorf("request error: %w", err)
+		return nil, fmt.Errorf("build request: %w", err)
 	}
-
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+apiKey)
+	req.Header.Set("Authorization", "Bearer "+c.APIKey)
 
-	client := &http.Client{Timeout: 120 * time.Second}
-	resp, err := client.Do(req)
+	resp, err := c.HTTP.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("api error: %w", err)
+		return nil, fmt.Errorf("do request: %w", err)
 	}
-
 	if resp.StatusCode != 200 {
 		respBody, _ := io.ReadAll(resp.Body)
 		resp.Body.Close()
 		return nil, fmt.Errorf("api status %d: %s", resp.StatusCode, string(respBody))
 	}
-
 	return resp, nil
 }
 
-func ProcessWithTools(history []Message, sysPrompt, model, apiKey, apiURL string, w http.ResponseWriter, flusher http.Flusher) error {
+// ProcessWithTools runs a chat turn with tool-call iteration. Streams
+// tokens to w as they arrive. Returns the final assistant content
+// after tool calls have settled. Caller must persist the returned
+// content if it should appear in history.
+func (a *App) ProcessWithTools(ctx context.Context, c *LLMClient, history []Message, sysPrompt string, w http.ResponseWriter, flusher http.Flusher) (string, error) {
 	tools := GetTools()
 
 	for i := 0; i < 10; i++ {
-		resp, err := CallLLM(history, tools, sysPrompt, model, apiKey, apiURL)
+		resp, err := c.CallLLM(ctx, history, tools, sysPrompt)
 		if err != nil {
-			return fmt.Errorf("api call failed: %w", err)
+			return "", fmt.Errorf("call llm: %w", err)
 		}
 
 		toolCalls, content, err := ParseStream(resp.Body, w, flusher)
 		resp.Body.Close()
 		if err != nil {
-			return err
+			return "", err
 		}
 
 		if len(toolCalls) == 0 {
-			LastAssistantContent = content
-			return nil
+			return content, nil
 		}
 
 		var toolResults []Message
 		toolResults = append(toolResults, Message{Role: "assistant", Content: content})
 
 		for _, tc := range toolCalls {
-			result := ExecuteTool(tc.Name, tc.Args)
+			result := a.ExecuteTool(tc.Name, tc.Args)
 			toolResults = append(toolResults, Message{
 				Role:    "tool",
 				Content: result,
 			})
-			log.Printf("Tool %s: %d chars", tc.Name, len(result))
 		}
 
 		history = append(history, toolResults...)
 	}
 
-	return fmt.Errorf("too many tool call iterations")
+	return "", fmt.Errorf("too many tool call iterations")
 }
 
 func ParseStream(body io.Reader, w http.ResponseWriter, flusher http.Flusher) ([]ToolCall, string, error) {
@@ -111,6 +126,7 @@ func ParseStream(body io.Reader, w http.ResponseWriter, flusher http.Flusher) ([
 	var fullContent strings.Builder
 	var fullReasoning strings.Builder
 	scanner := bufio.NewScanner(body)
+	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -125,9 +141,9 @@ func ParseStream(body io.Reader, w http.ResponseWriter, flusher http.Flusher) ([
 		var chunk struct {
 			Choices []struct {
 				Delta struct {
-					Content         *string `json:"content"`
+					Content          *string `json:"content"`
 					ReasoningContent *string `json:"reasoning_content"`
-					ToolCalls []struct {
+					ToolCalls        []struct {
 						Index    int `json:"index"`
 						Function struct {
 							Name      string `json:"name"`
@@ -193,14 +209,15 @@ func jsonEscape(s string) string {
 	return string(data)
 }
 
-func CallLLMNonStreaming(messages []Message, model, apiKey, apiURL string) (string, error) {
+// CallLLMNonStreaming sends a chat completion request and returns the
+// concatenated assistant message text.
+func (c *LLMClient) CallLLMNonStreaming(ctx context.Context, messages []Message) (string, error) {
 	body := map[string]interface{}{
-		"model":      model,
+		"model":      c.Model,
 		"stream":     false,
 		"max_tokens": 8192,
 	}
-
-	var msgs []interface{}
+	msgs := make([]interface{}, 0, len(messages))
 	for _, m := range messages {
 		msgs = append(msgs, map[string]string{"role": m.Role, "content": m.Content})
 	}
@@ -208,21 +225,21 @@ func CallLLMNonStreaming(messages []Message, model, apiKey, apiURL string) (stri
 
 	payload, err := json.Marshal(body)
 	if err != nil {
-		return "", fmt.Errorf("marshal error: %w", err)
+		return "", fmt.Errorf("marshal request: %w", err)
 	}
 
-	req, err := http.NewRequest("POST", apiURL+"/chat/completions", bytes.NewReader(payload))
+	req, err := http.NewRequestWithContext(ctx, "POST", c.APIURL+"/chat/completions", bytes.NewReader(payload))
 	if err != nil {
-		return "", fmt.Errorf("request error: %w", err)
+		return "", fmt.Errorf("build request: %w", err)
 	}
-
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+apiKey)
+	req.Header.Set("Authorization", "Bearer "+c.APIKey)
 
-	client := &http.Client{Timeout: 30 * time.Second}
-	resp, err := client.Do(req)
+	// Use a shorter timeout for non-streaming summary calls.
+	httpClient := &http.Client{Timeout: 30 * time.Second}
+	resp, err := httpClient.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("api error: %w", err)
+		return "", fmt.Errorf("do request: %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -233,7 +250,7 @@ func CallLLMNonStreaming(messages []Message, model, apiKey, apiURL string) (stri
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", fmt.Errorf("read error: %w", err)
+		return "", fmt.Errorf("read response: %w", err)
 	}
 
 	var result struct {
@@ -244,7 +261,7 @@ func CallLLMNonStreaming(messages []Message, model, apiKey, apiURL string) (stri
 		} `json:"choices"`
 	}
 	if err := json.Unmarshal(bodyBytes, &result); err != nil {
-		return "", fmt.Errorf("unmarshal error: %w", err)
+		return "", fmt.Errorf("unmarshal response: %w", err)
 	}
 	if len(result.Choices) == 0 {
 		return "", fmt.Errorf("no response from LLM")
@@ -252,8 +269,7 @@ func CallLLMNonStreaming(messages []Message, model, apiKey, apiURL string) (stri
 	return result.Choices[0].Message.Content, nil
 }
 
-func GenerateSummary(history []Message, apiKey, apiURL, model string) (string, error) {
-	prompt := `Summarize this study session conversation in 3-5 concise bullet points. Focus on:
+const summaryPrompt = `Summarize this study session conversation in 3-5 concise bullet points. Focus on:
 - What topics were discussed
 - Key concepts or insights learned
 - Any decisions or next steps mentioned
@@ -261,14 +277,13 @@ func GenerateSummary(history []Message, apiKey, apiURL, model string) (string, e
 
 Be specific and concise. Do not include pleasantries.`
 
-	msgs := []Message{{Role: "system", Content: prompt}}
+// GenerateSummary asks the LLM to summarize the last 30 messages.
+func (c *LLMClient) GenerateSummary(ctx context.Context, history []Message) (string, error) {
+	msgs := []Message{{Role: "system", Content: summaryPrompt}}
 	start := 0
 	if len(history) > 30 {
 		start = len(history) - 30
 	}
-	for _, m := range history[start:] {
-		msgs = append(msgs, Message{Role: m.Role, Content: m.Content})
-	}
-
-	return CallLLMNonStreaming(msgs, model, apiKey, apiURL)
+	msgs = append(msgs, history[start:]...)
+	return c.CallLLMNonStreaming(ctx, msgs)
 }

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"time"
 )
 
@@ -22,8 +21,10 @@ type embeddingResponse struct {
 	} `json:"usage"`
 }
 
-func EmbedText(text string) ([]float32, error) {
-	results, err := EmbedBatch([]string{text})
+// EmbedText returns a single embedding for text. Convenience wrapper
+// around EmbedBatch.
+func (a *App) EmbedText(text string) ([]float32, error) {
+	results, err := a.EmbedBatch([]string{text})
 	if err != nil {
 		return nil, err
 	}
@@ -33,41 +34,36 @@ func EmbedText(text string) ([]float32, error) {
 	return results[0], nil
 }
 
-func EmbedBatch(texts []string) ([][]float32, error) {
+// EmbedBatch sends a batch of texts to the embedding endpoint and
+// returns one embedding per input (in input order).
+func (a *App) EmbedBatch(texts []string) ([][]float32, error) {
 	if len(texts) == 0 {
 		return nil, nil
 	}
-
-	apiKey := getAPIKey()
-	if apiKey == "" {
+	if a.Config.APIKey == "" {
 		return nil, fmt.Errorf("no API key for embeddings")
 	}
 
-	apiURL := getAPIURL()
-	model := getEmbeddingModel()
-
 	body := map[string]interface{}{
-		"model": model,
+		"model": a.Config.EmbeddingModel,
 		"input": texts,
 	}
-
 	payload, err := json.Marshal(body)
 	if err != nil {
-		return nil, fmt.Errorf("marshal error: %w", err)
+		return nil, fmt.Errorf("marshal request: %w", err)
 	}
 
-	req, err := http.NewRequest("POST", apiURL+"/embeddings", bytes.NewReader(payload))
+	req, err := http.NewRequest("POST", a.Config.APIURL+"/embeddings", bytes.NewReader(payload))
 	if err != nil {
-		return nil, fmt.Errorf("request error: %w", err)
+		return nil, fmt.Errorf("build request: %w", err)
 	}
-
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+apiKey)
+	req.Header.Set("Authorization", "Bearer "+a.Config.APIKey)
 
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("embedding api error: %w", err)
+		return nil, fmt.Errorf("embedding api: %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -78,14 +74,12 @@ func EmbedBatch(texts []string) ([][]float32, error) {
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("read error: %w", err)
+		return nil, fmt.Errorf("read response: %w", err)
 	}
-
 	var result embeddingResponse
 	if err := json.Unmarshal(respBody, &result); err != nil {
-		return nil, fmt.Errorf("unmarshal error: %w", err)
+		return nil, fmt.Errorf("unmarshal response: %w", err)
 	}
-
 	if len(result.Data) == 0 {
 		return nil, fmt.Errorf("no embedding data in response")
 	}
@@ -98,32 +92,8 @@ func EmbedBatch(texts []string) ([][]float32, error) {
 	}
 
 	if len(texts) > 1 {
+		// Cheap politeness gate against the embedding endpoint.
 		time.Sleep(100 * time.Millisecond)
 	}
-
 	return results, nil
-}
-
-func getEmbeddingModel() string {
-	if m := os.Getenv("EMBEDDING_MODEL"); m != "" {
-		return m
-	}
-	return "nomic-ai/nomic-embed-text-v1.5"
-}
-
-func getAPIURL() string {
-	if u := os.Getenv("LLM_API_URL"); u != "" {
-		return u
-	}
-	if u := os.Getenv("OPENCODE_API_URL"); u != "" {
-		return u
-	}
-	return "https://opencode.ai/zen/go/v1"
-}
-
-func getAPIKey() string {
-	if k := os.Getenv("LLM_API_KEY"); k != "" {
-		return k
-	}
-	return os.Getenv("OPENCODE_API_KEY")
 }

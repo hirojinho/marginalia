@@ -1,58 +1,14 @@
 package agent
 
 import (
-	"database/sql"
 	"log"
 	"os"
-	"path/filepath"
-	"sync"
+	"strings"
 )
 
-var (
-	VaultRoot string
-	DB        *sql.DB
-	Mu        sync.Mutex
-)
+const fallbackSystemPrompt = "You are a study assistant for an ITA master's student."
 
-func VaultPath(parts ...string) string {
-	return filepath.Join(append([]string{VaultRoot}, parts...)...)
-}
-
-func LoadSystemPrompt() string {
-	var parts []string
-	var loaded []string
-	var missing []string
-
-	readFile := func(path string) string {
-		data, err := os.ReadFile(path)
-		if err != nil {
-			missing = append(missing, path)
-			return ""
-		}
-		loaded = append(loaded, path)
-		return string(data)
-	}
-
-	if s := readFile("/workspace/study-app/CLAUDE.local.md"); s != "" {
-		parts = append(parts, s)
-	}
-	if s := readFile("/workspace/study-app/memory/study-context.md"); s != "" {
-		parts = append(parts, s)
-	}
-
-	if len(loaded) > 0 {
-		log.Printf("✓ System prompt loaded: %v", loaded)
-	}
-	if len(missing) > 0 {
-		log.Printf("⚠ System prompt files missing: %v", missing)
-	}
-
-	prompt := joinNonEmpty("\n\n---\n\n", parts...)
-	if prompt == "" {
-		prompt = "You are a study assistant for an ITA master's student."
-	}
-
-	prompt += `
+const toolsAndRulesPrompt = `
 ## Available Tools
 
 You have access to these tools — use them proactively when appropriate:
@@ -76,22 +32,50 @@ You have access to these tools — use them proactively when appropriate:
 6. When a user wants to test themselves, use "self_test".
 7. When a user wants to review, use "review".`
 
-	return prompt
+// LoadSystemPrompt builds the base system prompt by concatenating
+// CLAUDE.local.md and memory/study-context.md from the workspace
+// (resolved against VaultRoot), then appending the canonical tool and
+// rule guidance.
+func (a *App) LoadSystemPrompt() string {
+	candidates := []string{
+		a.VaultPath("study-app", "CLAUDE.local.md"),
+		a.VaultPath("study-app", "memory", "study-context.md"),
+	}
+
+	var loaded, missing []string
+	var parts []string
+	for _, p := range candidates {
+		data, err := os.ReadFile(p)
+		if err != nil {
+			missing = append(missing, p)
+			continue
+		}
+		parts = append(parts, string(data))
+		loaded = append(loaded, p)
+	}
+
+	if len(loaded) > 0 {
+		log.Printf("system prompt loaded: %v", loaded)
+	}
+	if len(missing) > 0 {
+		log.Printf("system prompt files missing: %v", missing)
+	}
+
+	body := strings.Join(parts, "\n\n---\n\n")
+	if body == "" {
+		body = fallbackSystemPrompt
+	}
+	return body + toolsAndRulesPrompt
 }
 
-func joinNonEmpty(sep string, strs ...string) string {
-	var nonEmpty []string
-	for _, s := range strs {
-		if s != "" {
-			nonEmpty = append(nonEmpty, s)
-		}
+// readFileWithLog reads a file, logging a warning if it fails. Returns
+// the contents (empty string on error). Used for soft loads where
+// missing files are tolerated.
+func readFileWithLog(path string) string {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		log.Printf("file not found: %s", path)
+		return ""
 	}
-	result := ""
-	for i, s := range nonEmpty {
-		if i > 0 {
-			result += sep
-		}
-		result += s
-	}
-	return result
+	return string(data)
 }
