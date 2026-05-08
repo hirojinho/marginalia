@@ -1,0 +1,2160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Study App — Claw</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script type="module">
+import * as pdfjsLib from '/static/pdf.mjs';
+pdfjsLib.GlobalWorkerOptions.workerSrc = '/static/pdf.worker.mjs';
+window.pdfjsLib = pdfjsLib;
+window.dispatchEvent(new Event('pdfjs-ready'));
+</script>
+<style>
+:root {
+  --bg: #F7F6F3;
+  --bg-elevated: #FFFFFF;
+  --bg-sunken: #EDECEA;
+  --text: #1C1917;
+  --text-secondary: #78716C;
+  --text-tertiary: #A8A29E;
+  --border: #E7E5E4;
+  --border-strong: #D6D3D1;
+  --accent: #B45309;
+  --accent-subtle: #FFF7ED;
+  --accent-hover: #92400E;
+  --radius: 10px;
+  --radius-sm: 6px;
+  --shadow-sm: 0 1px 2px rgba(28,25,23,0.04);
+  --shadow-md: 0 4px 12px rgba(28,25,23,0.06);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  font-size: 14px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* === HEADER === */
+header {
+  height: 48px;
+  padding: 0 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  background: var(--bg-elevated);
+  z-index: 20;
+}
+header h1 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: -0.3px;
+}
+header small {
+  color: var(--text-tertiary);
+  font-size: 10px;
+  margin-left: 8px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-weight: 500;
+}
+.header-actions {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+.header-btn {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 5px 10px;
+  border-radius: var(--radius-sm);
+  transition: all 0.15s;
+  border: none;
+  background: transparent;
+  font-family: inherit;
+}
+.header-btn:hover { color: var(--accent); background: var(--accent-subtle); }
+.header-btn.active { color: var(--accent); background: var(--accent-subtle); }
+
+/* === LAYOUT === */
+#main-content {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+#chat-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 280px;
+  overflow: hidden;
+  transition: opacity 0.2s ease;
+}
+#chat-panel.hidden { display: none; }
+#splitter {
+  width: 5px;
+  background: var(--border);
+  cursor: col-resize;
+  flex-shrink: 0;
+  position: relative;
+  transition: background 0.15s;
+  z-index: 10;
+  display: none;
+}
+#splitter.visible { display: block; }
+#splitter:hover, #splitter.dragging {
+  background: var(--accent);
+}
+#splitter::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 3px;
+  height: 24px;
+  border-radius: 2px;
+  background: var(--text-tertiary);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+#splitter:hover::after, #splitter.dragging::after { opacity: 1; }
+
+#pdf-panel {
+  display: none;
+  flex-direction: column;
+  overflow: hidden;
+  flex: 1;
+  min-width: 300px;
+  background: var(--bg-sunken);
+}
+#pdf-panel.visible { display: flex; }
+
+/* === MESSAGES === */
+#messages {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 24px 24px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+#messages:empty {
+  justify-content: center;
+  align-items: center;
+}
+#messages:empty::after {
+  content: "Create or select a session to start";
+  display: block;
+  text-align: center;
+  color: var(--text-tertiary);
+  font-size: 15px;
+  font-weight: 300;
+  letter-spacing: -0.2px;
+}
+.msg {
+  max-width: 80%;
+  padding: 12px 16px;
+  border-radius: 14px;
+  line-height: 1.65;
+  font-size: 14px;
+}
+.msg-user {
+  align-self: flex-end;
+  background: var(--text);
+  color: #FAFAF9;
+  border-bottom-right-radius: 4px;
+}
+.msg-assistant {
+  align-self: flex-start;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-bottom-left-radius: 4px;
+  max-width: 85%;
+  box-shadow: var(--shadow-sm);
+  padding: 14px 18px;
+}
+.msg-error {
+  align-self: flex-start;
+  background: #FEF2F2;
+  border: 1px solid #FECACA;
+  color: #DC2626;
+  border-bottom-left-radius: 4px;
+}
+.msg-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-bottom: 4px;
+  color: var(--text-tertiary);
+}
+.msg-user .msg-label { color: rgba(250,250,249,0.5); }
+.msg-content { word-wrap: break-word; }
+.msg-content p { margin-bottom: 8px; }
+.msg-content p:last-child { margin-bottom: 0; }
+.msg-content code { background: var(--bg-sunken); font-family: "JetBrains Mono", monospace; font-size: 12.5px; padding: 1px 5px; border-radius: 4px; }
+.msg-content pre { background: var(--bg-sunken); padding: 14px; border-radius: 8px; font-family: "JetBrains Mono", monospace; font-size: 12.5px; line-height: 1.5; overflow-x: auto; margin: 8px 0; }
+.msg-content a { color: var(--accent); text-decoration: underline; text-decoration-color: var(--accent-subtle); text-underline-offset: 2px; }
+.msg-content a:hover { text-decoration-color: var(--accent); }
+.msg-content ul, .msg-content ol {
+  padding-left: 24px;
+  margin: 8px 0;
+}
+.msg-content li {
+  margin-bottom: 4px;
+}
+.msg-content li:last-child {
+  margin-bottom: 0;
+}
+
+/* === THINKING BLOCK === */
+.thinking-block {
+  margin-bottom: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+  overflow: hidden;
+}
+.thinking-block details {
+  padding: 0;
+}
+.thinking-block summary {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-tertiary);
+  padding: 8px 12px;
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.15s, background 0.15s;
+}
+.thinking-block summary:hover {
+  color: var(--text-secondary);
+  background: rgba(0,0,0,0.02);
+}
+.thinking-block summary::-webkit-details-marker { display: none; }
+.thinking-block summary::before {
+  content: '▸ ';
+  display: inline-block;
+  transition: transform 0.2s;
+}
+.thinking-block details[open] summary::before {
+  transform: rotate(90deg);
+}
+.thinking-content {
+  padding: 0 12px 12px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+.thinking-content p { margin-bottom: 6px; }
+.thinking-content p:last-child { margin-bottom: 0; }
+.thinking-content code {
+  background: rgba(0,0,0,0.06);
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+.thinking-content pre {
+  background: rgba(0,0,0,0.06);
+  padding: 10px;
+  border-radius: 6px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
+  line-height: 1.5;
+  overflow-x: auto;
+  margin: 6px 0;
+}
+
+/* === INPUT === */
+#input-area {
+  padding: 8px 16px 12px;
+  background: var(--bg);
+  border-top: 1px solid var(--border);
+  flex: 0 0 auto;
+}
+.input-container {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  background: var(--bg-elevated);
+  border: 1.5px solid var(--border);
+  border-radius: 24px;
+  padding: 2px 4px 2px 16px;
+  transition: border-color 0.15s;
+}
+.input-container:focus-within { border-color: var(--accent); }
+.input-container input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  padding: 10px 0;
+}
+.input-container input::placeholder { color: var(--text-tertiary); }
+.input-container button {
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #FFF;
+  font-size: 16px;
+  cursor: pointer;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, transform 0.1s;
+}
+.input-container button:hover { background: var(--accent-hover); }
+.input-container button:active { transform: scale(0.9); }
+.input-container button:disabled { opacity: 0.4; cursor: not allowed; transform: none; }
+
+/* === DRAWER === */
+#drawer-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(28,25,23,0.25);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+  z-index: 100;
+  backdrop-filter: blur(2px);
+}
+#drawer-overlay.open { opacity: 1; pointer-events: auto; }
+#drawer {
+  position: fixed;
+  top: 0;
+  right: -440px;
+  width: 420px;
+  height: 100vh;
+  background: var(--bg-elevated);
+  border-left: 1px solid var(--border);
+  transition: right 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 101;
+  display: flex;
+  flex-direction: column;
+  box-shadow: -8px 0 32px rgba(28,25,23,0.08);
+}
+#drawer.open { right: 0; }
+#drawer-header {
+  height: 48px;
+  padding: 0 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+#drawer-header h2 { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-secondary); }
+#drawer-close {
+  font-size: 13px;
+  cursor: pointer;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  transition: color 0.15s, background 0.15s;
+  font-family: inherit;
+  border: none;
+  background: none;
+}
+#drawer-close:hover { color: var(--text); background: var(--bg-sunken); }
+#drawer-body {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 16px 20px;
+}
+#drawer-body img { max-width: 100%; height: auto; }
+#drawer-body pre { overflow-x: auto; max-width: 100%; }
+#drawer-body code { word-break: break-word; }
+
+.course-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 10px;
+  overflow: hidden;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.course-card:hover { border-color: var(--border-strong); box-shadow: var(--shadow-sm); }
+.course-card-header { user-select: none; }
+.course-card-header {
+  padding: 14px 16px;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: background 0.15s;
+}
+.course-card-header:hover { background: var(--accent-subtle); }
+.course-card-header h3 { font-size: 14px; font-weight: 600; color: var(--text); }
+.course-card-header .next-task { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+.course-card-header .chevron { font-size: 14px; color: var(--text-tertiary); margin-left: 12px; flex-shrink: 0; transition: transform 0.2s; }
+
+.topic-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 7px 0;
+  font-size: 13px;
+  line-height: 1.5;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: opacity 0.15s;
+}
+.topic-row:hover { opacity: 0.65; }
+.topic-checkbox {
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid var(--border-strong);
+  border-radius: 4px;
+  flex-shrink: 0;
+  margin-top: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  color: #FFF;
+  transition: background 0.15s, border-color 0.15s;
+}
+.topic-checkbox.done { background: var(--accent); border-color: var(--accent); }
+.topic-title { flex: 1; }
+.topic-title.done { text-decoration: line-through; color: var(--text-tertiary); }
+.empty-plan { text-align: center; color: var(--text-tertiary); font-size: 13px; padding: 24px 0; }
+
+.task-highlight {
+  background: var(--accent-subtle);
+  border-radius: var(--radius-sm);
+  transition: background 1.5s ease-out;
+}
+
+.token-cursor::after { content: "▌"; animation: blink 0.8s step-end infinite; color: var(--accent); }
+@keyframes blink { 50% { opacity: 0; } }
+
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-tertiary); }
+
+/* === PDF VIEWER === */
+#pdf-toolbar {
+  height: 38px;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  font-size: 12px;
+}
+#pdf-toolbar .toolbar-left,
+#pdf-toolbar .toolbar-right { display: flex; align-items: center; gap: 6px; }
+#pdf-toolbar button {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 3px 8px;
+  font-size: 11px;
+  cursor: pointer;
+  font-family: inherit;
+  color: var(--text-secondary);
+  transition: all 0.15s;
+  font-weight: 500;
+}
+#pdf-toolbar button:hover { background: var(--bg-sunken); color: var(--text); border-color: var(--border-strong); }
+#pdf-filename {
+  cursor: pointer;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  transition: background 0.15s;
+  position: relative;
+  font-weight: 500;
+  color: var(--text);
+}
+#pdf-filename:hover { background: var(--bg-sunken); }
+#pdf-viewer {
+  flex: 1;
+  overflow-y: auto;
+  background: var(--bg-sunken);
+  position: relative;
+  padding: 0;
+}
+.pdf-page-canvas {
+  display: block;
+  margin: 20px auto;
+  box-shadow: 0 2px 8px rgba(28,25,23,0.08), 0 0 1px rgba(28,25,23,0.04);
+  background: #FFF;
+  border-radius: 2px;
+}
+#pdf-page-counter {
+  position: sticky;
+  bottom: 16px;
+  float: right;
+  margin-right: 16px;
+  background: rgba(28,25,23,0.75);
+  color: #FFF;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.3px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  pointer-events: none;
+  z-index: 10;
+  backdrop-filter: blur(8px);
+}
+#pdf-empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-tertiary);
+  padding: 48px 32px;
+}
+#pdf-upload-zone {
+  border: 2px dashed var(--border-strong);
+  border-radius: 14px;
+  padding: 48px 32px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+  margin-bottom: 24px;
+  width: 100%;
+  max-width: 440px;
+}
+#pdf-upload-zone:hover, #pdf-upload-zone.dragover {
+  border-color: var(--accent);
+  background: var(--accent-subtle);
+}
+#pdf-upload-zone h3 { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+#pdf-upload-zone p { font-size: 13px; color: var(--text-secondary); }
+#pdf-upload-zone input[type="file"] { display: none; }
+#pdf-course-select {
+  padding: 8px 12px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-family: inherit;
+  background: var(--bg-elevated);
+  color: var(--text);
+  outline: none;
+  margin-bottom: 16px;
+  max-width: 280px;
+  width: 100%;
+  transition: border-color 0.15s;
+}
+#pdf-course-select:focus { border-color: var(--accent); }
+.pdf-list-section { margin-bottom: 20px; width: 100%; max-width: 440px; }
+.pdf-list-section h4 { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-tertiary); margin-bottom: 8px; }
+.pdf-list-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  margin-bottom: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-size: 13px;
+}
+.pdf-list-item:hover { border-color: var(--accent); background: var(--accent-subtle); }
+.pdf-list-item .pdf-name { color: var(--text); font-weight: 500; }
+.pdf-list-item .pdf-progress { color: var(--text-tertiary); font-size: 11px; }
+
+/* Filename dropdown */
+#pdf-dropdown {
+  display: none;
+  position: absolute;
+  top: 34px;
+  left: 0;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-md);
+  max-height: 360px;
+  overflow-y: auto;
+  z-index: 50;
+  min-width: 280px;
+  padding: 4px 0;
+}
+#pdf-dropdown.open { display: block; }
+#pdf-dropdown .dropdown-section { padding: 2px 0; }
+#pdf-dropdown .dropdown-section-title {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--text-tertiary);
+  padding: 6px 14px 4px;
+}
+#pdf-dropdown .dropdown-item {
+  padding: 7px 14px;
+  cursor: pointer;
+  font-size: 13px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: background 0.1s;
+}
+#pdf-dropdown .dropdown-item:hover { background: var(--accent-subtle); }
+#pdf-dropdown .dropdown-item .item-name { color: var(--text); }
+#pdf-dropdown .dropdown-item .item-progress { color: var(--text-tertiary); font-size: 11px; }
+
+/* === PDFs section in drawer === */
+.drawer-pdf-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  margin-bottom: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.15s;
+}
+.drawer-pdf-item:hover { border-color: var(--accent); background: var(--accent-subtle); }
+.drawer-pdf-item .dpf-name { font-weight: 500; }
+.drawer-pdf-item .dpf-progress { color: var(--text-tertiary); font-size: 11px; }
+
+/* Animated transitions */
+.panel-enter { animation: panelSlideIn 0.25s cubic-bezier(0.16, 1, 0.3, 1); }
+@keyframes panelSlideIn {
+  from { opacity: 0; transform: translateX(20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+/* === SESSION SIDEBAR === */
+#session-sidebar {
+  width: 260px;
+  min-width: 260px;
+  border-right: 1px solid var(--border);
+  background: var(--bg-elevated);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  flex-shrink: 0;
+  z-index: 10;
+  transition: width 0.2s, min-width 0.2s;
+}
+#session-sidebar.collapsed {
+  width: 0;
+  min-width: 0;
+  border-right: none;
+  overflow: hidden;
+}
+#session-sidebar-header {
+  height: 48px;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+#session-sidebar-header h2 {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--text-secondary);
+}
+#new-session-btn {
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+#new-session-btn:hover { background: var(--accent-subtle); color: var(--accent); border-color: var(--accent); }
+#session-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+.session-group-title {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--text-tertiary);
+  padding: 12px 8px 4px;
+}
+.session-item {
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.15s;
+  margin-bottom: 2px;
+  border: 1px solid transparent;
+}
+.session-item:hover { background: var(--bg-sunken); }
+.session-item.active { background: var(--accent-subtle); border-color: var(--accent); }
+.session-item .session-topic { font-size: 13px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.session-item .session-meta { font-size: 11px; color: var(--text-tertiary); margin-top: 2px; }
+.session-item .session-course { display: inline-block; font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 3px; margin-right: 4px; background: var(--bg-sunken); color: var(--text-secondary); }
+.session-item .session-delete { float: right; opacity: 0; font-size: 12px; color: var(--text-tertiary); cursor: pointer; padding: 2px 4px; }
+.session-item:hover .session-delete { opacity: 1; }
+.session-item .session-delete:hover { color: #DC2626; }
+
+/* New session modal */
+#session-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(28,25,23,0.4);
+  z-index: 200;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(2px);
+}
+#session-modal-overlay.open { display: flex; }
+#session-modal {
+  background: var(--bg-elevated);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-md);
+  width: 380px;
+  max-width: 90vw;
+  padding: 24px;
+}
+#session-modal h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+#session-modal label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+#session-modal select, #session-modal input[type="text"] {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-family: inherit;
+  background: var(--bg);
+  color: var(--text);
+  outline: none;
+  margin-bottom: 16px;
+  transition: border-color 0.15s;
+}
+#session-modal select:focus, #session-modal input[type="text"]:focus { border-color: var(--accent); }
+#session-modal-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+#session-modal-actions button {
+  padding: 8px 20px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+.btn-cancel { background: transparent; border: 1px solid var(--border); color: var(--text-secondary); }
+.btn-cancel:hover { background: var(--bg-sunken); }
+.btn-create { background: var(--accent); border: 1px solid var(--accent); color: #FFF; }
+.btn-create:hover { background: var(--accent-hover); }
+
+/* Header session pill */
+#session-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 3px 10px;
+  border-radius: 20px;
+  background: var(--accent-subtle);
+  color: var(--accent);
+  margin-left: 12px;
+  cursor: pointer;
+  transition: background 0.15s;
+  max-width: 200px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#session-pill:hover { background: #FED7AA; }
+#session-pill .pill-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex-shrink: 0;
+}
+
+/* === HEALTH INDICATOR === */
+#health-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-tertiary);
+  display: inline-block;
+  transition: background 0.3s;
+  margin-right: 8px;
+}
+#health-dot.ok { background: #22c55e; }
+#health-dot.error { background: #ef4444; }
+#health-dot.checking { animation: pulse 1s ease-in-out infinite; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+</style>
+</head>
+<body>
+
+<header>
+  <div style="display:flex;align-items:center;">
+    <button id="sidebar-toggle" style="background:none;border:none;cursor:pointer;padding:4px 8px;margin-right:4px;color:var(--text-secondary);font-size:16px;line-height:1;" title="Toggle sessions">&#x2630;</button>
+    <h1>Study App <small>claw</small></h1>
+    <span id="session-pill" style="display:none;" onclick="openDrawer()"></span>
+  </div>
+  <div class="header-actions">
+    <span id="health-dot" style="width:8px;height:8px;border-radius:50%;background:var(--text-tertiary);display:inline-block;" title="Checking connection..."></span>
+    <button id="pdf-btn" class="header-btn">PDF</button>
+    <button id="plan-btn" class="header-btn">Plan</button>
+  </div>
+</header>
+
+<div id="main-content">
+  <div id="session-sidebar">
+    <div id="session-sidebar-header">
+      <h2>Sessions</h2>
+      <button id="new-session-btn">+ New</button>
+    </div>
+    <div id="session-list"></div>
+  </div>
+  <div id="chat-panel">
+    <div id="messages"></div>
+    <div id="input-area">
+      <form id="chat-form">
+        <div class="input-container">
+          <input type="text" id="message-input" name="message" placeholder="Start a session to chat..." autocomplete="off" autofocus>
+          <button type="submit" id="send-btn">&rarr;</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="splitter"></div>
+
+  <div id="pdf-panel">
+    <div id="pdf-empty-state">
+      <div id="pdf-upload-zone" onclick="document.getElementById('pdf-file-input').click()">
+        <h3>Drop PDF here or click to upload</h3>
+        <p>Supported: .pdf files</p>
+        <input type="file" id="pdf-file-input" accept=".pdf">
+      </div>
+      <select id="pdf-course-select">
+        <option value="">No course (Library)</option>
+        <option value="ce297">Safety Models and Techniques (CE-297)</option>
+        <option value="ddia">Designing Data-Intensive Applications</option>
+        <option value="dsa-interview">DSA Interview Prep</option>
+        <option value="software-arch">Software Architecture</option>
+        <option value="thesis">Thesis — Phase 1 Survey</option>
+      </select>
+      <div id="pdf-list-container"></div>
+    </div>
+
+    <div id="pdf-open-state" style="display:none;flex:1;flex-direction:column;overflow:hidden;">
+      <div id="pdf-toolbar">
+        <div class="toolbar-left">
+          <button id="pdf-close-btn" title="Close PDF">&#x2715;</button>
+          <span id="pdf-filename">No PDF</span>
+          <div id="pdf-dropdown"></div>
+        </div>
+        <div class="toolbar-right">
+          <button id="pdf-view-toggle" title="Toggle view mode">Scroll</button>
+          <button id="pdf-zoom-out" title="Zoom out">&#8722;</button>
+          <span id="pdf-zoom-level">100%</span>
+          <button id="pdf-zoom-in" title="Zoom in">+</button>
+        </div>
+      </div>
+      <div id="pdf-viewer">
+        <div id="pdf-page-counter">0 / 0</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="session-modal-overlay">
+  <div id="session-modal">
+    <h3>New Session</h3>
+    <label for="session-course">Course</label>
+    <select id="session-course">
+      <option value="">General (no course)</option>
+      <option value="ce297">Safety Models and Techniques (CE-297)</option>
+      <option value="ddia">Designing Data-Intensive Applications</option>
+      <option value="dsa-interview">DSA Interview Prep</option>
+      <option value="software-arch">Software Architecture</option>
+      <option value="thesis">Thesis — Phase 1 Survey</option>
+    </select>
+    <label for="session-topic">Topic</label>
+    <input type="text" id="session-topic" placeholder="e.g. FMEA basics, Ch5 Replication..." autocomplete="off">
+    <div id="session-modal-actions">
+      <button class="btn-cancel" onclick="closeSessionModal()">Cancel</button>
+      <button class="btn-create" onclick="createSession()">Create</button>
+    </div>
+  </div>
+</div>
+
+<div id="drawer-overlay"></div>
+<div id="drawer">
+  <div id="drawer-header">
+    <h2>Study Plan</h2>
+    <button id="drawer-close">Close</button>
+  </div>
+  <div id="drawer-body"></div>
+</div>
+
+<script>
+let currentAssistantMsg = null;
+let activeSessionId = null;
+let allSessions = [];
+
+const courseMeta = {
+  'ce297': { name: 'CE-297 Safety', color: '#B45309' },
+  'ddia': { name: 'DDIA', color: '#2563EB' },
+  'dsa-interview': { name: 'DSA Interview', color: '#059669' },
+  'software-arch': { name: 'Software Arch', color: '#7C3AED' },
+  'thesis': { name: 'Thesis', color: '#DC2626' },
+  '': { name: 'General', color: '#78716C' },
+};
+
+// === SESSIONS ===
+async function loadSessions() {
+  try {
+    const resp = await fetch('/api/sessions');
+    allSessions = await resp.json();
+    renderSessionList();
+  } catch (err) {
+    console.error('Failed to load sessions', err);
+  }
+}
+
+async function loadActiveSession() {
+  try {
+    const resp = await fetch('/api/sessions/active');
+    const data = await resp.json();
+    if (data && data.id) {
+      activeSessionId = data.id;
+      updateSessionPill(data);
+    } else {
+      activeSessionId = null;
+      updateSessionPill(null);
+    }
+    highlightActiveSession();
+  } catch (err) {
+    activeSessionId = null;
+    updateSessionPill(null);
+  }
+}
+
+function renderSessionList() {
+  const container = document.getElementById('session-list');
+  if (!allSessions || allSessions.length === 0) {
+    container.innerHTML = '<div style="text-align:center;color:var(--text-tertiary);font-size:13px;padding:24px 12px;">No sessions yet.<br>Click <strong>+ New</strong> to start.</div>';
+    return;
+  }
+
+  const groups = {};
+  const groupOrder = [];
+  for (const s of allSessions) {
+    const key = s.course_id || '';
+    if (!groups[key]) {
+      groups[key] = [];
+      groupOrder.push(key);
+    }
+    groups[key].push(s);
+  }
+
+  let html = '';
+  for (const key of groupOrder) {
+    const meta = courseMeta[key] || { name: 'General', color: '#78716C' };
+    html += `<div class="session-group-title">${escapeHtml(meta.name)}</div>`;
+    for (const s of groups[key]) {
+      const isActive = s.id === activeSessionId;
+      const timeAgo = formatTimeAgo(s.updated_at);
+      html += `<div class="session-item${isActive ? ' active' : ''}" data-session-id="${s.id}" onclick="switchSession(${s.id})">
+        <div style="display:flex;justify-content:space-between;align-items:start;">
+          <div class="session-topic">${escapeHtml(s.topic || 'General')}</div>
+          <span class="session-delete" onclick="event.stopPropagation();deleteSession(${s.id})" title="Delete">&#x2715;</span>
+        </div>
+        <div class="session-meta">${timeAgo}${s.pdf_name ? ' &middot; ' + escapeHtml(s.pdf_name.replace(/\.pdf$/i,'')) : ''}</div>
+      </div>`;
+    }
+  }
+  container.innerHTML = html;
+}
+
+function formatTimeAgo(isoStr) {
+  if (!isoStr) return '';
+  const diff = Date.now() - new Date(isoStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return mins + 'm ago';
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return hrs + 'h ago';
+  const days = Math.floor(hrs / 24);
+  return days + 'd ago';
+}
+
+async function switchSession(id) {
+  try {
+    await fetch('/api/sessions/active', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: id })
+    });
+    activeSessionId = id;
+    highlightActiveSession();
+    updateSessionPill(allSessions.find(s => s.id === id) || { id: id, topic: 'Session' });
+    await loadSessionMessages();
+    await loadSessions();
+  } catch (err) {
+    console.error('Failed to switch session', err);
+  }
+}
+
+async function loadSessionMessages() {
+  if (!activeSessionId) {
+    document.getElementById('messages').innerHTML = '';
+    return;
+  }
+  try {
+    const resp = await fetch('/api/sessions/messages?session_id=' + activeSessionId);
+    const msgs = await resp.json();
+    const container = document.getElementById('messages');
+    container.innerHTML = '';
+    for (const m of msgs) {
+      if (m.role === 'user') {
+        const div = document.createElement('div');
+        div.className = 'msg msg-user';
+        div.innerHTML = '<div class="msg-label">You</div><div class="msg-content">' + renderContent(m.content) + '</div>';
+        container.appendChild(div);
+      } else if (m.role === 'assistant') {
+        const div = document.createElement('div');
+        div.className = 'msg msg-assistant';
+        div.innerHTML = '<div class="msg-label">Claw</div><div class="msg-content">' + renderContent(m.content) + '</div>';
+        container.appendChild(div);
+      }
+    }
+    scrollToBottom();
+  } catch (err) {
+    console.error('Failed to load messages', err);
+  }
+}
+
+function renderContent(content) {
+  try { return marked.parse(content || ''); } catch(e) { return escapeHtml(content || ''); }
+}
+
+function renderMarkdown(text) {
+  try { return marked.parse(text || ''); } catch(e) { return escapeHtml(text || ''); }
+}
+
+function highlightActiveSession() {
+  document.querySelectorAll('.session-item').forEach(el => {
+    el.classList.toggle('active', parseInt(el.dataset.sessionId) === activeSessionId);
+  });
+}
+
+function updateSessionPill(session) {
+  const pill = document.getElementById('session-pill');
+  if (!session || !session.id) {
+    pill.style.display = 'none';
+    return;
+  }
+  const meta = courseMeta[session.course_id || ''] || courseMeta[''];
+  pill.style.display = 'inline-flex';
+  pill.innerHTML = `<span class="pill-dot" style="background:${meta.color}"></span>${escapeHtml(session.topic || meta.name)}`;
+}
+
+function openSessionModal() {
+  document.getElementById('session-modal-overlay').classList.add('open');
+  document.getElementById('session-topic').value = '';
+  document.getElementById('session-course').value = '';
+  document.getElementById('session-topic').focus();
+}
+
+function closeSessionModal() {
+  document.getElementById('session-modal-overlay').classList.remove('open');
+}
+
+async function createSession() {
+  const courseId = document.getElementById('session-course').value;
+  const topic = document.getElementById('session-topic').value.trim() || 'General';
+  try {
+    const resp = await fetch('/api/sessions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ course_id: courseId, topic: topic })
+    });
+    const session = await resp.json();
+    activeSessionId = session.id;
+    await loadActiveSession();
+    await loadSessions();
+    document.getElementById('messages').innerHTML = '';
+    closeSessionModal();
+  } catch (err) {
+    console.error('Failed to create session', err);
+  }
+}
+
+async function deleteSession(id) {
+  if (!confirm('Delete this session and its chat history?')) return;
+  try {
+    await fetch('/api/sessions?id=' + id, { method: 'DELETE' });
+    if (activeSessionId === id) {
+      activeSessionId = null;
+      document.getElementById('messages').innerHTML = '';
+      updateSessionPill(null);
+    }
+    await loadSessions();
+    await loadActiveSession();
+  } catch (err) {
+    console.error('Failed to delete session', err);
+  }
+}
+
+document.getElementById('new-session-btn').addEventListener('click', openSessionModal);
+document.getElementById('session-course').addEventListener('change', function() {
+  const topicInput = document.getElementById('session-topic');
+  if (!topicInput.value) {
+    const meta = courseMeta[this.value] || courseMeta[''];
+    topicInput.placeholder = meta.name + ' topic...';
+  }
+});
+
+document.getElementById('sidebar-toggle').addEventListener('click', function() {
+  document.getElementById('session-sidebar').classList.toggle('collapsed');
+});
+
+// Close modal on overlay click
+document.getElementById('session-modal-overlay').addEventListener('click', function(e) {
+  if (e.target === this) closeSessionModal();
+});
+
+// Enter key in modal creates session
+document.getElementById('session-topic').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') { e.preventDefault(); createSession(); }
+});
+
+// Load on startup
+(async function initSessions() {
+  await loadSessions();
+  await loadActiveSession();
+  if (activeSessionId) {
+    await loadSessionMessages();
+  }
+})();
+
+document.getElementById('chat-form').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  if (!activeSessionId) {
+    openSessionModal();
+    return;
+  }
+  const input = document.getElementById('message-input');
+  const msg = input.value.trim();
+  if (!msg) return;
+  input.value = '';
+  document.getElementById('send-btn').disabled = true;
+
+  const formData = new FormData();
+  formData.append('message', msg);
+  formData.append('session_id', activeSessionId.toString());
+
+  const userDiv = document.createElement('div');
+  userDiv.className = 'msg msg-user';
+  userDiv.innerHTML = '<div class="msg-label">You</div><div class="msg-content">' + escapeHtml(msg) + '</div>';
+  document.getElementById('messages').appendChild(userDiv);
+
+  const assistantDiv = document.createElement('div');
+  assistantDiv.className = 'msg msg-assistant';
+  assistantDiv.innerHTML = '<div class="msg-label">Claw</div><div class="msg-content"><div class="thinking-block" style="display:none;"><details><summary>Thinking</summary><div class="thinking-content"></div></details></div><div class="answer-content"></div></div>';
+  document.getElementById('messages').appendChild(assistantDiv);
+  currentAssistantMsg = assistantDiv.querySelector('.msg-content');
+  const thinkingBlock = currentAssistantMsg.querySelector('.thinking-block');
+  const thinkingContent = currentAssistantMsg.querySelector('.thinking-content');
+  const answerContent = currentAssistantMsg.querySelector('.answer-content');
+  currentAssistantMsg.classList.add('token-cursor');
+  let thinkingActive = false;
+
+  try {
+    const resp = await fetch('/chat', { method: 'POST', body: formData });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let eventType = '';
+    let rawAnswer = '';
+    let rawThinking = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const parts = buffer.split('\n');
+      buffer = parts.pop() || '';
+
+      for (const line of parts) {
+        if (line.startsWith('event: ')) {
+          eventType = line.slice(7).trim();
+          continue;
+        }
+        if (line.startsWith('data: ')) {
+          const data = line.slice(6);
+          const token = JSON.parse(data);
+          if (eventType === 'reasoning') {
+            if (!thinkingActive) {
+              thinkingActive = true;
+              thinkingBlock.style.display = 'block';
+            }
+            rawThinking += token;
+            thinkingContent.innerHTML = renderMarkdown(rawThinking);
+            scrollToBottom();
+          } else if (eventType === 'token' && answerContent) {
+            currentAssistantMsg.classList.remove('token-cursor');
+            rawAnswer += token;
+            answerContent.innerHTML = renderMarkdown(rawAnswer);
+            currentAssistantMsg.classList.add('token-cursor');
+            scrollToBottom();
+          } else if (eventType === 'done') {
+            if (currentAssistantMsg) currentAssistantMsg.classList.remove('token-cursor');
+            currentAssistantMsg = null;
+            scrollToBottom();
+          }
+        }
+      }
+    }
+  } catch (err) {
+    if (currentAssistantMsg) {
+      currentAssistantMsg.classList.remove('token-cursor');
+      answerContent.innerHTML = 'Error: ' + escapeHtml(err.message);
+    }
+  } finally {
+    document.getElementById('send-btn').disabled = false;
+    input.focus();
+  }
+});
+
+// === DRAWER ===
+const drawer = document.getElementById('drawer');
+const overlay = document.getElementById('drawer-overlay');
+const drawerBody = document.getElementById('drawer-body');
+const drawerHeader = document.getElementById('drawer-header');
+let drawerState = 'list';
+let currentCourseId = null;
+
+document.getElementById('plan-btn').addEventListener('click', openDrawer);
+document.getElementById('drawer-close').addEventListener('click', closeDrawer);
+overlay.addEventListener('click', closeDrawer);
+
+function openDrawer() {
+  overlay.classList.add('open');
+  drawer.classList.add('open');
+  if (drawerState === 'list') {
+    fetchPlanList();
+  } else if (currentCourseId) {
+    fetchFullPlan(currentCourseId);
+  }
+}
+
+function closeDrawer() {
+  overlay.classList.remove('open');
+  drawer.classList.remove('open');
+}
+
+function showBackButton() {
+  drawerHeader.innerHTML = '<button id="drawer-back" style="font-size:11px;font-weight:600;cursor:pointer;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.8px;padding:5px 10px;border-radius:var(--radius-sm);border:none;background:none;font-family:inherit;transition:color 0.15s,background 0.15s;">&larr; Courses</button><button id="drawer-close" style="font-size:13px;cursor:pointer;padding:4px 10px;border-radius:var(--radius-sm);color:var(--text-secondary);border:none;background:none;font-family:inherit;transition:color 0.15s,background 0.15s;">Close</button>';
+  document.getElementById('drawer-back').addEventListener('click', showPlanList);
+  document.getElementById('drawer-close').addEventListener('click', closeDrawer);
+}
+
+function showPlanHeader() {
+  drawerHeader.innerHTML = '<h2>Study Plan</h2><button id="drawer-close" style="font-size:13px;cursor:pointer;padding:4px 10px;border-radius:var(--radius-sm);color:var(--text-secondary);border:none;background:none;font-family:inherit;transition:color 0.15s,background 0.15s;">Close</button>';
+  document.getElementById('drawer-close').addEventListener('click', closeDrawer);
+}
+
+async function fetchPlanList() {
+  drawerState = 'list';
+  currentCourseId = null;
+  showPlanHeader();
+  drawerBody.innerHTML = '<div style="text-align:center;color:var(--text-tertiary);padding:48px 0;">Loading...</div>';
+  try {
+    const resp = await fetch('/api/plan');
+    const data = await resp.json();
+    renderCourseList(data);
+  } catch (err) {
+    drawerBody.innerHTML = '<div style="text-align:center;color:#DC2626;padding:48px 0;">Failed to load plans</div>';
+  }
+}
+
+function renderCourseList(courses) {
+  if (!courses || courses.length === 0) {
+    drawerBody.innerHTML = '<div class="empty-plan">No courses found</div>';
+    return;
+  }
+  let html = '';
+  for (const c of courses) {
+    const status = c.hasPlan ? (c.total === c.done ? 'All done' : c.done + '/' + c.total + ' done') : 'No plan';
+    html += `
+      <div class="course-card" style="cursor:pointer;" onclick="openFullPlan('${escapeHtmlAttr(c.id)}')">
+        <div class="course-card-header" style="cursor:pointer;">
+          <div>
+            <h3>${escapeHtml(c.name)}</h3>
+            <div class="next-task">${escapeHtml(status)}</div>
+          </div>
+          <span class="chevron" style="font-size:16px;">&#x2192;</span>
+        </div>
+      </div>`;
+  }
+  drawerBody.innerHTML = html;
+}
+
+function openFullPlan(courseId) {
+  drawerState = 'plan';
+  currentCourseId = courseId;
+  showBackButton();
+  drawerBody.innerHTML = '<div style="text-align:center;color:var(--text-tertiary);padding:48px 0;">Loading...</div>';
+  fetchFullPlan(courseId);
+}
+
+function showPlanList() {
+  drawerState = 'list';
+  currentCourseId = null;
+  showPlanHeader();
+  fetchPlanList();
+}
+
+async function fetchFullPlan(courseId) {
+  try {
+    const [planResp, pdfResp] = await Promise.all([
+      fetch('/api/plan?view=full&id=' + encodeURIComponent(courseId)),
+      fetch('/pdf/list')
+    ]);
+    const plan = await planResp.json();
+    const allPdfs = await pdfResp.json();
+    const coursePdfs = allPdfs.filter(p => p.course_id === courseId);
+    renderFullPlan(plan, coursePdfs);
+  } catch (err) {
+    drawerBody.innerHTML = '<div style="text-align:center;color:#DC2626;padding:48px 0;">Failed to load plan</div>';
+  }
+}
+
+function renderFullPlan(plan, coursePdfs) {
+  if (!plan || !plan.phases || plan.phases.length === 0) {
+    drawerBody.innerHTML = '<div class="empty-plan">No plan data</div>';
+    return;
+  }
+
+  let html = '<div class="plan-content" style="overflow-wrap:break-word;word-break:break-word;">';
+  let checkboxIdx = 0;
+
+  for (const phase of plan.phases) {
+    html += `<h2 style="font-size:13px;font-weight:700;margin:20px 0 8px;text-transform:uppercase;letter-spacing:0.3px;color:var(--text-secondary);">${escapeHtml(phase.title)}</h2>`;
+
+    if (phase.tasks && phase.tasks.length > 0) {
+      for (const task of phase.tasks) {
+        const idx = checkboxIdx++;
+        html += renderTaskRow(task, idx, plan.id);
+      }
+    }
+
+    if (phase.clusters) {
+      for (const cluster of phase.clusters) {
+        html += `<h3 style="font-size:12px;font-weight:600;margin:12px 0 6px;color:var(--text-secondary);">${escapeHtml(cluster.title)}</h3>`;
+        if (cluster.tasks) {
+          for (const task of cluster.tasks) {
+            const idx = checkboxIdx++;
+            html += renderTaskRow(task, idx, plan.id);
+          }
+        }
+      }
+    }
+  }
+
+  if (plan.sessions && plan.sessions.length > 0) {
+    html += `<h2 style="font-size:13px;font-weight:700;margin:24px 0 8px;text-transform:uppercase;letter-spacing:0.3px;color:var(--text-secondary);">Session Log</h2>`;
+    html += `<table style="width:100%;font-size:12px;border-collapse:collapse;margin:8px 0;">
+      <tr><th style="border:1px solid var(--border);padding:4px 8px;background:var(--bg-sunken);text-align:left;font-weight:600;">Date</th>
+      <th style="border:1px solid var(--border);padding:4px 8px;background:var(--bg-sunken);text-align:left;font-weight:600;">Topic</th>
+      <th style="border:1px solid var(--border);padding:4px 8px;background:var(--bg-sunken);text-align:left;font-weight:600;">Time</th></tr>`;
+    for (const s of plan.sessions) {
+      html += `<tr><td style="border:1px solid var(--border);padding:4px 8px;">${escapeHtml(s.date)}</td>
+        <td style="border:1px solid var(--border);padding:4px 8px;">${escapeHtml(s.topic)}</td>
+        <td style="border:1px solid var(--border);padding:4px 8px;">${escapeHtml(s.time)}</td></tr>`;
+    }
+    html += '</table>';
+  }
+
+  if (coursePdfs && coursePdfs.length > 0) {
+    html += `<h2 style="font-size:13px;font-weight:700;margin:24px 0 8px;text-transform:uppercase;letter-spacing:0.3px;color:var(--text-secondary);">PDFs</h2>`;
+    for (const pdf of coursePdfs) {
+      const progress = pdf.last_page > 1 ? 'p.' + pdf.last_page + '/' + pdf.pages : pdf.pages + ' pages';
+      html += `<div class="drawer-pdf-item" onclick="openPdfFromDrawer(${pdf.id})">
+        <span class="dpf-name">${escapeHtml(pdf.original_name.replace(/\.pdf$/i, ''))}</span>
+        <span class="dpf-progress">${escapeHtml(progress)}</span>
+      </div>`;
+    }
+  }
+
+  html += '</div>';
+  drawerBody.innerHTML = html;
+
+  requestAnimationFrame(() => {
+    const doneChecks = drawerBody.querySelectorAll('.topic-checkbox.done');
+    if (doneChecks.length > 0) {
+      const lastDone = doneChecks[doneChecks.length - 1];
+      const row = lastDone.closest('.topic-row');
+      if (row) {
+        row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        row.classList.add('task-highlight');
+        setTimeout(() => row.classList.remove('task-highlight'), 1500);
+      }
+    }
+  });
+}
+
+function renderTaskRow(task, idx, courseId) {
+  const priority = task.priority ? {high:'!',medium:'\u00B7',low:'\u223C'}[task.priority]||'' : '';
+  const renderedTitle = marked.parseInline(task.title) || escapeHtml(task.title);
+  const notes = task.notes ? `<div style="font-size:11px;color:var(--text-secondary);margin:2px 0 6px 26px;line-height:1.4;">${marked.parse(task.notes)}</div>` : '';
+  return `<div class="topic-row" onclick="toggleTopic('${escapeHtmlAttr(courseId)}', ${idx})">
+    <div class="topic-checkbox ${task.done ? 'done' : ''}">${task.done ? '&#x2713;' : ''}</div>
+    <div class="topic-title ${task.done ? 'done' : ''}">
+      ${priority ? '<span style="color:var(--text-tertiary);margin-right:4px;">' + escapeHtml(priority) + '</span>' : ''}${renderedTitle}
+    </div>
+  </div>${notes}`;
+}
+
+async function toggleTopic(courseId, idx) {
+  const formData = new FormData();
+  formData.append('course', courseId);
+  formData.append('index', idx);
+  try {
+    await fetch('/api/plan/toggle', { method: 'POST', body: formData });
+    fetchFullPlan(courseId);
+  } catch (err) {
+    console.error('toggle failed', err);
+  }
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function escapeHtmlAttr(str) {
+  return str.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function scrollToBottom() {
+  const msgs = document.getElementById('messages');
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function openPdfFromDrawer(pdfId) {
+  closeDrawer();
+  currentPdfId = pdfId;
+  openPdf(pdfId);
+  showView('split');
+}
+
+// === SPLITTER ===
+const splitter = document.getElementById('splitter');
+let isDragging = false;
+
+splitter.addEventListener('mousedown', function(e) {
+  e.preventDefault();
+  isDragging = true;
+  splitter.classList.add('dragging');
+  document.body.style.cursor = 'col-resize';
+  document.body.style.userSelect = 'none';
+  document.addEventListener('mousemove', onSplitterDrag);
+  document.addEventListener('mouseup', onSplitterRelease);
+});
+
+function onSplitterDrag(e) {
+  if (!isDragging) return;
+  const container = document.getElementById('main-content');
+  const rect = container.getBoundingClientRect();
+  const chatPanel = document.getElementById('chat-panel');
+  const totalWidth = rect.width - 5;
+  const chatWidth = e.clientX - rect.left;
+  const pct = Math.max(20, Math.min(80, (chatWidth / totalWidth) * 100));
+  chatPanel.style.flex = '0 0 ' + pct + '%';
+}
+
+function onSplitterRelease() {
+  isDragging = false;
+  splitter.classList.remove('dragging');
+  document.body.style.cursor = '';
+  document.body.style.userSelect = '';
+  document.removeEventListener('mousemove', onSplitterDrag);
+  document.removeEventListener('mouseup', onSplitterRelease);
+  if (pdfDoc) {
+    const viewer = document.getElementById('pdf-viewer');
+    const saved = viewer.scrollTop;
+    if (viewMode === 'scroll') renderAllPages();
+    else renderPage(currentPage);
+    viewer.scrollTop = saved;
+  }
+}
+
+// touch support for splitter
+splitter.addEventListener('touchstart', function(e) {
+  e.preventDefault();
+  isDragging = true;
+  splitter.classList.add('dragging');
+  document.addEventListener('touchmove', onSplitterTouchDrag, { passive: false });
+  document.addEventListener('touchend', onSplitterTouchRelease);
+});
+
+function onSplitterTouchDrag(e) {
+  if (!isDragging) return;
+  e.preventDefault();
+  const touch = e.touches[0];
+  const container = document.getElementById('main-content');
+  const rect = container.getBoundingClientRect();
+  const chatPanel = document.getElementById('chat-panel');
+  const totalWidth = rect.width - 5;
+  const chatWidth = touch.clientX - rect.left;
+  const pct = Math.max(20, Math.min(80, (chatWidth / totalWidth) * 100));
+  chatPanel.style.flex = '0 0 ' + pct + '%';
+}
+
+function onSplitterTouchRelease() {
+  isDragging = false;
+  splitter.classList.remove('dragging');
+  document.removeEventListener('touchmove', onSplitterTouchDrag);
+  document.removeEventListener('touchend', onSplitterTouchRelease);
+  if (pdfDoc) {
+    const viewer = document.getElementById('pdf-viewer');
+    const saved = viewer.scrollTop;
+    if (viewMode === 'scroll') renderAllPages();
+    else renderPage(currentPage);
+    viewer.scrollTop = saved;
+  }
+}
+
+// === VIEW MANAGEMENT ===
+let currentView = 'chat';
+let currentPdfId = null;
+let pdfDoc = null;
+let currentPage = 1;
+let totalPages = 0;
+let scale = 1.0;
+let currentScale = 1.0;
+let viewMode = 'scroll';
+let pdfjsReady = false;
+let renderedPages = null;
+let pageObserver = null;
+
+window.addEventListener('pdfjs-ready', () => { pdfjsReady = true; });
+
+const knownPdfCourses = [
+  { id: 'ce297', name: 'Safety Models and Techniques (CE-297)' },
+  { id: 'ddia', name: 'Designing Data-Intensive Applications' },
+  { id: 'dsa-interview', name: 'DSA Interview Prep' },
+  { id: 'software-arch', name: 'Software Architecture' },
+  { id: 'thesis', name: 'Thesis — Phase 1 Survey' },
+];
+
+function showView(view) {
+  currentView = view;
+  const chatPanel = document.getElementById('chat-panel');
+  const pdfPanel = document.getElementById('pdf-panel');
+  const splitterEl = document.getElementById('splitter');
+
+  chatPanel.classList.remove('hidden');
+  chatPanel.style.flex = '';
+  chatPanel.style.minWidth = '';
+  chatPanel.style.opacity = '';
+  pdfPanel.classList.remove('visible');
+  pdfPanel.style.flex = '';
+  pdfPanel.style.minWidth = '';
+  splitterEl.classList.remove('visible');
+
+  if (view === 'chat') {
+    chatPanel.style.flex = '1';
+  } else if (view === 'pdf') {
+    chatPanel.classList.add('hidden');
+    pdfPanel.classList.add('visible');
+    pdfPanel.style.flex = '1';
+  } else if (view === 'split') {
+    pdfPanel.classList.add('visible');
+    splitterEl.classList.add('visible');
+    chatPanel.style.flex = '0 0 38%';
+    pdfPanel.style.flex = '1';
+    chatPanel.style.minWidth = '280px';
+    pdfPanel.style.minWidth = '300px';
+  }
+}
+
+document.getElementById('pdf-btn').addEventListener('click', function() {
+  if (currentView === 'chat') {
+    if (currentPdfId) {
+      showView('split');
+    } else {
+      showView('split');
+      pdfPanel.classList.add('panel-enter');
+      loadPdfEmptyState();
+      setTimeout(() => pdfPanel.classList.remove('panel-enter'), 300);
+    }
+  } else {
+    showView('chat');
+  }
+  this.classList.toggle('active', currentView !== 'chat');
+});
+
+// PDF upload
+const uploadZone = document.getElementById('pdf-upload-zone');
+const fileInput = document.getElementById('pdf-file-input');
+
+uploadZone.addEventListener('dragover', function(e) { e.preventDefault(); uploadZone.classList.add('dragover'); });
+uploadZone.addEventListener('dragleave', function() { uploadZone.classList.remove('dragover'); });
+uploadZone.addEventListener('drop', function(e) {
+  e.preventDefault();
+  uploadZone.classList.remove('dragover');
+  const files = e.dataTransfer.files;
+  if (files.length > 0 && files[0].type === 'application/pdf') { uploadPdf(files[0]); }
+});
+fileInput.addEventListener('change', function() {
+  if (fileInput.files.length > 0) { uploadPdf(fileInput.files[0]); }
+});
+
+async function uploadPdf(file) {
+  const courseSelect = document.getElementById('pdf-course-select');
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('course_id', courseSelect.value);
+
+  const zone = document.getElementById('pdf-upload-zone');
+  zone.innerHTML = '<h3>Uploading...</h3><p>' + escapeHtml(file.name) + '</p>';
+
+  try {
+    const resp = await fetch('/pdf/upload', { method: 'POST', body: formData });
+    if (!resp.ok) throw new Error('Upload failed: ' + resp.status);
+    const pdf = await resp.json();
+    currentPdfId = pdf.id;
+    zone.innerHTML = '<h3>Drop PDF here or click to upload</h3><p>Supported: .pdf files</p>';
+    await openPdf(pdf.id);
+  } catch (err) {
+    zone.innerHTML = '<h3>Drop PDF here or click to upload</h3><p>Supported: .pdf files</p>';
+    alert('Upload failed: ' + err.message);
+  }
+}
+
+async function loadPdfEmptyState() {
+  const container = document.getElementById('pdf-list-container');
+  container.innerHTML = '<div style="text-align:center;color:var(--text-tertiary);">Loading...</div>';
+  try {
+    const resp = await fetch('/pdf/list');
+    const pdfs = await resp.json();
+    renderPdfEmptyList(pdfs);
+  } catch (err) {
+    container.innerHTML = '<div style="text-align:center;color:#DC2626;">Failed to load PDFs</div>';
+  }
+}
+
+function renderPdfEmptyList(pdfs) {
+  const container = document.getElementById('pdf-list-container');
+  if (!pdfs || pdfs.length === 0) {
+    container.innerHTML = '<div style="text-align:center;color:var(--text-tertiary);font-size:13px;">No PDFs uploaded yet</div>';
+    return;
+  }
+
+  const groups = {};
+  for (const pdf of pdfs) {
+    const key = pdf.course_id || 'library';
+    if (!groups[key]) groups[key] = { name: pdf.course_name || 'Library', pdfs: [] };
+    groups[key].pdfs.push(pdf);
+  }
+
+  let html = '';
+  for (const [key, group] of Object.entries(groups)) {
+    const courseInfo = knownPdfCourses.find(c => c.id === key);
+    const groupName = courseInfo ? courseInfo.name : 'Library';
+    html += '<div class="pdf-list-section"><h4>' + escapeHtml(groupName) + '</h4>';
+    for (const pdf of group.pdfs) {
+      const progress = pdf.last_page > 1 ? 'p.' + pdf.last_page + ' / ' + pdf.pages : 'Not started';
+      html += '<div class="pdf-list-item" onclick="openPdf(' + pdf.id + ')">' +
+        '<span class="pdf-name">' + escapeHtml(pdf.original_name.replace(/\.pdf$/i, '')) + '</span>' +
+        '<span class="pdf-progress">' + escapeHtml(progress) + '</span></div>';
+    }
+    html += '</div>';
+  }
+  container.innerHTML = html;
+}
+
+async function openPdf(id) {
+  if (!window.pdfjsLib) {
+    alert('PDF viewer is still loading. Please try again in a moment.');
+    return;
+  }
+
+  try {
+    const resp = await fetch('/pdf/list');
+    const pdfs = await resp.json();
+    const pdf = pdfs.find(p => p.id === id);
+    if (!pdf) throw new Error('PDF not found');
+
+    currentPdfId = id;
+    currentPage = pdf.last_page || 1;
+    scale = 1.0;
+    currentScale = 1.0;
+    document.getElementById('pdf-zoom-level').textContent = '100%';
+    document.getElementById('pdf-viewer').style.transform = 'none';
+
+    fetch('/pdf/progress/' + id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ page: currentPage }) });
+
+    const loadingTask = window.pdfjsLib.getDocument('/pdf/file/' + id);
+    pdfDoc = await loadingTask.promise;
+    totalPages = pdfDoc.numPages;
+
+    document.getElementById('pdf-empty-state').style.display = 'none';
+    document.getElementById('pdf-open-state').style.display = 'flex';
+    document.getElementById('pdf-filename').textContent = pdf.original_name.replace(/\.pdf$/i, '');
+
+    if (viewMode === 'scroll') {
+      renderAllPages();
+      const targetCanvas = document.getElementById('pdf-canvas-' + currentPage);
+      if (targetCanvas) {
+        targetCanvas.scrollIntoView({ behavior: 'auto', block: 'start' });
+      }
+    } else {
+      renderPage(currentPage);
+    }
+
+    showView(currentView === 'chat' ? 'split' : currentView);
+    document.getElementById('pdf-btn').classList.add('active');
+  } catch (err) {
+    console.error('Failed to open PDF:', err);
+    alert('Failed to open PDF: ' + err.message);
+  }
+}
+
+function renderAllPages() {
+  const viewer = document.getElementById('pdf-viewer');
+  const counter = document.getElementById('pdf-page-counter');
+  if (pageObserver) { pageObserver.disconnect(); pageObserver = null; }
+  viewer.innerHTML = '';
+  viewer.appendChild(counter);
+  renderedPages = new Set();
+
+  for (let i = 1; i <= totalPages; i++) {
+    const canvas = document.createElement('canvas');
+    canvas.className = 'pdf-page-canvas';
+    canvas.id = 'pdf-canvas-' + i;
+    canvas.dataset.pageNum = i;
+    viewer.appendChild(canvas);
+  }
+
+  let pdfSaveTimer = null;
+  let mostVisiblePage = currentPage;
+
+  pageObserver = new IntersectionObserver((entries) => {
+    let bestRatio = 0;
+    let bestPage = 0;
+    for (const entry of entries) {
+      if (entry.isIntersecting) {
+        const pageNum = parseInt(entry.target.dataset.pageNum);
+        if (!renderedPages.has(pageNum)) {
+          renderedPages.add(pageNum);
+          renderPageToCanvas(pageNum, entry.target);
+        }
+        if (entry.intersectionRatio > bestRatio) {
+          bestRatio = entry.intersectionRatio;
+          bestPage = pageNum;
+        }
+      }
+    }
+    if (bestPage > 0 && bestPage !== mostVisiblePage) {
+      mostVisiblePage = bestPage;
+      clearTimeout(pdfSaveTimer);
+      pdfSaveTimer = setTimeout(() => {
+        if (currentPdfId) {
+          currentPage = mostVisiblePage;
+          updatePageCounter();
+          fetch('/pdf/progress/' + currentPdfId, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ page: mostVisiblePage })
+          }).catch(() => {});
+        }
+      }, 2000);
+    }
+  }, { root: viewer, rootMargin: '200px', threshold: [0, 0.1, 0.3, 0.6, 0.9] });
+
+  viewer.querySelectorAll('.pdf-page-canvas').forEach(canvas => {
+    pageObserver.observe(canvas);
+  });
+
+  updatePageCounter();
+}
+
+async function renderPageToCanvas(pageNum, canvas) {
+  try {
+    const page = await pdfDoc.getPage(pageNum);
+    const containerWidth = document.getElementById('pdf-viewer').clientWidth - 48;
+    const viewport = page.getViewport({ scale: 1 });
+    const fitScale = (containerWidth / viewport.width) * scale;
+    const scaledViewport = page.getViewport({ scale: fitScale });
+
+    canvas.width = scaledViewport.width;
+    canvas.height = scaledViewport.height;
+
+    const ctx = canvas.getContext('2d');
+    await page.render({ canvasContext: ctx, viewport: scaledViewport }).promise;
+  } catch (err) {
+    console.error('Error rendering page', pageNum, err);
+  }
+}
+
+function renderPage(pageNum) {
+  const viewer = document.getElementById('pdf-viewer');
+  const counter = document.getElementById('pdf-page-counter');
+  if (pageObserver) { pageObserver.disconnect(); pageObserver = null; }
+  renderedPages = null;
+  viewer.innerHTML = '';
+  viewer.appendChild(counter);
+
+  const canvas = document.createElement('canvas');
+  canvas.className = 'pdf-page-canvas';
+  viewer.appendChild(canvas);
+
+  renderPageToCanvas(pageNum, canvas);
+  updatePageCounter();
+}
+
+function updatePageCounter() {
+  const counter = document.getElementById('pdf-page-counter');
+  if (counter) { counter.textContent = currentPage + ' / ' + totalPages; }
+}
+
+let scrollTimeout = null;
+document.getElementById('pdf-viewer')?.addEventListener('scroll', function() {
+  if (viewMode !== 'scroll') return;
+  clearTimeout(scrollTimeout);
+  scrollTimeout = setTimeout(() => {
+    const viewer = document.getElementById('pdf-viewer');
+    const canvases = viewer.querySelectorAll('.pdf-page-canvas');
+    const viewerRect = viewer.getBoundingClientRect();
+    for (const canvas of canvases) {
+      const rect = canvas.getBoundingClientRect();
+      if (rect.top >= viewerRect.top && rect.top <= viewerRect.bottom) {
+        const pageNum = parseInt(canvas.id.replace('pdf-canvas-', ''));
+        if (pageNum && pageNum !== currentPage) {
+          currentPage = pageNum;
+          updatePageCounter();
+          savePdfProgress(currentPage);
+        }
+        break;
+      }
+    }
+  }, 200);
+});
+
+function saveProgress() {
+  if (!currentPdfId) return;
+  fetch('/pdf/progress/' + currentPdfId, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ page: currentPage })
+  }).catch(err => console.error('Save progress failed:', err));
+}
+
+let saveProgressTimer = null;
+function savePdfProgress(pageNum) {
+  if (!currentPdfId) return;
+  clearTimeout(saveProgressTimer);
+  saveProgressTimer = setTimeout(() => {
+    fetch('/pdf/progress/' + currentPdfId, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ page: pageNum })
+    }).catch(() => {});
+  }, 2000);
+}
+
+// Toolbar handlers
+document.getElementById('pdf-close-btn')?.addEventListener('click', function() {
+  currentPdfId = null;
+  pdfDoc = null;
+  document.getElementById('pdf-open-state').style.display = 'none';
+  document.getElementById('pdf-empty-state').style.display = '';
+  loadPdfEmptyState();
+  showView('chat');
+  document.getElementById('pdf-btn').classList.remove('active');
+});
+
+document.getElementById('pdf-view-toggle')?.addEventListener('click', function() {
+  if (viewMode === 'scroll') {
+    viewMode = 'single';
+    this.textContent = 'Page';
+    if (pdfDoc) renderPage(currentPage);
+  } else {
+    viewMode = 'scroll';
+    this.textContent = 'Scroll';
+    if (pdfDoc) renderAllPages();
+  }
+});
+
+function applyZoom(newScale) {
+  currentScale = Math.max(0.25, Math.min(3, newScale));
+  document.getElementById('pdf-zoom-level').textContent = Math.round(currentScale * 100) + '%';
+  const viewer = document.getElementById('pdf-viewer');
+  viewer.style.transformOrigin = 'top center';
+  if (currentScale > 2.0 && pdfDoc) {
+    scale = currentScale;
+    viewer.style.transform = 'none';
+    const saved = viewer.scrollTop;
+    if (viewMode === 'scroll') renderAllPages();
+    else renderPage(currentPage);
+    viewer.scrollTop = saved;
+  } else {
+    viewer.style.transform = `scale(${currentScale})`;
+  }
+}
+
+document.getElementById('pdf-zoom-in')?.addEventListener('click', function() {
+  applyZoom(currentScale + 0.25);
+});
+
+document.getElementById('pdf-zoom-out')?.addEventListener('click', function() {
+  applyZoom(currentScale - 0.25);
+});
+
+// Keyboard shortcuts
+document.addEventListener('keydown', function(e) {
+  if (!currentPdfId || !pdfDoc) return;
+  if (document.activeElement === document.getElementById('message-input')) return;
+
+  switch(e.key) {
+    case 'j':
+    case 'ArrowDown':
+      e.preventDefault();
+      if (viewMode === 'single') {
+        currentPage = Math.min(totalPages, currentPage + 1);
+        renderPage(currentPage);
+        saveProgress();
+      } else {
+        document.getElementById('pdf-viewer').scrollBy(0, 100);
+      }
+      break;
+    case 'k':
+    case 'ArrowUp':
+      e.preventDefault();
+      if (viewMode === 'single') {
+        currentPage = Math.max(1, currentPage - 1);
+        renderPage(currentPage);
+        saveProgress();
+      } else {
+        document.getElementById('pdf-viewer').scrollBy(0, -100);
+      }
+      break;
+    case 's':
+      e.preventDefault();
+      if (currentView === 'pdf') showView('split');
+      else if (currentView === 'split') showView('chat');
+      else showView('split');
+      break;
+    case 'q':
+      e.preventDefault();
+      document.getElementById('pdf-close-btn').click();
+      break;
+    case '+':
+    case '=':
+      e.preventDefault();
+      document.getElementById('pdf-zoom-in').click();
+      break;
+    case '-':
+      e.preventDefault();
+      document.getElementById('pdf-zoom-out').click();
+      break;
+    case '0':
+      e.preventDefault();
+      applyZoom(1.0);
+      break;
+  }
+});
+
+// Text selection -> chat draft
+document.getElementById('pdf-viewer')?.addEventListener('mouseup', function() {
+  const selection = window.getSelection();
+  const text = selection.toString().trim();
+  if (!text) return;
+  const prefix = '[p.' + currentPage + '] "' + text.substring(0, 120) + (text.length > 120 ? '...' : '') + '" ';
+  const input = document.getElementById('message-input');
+  if (input && !input.value.includes(prefix)) {
+    input.value = input.value ? prefix + input.value : prefix;
+    input.focus();
+  }
+});
+
+// Debounced resize with scroll preservation
+let resizeDebounce = null;
+let lastViewerWidth = 0;
+window.addEventListener('resize', () => {
+  if (!pdfDoc || currentView === 'chat') return;
+  clearTimeout(resizeDebounce);
+  resizeDebounce = setTimeout(() => {
+    const viewer = document.getElementById('pdf-viewer');
+    const newWidth = viewer.clientWidth;
+    if (Math.abs(newWidth - lastViewerWidth) < 5) return;
+    lastViewerWidth = newWidth;
+    const savedScroll = viewer.scrollTop;
+    if (viewMode === 'scroll') renderAllPages();
+    else renderPage(currentPage);
+    viewer.scrollTop = savedScroll;
+  }, 300);
+});
+
+// Auto-open last PDF on startup in split view
+window.addEventListener('pdfjs-ready', async () => {
+  try {
+    const resp = await fetch('/pdf/last');
+    const data = await resp.json();
+    if (data && data.pdf) {
+      currentPdfId = data.pdf.id;
+      currentPage = data.pdf.last_page || 1;
+      await openPdf(currentPdfId);
+    }
+  } catch (err) {
+    // No last opened PDF, that's fine
+  }
+});
+
+// Filename dropdown
+document.getElementById('pdf-filename')?.addEventListener('click', async function(e) {
+  e.stopPropagation();
+  const dropdown = document.getElementById('pdf-dropdown');
+  if (dropdown.classList.contains('open')) {
+    dropdown.classList.remove('open');
+    return;
+  }
+  try {
+    const resp = await fetch('/pdf/list');
+    const pdfs = await resp.json();
+    renderPdfDropdown(pdfs);
+    dropdown.classList.add('open');
+  } catch (err) {
+    console.error('Failed to load PDF list', err);
+  }
+});
+
+document.addEventListener('click', function(e) {
+  const dropdown = document.getElementById('pdf-dropdown');
+  if (dropdown && dropdown.classList.contains('open')) {
+    if (!e.target.closest('#pdf-filename') && !e.target.closest('#pdf-dropdown')) {
+      dropdown.classList.remove('open');
+    }
+  }
+});
+
+function renderPdfDropdown(pdfs) {
+  const dropdown = document.getElementById('pdf-dropdown');
+  const groups = {};
+  for (const pdf of pdfs) {
+    const key = pdf.course_id || 'library';
+    if (!groups[key]) groups[key] = { name: pdf.course_name || 'Library', pdfs: [] };
+    groups[key].pdfs.push(pdf);
+  }
+
+  let html = '<div class="dropdown-item" style="font-weight:600;" onclick="triggerUpload()">\u2191 Upload PDF</div>';
+  html += '<div style="height:1px;background:var(--border);margin:4px 0;"></div>';
+  for (const [key, group] of Object.entries(groups)) {
+    html += '<div class="dropdown-section"><div class="dropdown-section-title">' + escapeHtml(group.name) + '</div>';
+    for (const pdf of group.pdfs) {
+      const progress = pdf.last_page > 1 ? 'p.' + pdf.last_page + '/' + pdf.pages : pdf.pages + ' pages';
+      html += '<div class="dropdown-item" onclick="switchPdf(' + pdf.id + ')">' +
+        '<span class="item-name">' + escapeHtml(pdf.original_name.replace(/\.pdf$/i, '')) + '</span>' +
+        '<span class="item-progress">' + escapeHtml(progress) + '</span></div>';
+    }
+    html += '</div>';
+  }
+  dropdown.innerHTML = html;
+}
+
+function triggerUpload() {
+  document.getElementById('pdf-dropdown').classList.remove('open');
+  document.getElementById('pdf-file-input').click();
+}
+
+async function switchPdf(id) {
+  document.getElementById('pdf-dropdown').classList.remove('open');
+  currentPdfId = id;
+  await openPdf(id);
+  showView(currentView);
+}
+
+// === HEALTH CHECK ===
+const healthDot = document.getElementById('health-dot');
+async function checkHealth() {
+  healthDot.className = 'checking';
+  try {
+    const resp = await fetch('/debug/health', { signal: AbortSignal.timeout(5000) });
+    if (resp.ok) {
+      healthDot.className = 'ok';
+      healthDot.title = 'Connected';
+    } else {
+      throw new Error('HTTP ' + resp.status);
+    }
+  } catch (err) {
+    healthDot.className = 'error';
+    healthDot.title = 'Connection error: ' + err.message;
+  }
+}
+checkHealth();
+setInterval(checkHealth, 30000);
+</script>
+
+</body>
+</html>

@@ -1,0 +1,354 @@
+package agent
+
+import (
+	"bytes"
+	"encoding/binary"
+	"fmt"
+	"log"
+	"math"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
+	"time"
+)
+
+type SearchResult struct {
+	SourceFile    string
+	Heading       string
+	ParentHeading string
+	Content       string
+	Score         float64
+}
+
+func InitVectorStore() error {
+	_, err := DB.Exec(`
+		CREATE TABLE IF NOT EXISTS corpus_chunks (
+			id             INTEGER PRIMARY KEY AUTOINCREMENT,
+			path           TEXT NOT NULL,
+			heading        TEXT NOT NULL DEFAULT '',
+			parent_heading TEXT NOT NULL DEFAULT '',
+			content        TEXT NOT NULL,
+			embedding      BLOB,
+			course_id      TEXT,
+			category       TEXT NOT NULL DEFAULT 'concept',
+			created_at     TEXT NOT NULL,
+			updated_at     TEXT NOT NULL
+		);
+		CREATE INDEX IF NOT EXISTS idx_corpus_chunks_course ON corpus_chunks(course_id);
+		CREATE INDEX IF NOT EXISTS idx_corpus_chunks_path ON corpus_chunks(path);
+	`)
+	return err
+}
+
+func IndexCorpus() error {
+	corpusDir := filepath.Join(VaultRoot, "data", "corpus")
+
+	if _, err := os.Stat(corpusDir); os.IsNotExist(err) {
+		return nil
+	}
+
+	var filesToIndex []string
+	filepath.WalkDir(corpusDir, func(absPath string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		if !strings.HasSuffix(absPath, ".md") {
+			return nil
+		}
+		needsIndex, err := NeedsReindex(absPath)
+		if err != nil {
+			log.Printf("Error checking reindex for %s: %v", absPath, err)
+			return nil
+		}
+		if needsIndex {
+			filesToIndex = append(filesToIndex, absPath)
+		}
+		return nil
+	})
+
+	if len(filesToIndex) == 0 {
+		log.Println("Corpus is up to date, no reindex needed")
+		return nil
+	}
+
+	for _, f := range filesToIndex {
+		if err := IndexFile(f); err != nil {
+			log.Printf("Failed to index %s: %v", f, err)
+		} else {
+			log.Printf("Indexed: %s", f)
+		}
+	}
+
+	deleteStalePaths()
+	return nil
+}
+
+func IndexFile(absPath string) error {
+	corpusDir := filepath.Join(VaultRoot, "data", "corpus")
+	relPath, err := filepath.Rel(corpusDir, absPath)
+	if err != nil {
+		return err
+	}
+
+	chunks, err := ChunkFile(absPath)
+	if err != nil {
+		return err
+	}
+	if len(chunks) == 0 {
+		return nil
+	}
+
+	var texts []string
+	for _, c := range chunks {
+		text := embedText(c)
+		texts = append(texts, text)
+	}
+
+	embeddings, err := EmbedBatch(texts)
+	if err != nil {
+		embeddings = make([][]float32, len(chunks))
+		for i, t := range texts {
+			emb, eErr := EmbedText(t)
+			if eErr == nil {
+				embeddings[i] = emb
+			}
+		}
+	}
+
+	now := time.Now().Format(time.RFC3339)
+
+	for i, c := range chunks {
+		var embedBytes []byte
+		if i < len(embeddings) && len(embeddings[i]) > 0 {
+			embedBytes = serializeEmbedding(embeddings[i])
+		}
+
+		DB.Exec(
+			`INSERT INTO corpus_chunks (path, heading, parent_heading, content, embedding, course_id, category, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			relPath, c.Heading, c.ParentHeading, c.Content, embedBytes, c.CourseID, c.Category, now, now,
+		)
+	}
+
+	embeddingsCount := 0
+	DB.QueryRow("SELECT COUNT(*) FROM corpus_chunks WHERE path = ? AND embedding IS NOT NULL", relPath).Scan(&embeddingsCount)
+	log.Printf("Indexed %s: %d chunks (%d with embeddings)", relPath, len(chunks), embeddingsCount)
+	return nil
+}
+
+func embedText(c Chunk) string {
+	var parts []string
+	if c.ParentHeading != "" {
+		parts = append(parts, c.ParentHeading)
+	}
+	if c.Heading != "" {
+		parts = append(parts, c.Heading)
+	}
+	header := strings.Join(parts, " > ")
+	if header != "" {
+		return header + "\n" + c.Content
+	}
+	return c.Content
+}
+
+func NeedsReindex(absPath string) (bool, error) {
+	fi, err := os.Stat(absPath)
+	if err != nil {
+		return false, err
+	}
+	fileMtime := fi.ModTime()
+
+	corpusDir := filepath.Join(VaultRoot, "data", "corpus")
+	relPath, _ := filepath.Rel(corpusDir, absPath)
+
+	var maxUpdatedAt string
+	err = DB.QueryRow("SELECT MAX(updated_at) FROM corpus_chunks WHERE path = ?", relPath).Scan(&maxUpdatedAt)
+	if err != nil || maxUpdatedAt == "" {
+		return true, nil
+	}
+
+	var nullEmbeds int
+	DB.QueryRow("SELECT COUNT(*) FROM corpus_chunks WHERE path = ? AND embedding IS NULL", relPath).Scan(&nullEmbeds)
+	if nullEmbeds > 0 {
+		return true, nil
+	}
+
+	dbTime, err := time.Parse(time.RFC3339, maxUpdatedAt)
+	if err != nil {
+		return true, nil
+	}
+
+	return fileMtime.After(dbTime), nil
+}
+
+func deleteStalePaths() {
+	corpusDir := filepath.Join(VaultRoot, "data", "corpus")
+	rows, err := DB.Query("SELECT DISTINCT path FROM corpus_chunks")
+	if err != nil {
+		return
+	}
+	defer rows.Close()
+
+	var paths []string
+	for rows.Next() {
+		var p string
+		rows.Scan(&p)
+		paths = append(paths, p)
+	}
+
+	for _, p := range paths {
+		fullPath := filepath.Join(corpusDir, p)
+		if _, err := os.Stat(fullPath); os.IsNotExist(err) {
+			DB.Exec("DELETE FROM corpus_chunks WHERE path = ?", p)
+			log.Printf("Removed stale corpus chunks for: %s", p)
+		}
+	}
+}
+
+func Search(query string, course string, topK int) ([]SearchResult, error) {
+	if topK <= 0 {
+		topK = 3
+	}
+
+	queryEmbed, err := EmbedText(query)
+	if err != nil {
+		return keywordSearch(query, course, topK)
+	}
+
+	sql := "SELECT path, heading, parent_heading, content, embedding FROM corpus_chunks"
+	var args []interface{}
+	if course != "" {
+		sql += " WHERE course_id = ?"
+		args = append(args, course)
+	}
+
+	rows, err := DB.Query(sql, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	type scored struct {
+		result SearchResult
+		score  float64
+	}
+
+	var scoredResults []scored
+	for rows.Next() {
+		var sourceFile, heading, parentHeading, content string
+		var embedBytes []byte
+		rows.Scan(&sourceFile, &heading, &parentHeading, &content, &embedBytes)
+
+		if embedBytes == nil || len(embedBytes) == 0 {
+			continue
+		}
+
+		embed, err := deserializeEmbedding(embedBytes)
+		if err != nil {
+			continue
+		}
+
+		score := CosineSimilarity(queryEmbed, embed)
+		if score < 0.3 {
+			continue
+		}
+
+		scoredResults = append(scoredResults, scored{
+			result: SearchResult{
+				SourceFile:    sourceFile,
+				Heading:       heading,
+				ParentHeading: parentHeading,
+				Content:       content,
+				Score:         score,
+			},
+			score: score,
+		})
+	}
+
+	if len(scoredResults) == 0 {
+		return keywordSearch(query, course, topK)
+	}
+
+	sort.Slice(scoredResults, func(i, j int) bool {
+		return scoredResults[i].score > scoredResults[j].score
+	})
+
+	if topK > len(scoredResults) {
+		topK = len(scoredResults)
+	}
+
+	results := make([]SearchResult, topK)
+	for i := 0; i < topK; i++ {
+		results[i] = scoredResults[i].result
+	}
+
+	return results, nil
+}
+
+func keywordSearch(query, course string, topK int) ([]SearchResult, error) {
+	sql := "SELECT path, heading, parent_heading, content FROM corpus_chunks WHERE (content LIKE ? OR heading LIKE ? OR parent_heading LIKE ?)"
+	var args []interface{}
+	pattern := "%" + query + "%"
+	args = append(args, pattern, pattern, pattern)
+	if course != "" {
+		sql += " AND course_id = ?"
+		args = append(args, course)
+	}
+	sql += " LIMIT ?"
+	args = append(args, topK)
+
+	rows, err := DB.Query(sql, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []SearchResult
+	for rows.Next() {
+		var r SearchResult
+		rows.Scan(&r.SourceFile, &r.Heading, &r.ParentHeading, &r.Content)
+		r.Score = 0.5
+		results = append(results, r)
+	}
+
+	if results == nil {
+		return []SearchResult{}, nil
+	}
+	return results, nil
+}
+
+func CosineSimilarity(a, b []float32) float64 {
+	if len(a) != len(b) {
+		return 0
+	}
+	var dot, normA, normB float64
+	for i := range a {
+		va, vb := float64(a[i]), float64(b[i])
+		dot += va * vb
+		normA += va * va
+		normB += vb * vb
+	}
+	if normA == 0 || normB == 0 {
+		return 0
+	}
+	return dot / (math.Sqrt(normA) * math.Sqrt(normB))
+}
+
+func serializeEmbedding(embed []float32) []byte {
+	buf := new(bytes.Buffer)
+	binary.Write(buf, binary.LittleEndian, embed)
+	return buf.Bytes()
+}
+
+func deserializeEmbedding(data []byte) ([]float32, error) {
+	if len(data)%4 != 0 {
+		return nil, fmt.Errorf("invalid embedding data length: %d", len(data))
+	}
+	embed := make([]float32, len(data)/4)
+	buf := bytes.NewReader(data)
+	err := binary.Read(buf, binary.LittleEndian, &embed)
+	return embed, err
+}

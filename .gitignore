@@ -1,0 +1,12 @@
+# Compiled binary
+/study-app
+
+# Runtime data
+/data/
+*.db
+*.db-wal
+*.db-shm
+
+# Logs
+*.log
+/tmp/
