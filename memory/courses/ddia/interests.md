@@ -1,1 +1,0 @@
-- Schema-to-language-type transformation: interest in the code generation challenge of implementing decoders per language from a shared schema. Connects to type theory (correct-by-construction parsers, dependent types for schema validation).

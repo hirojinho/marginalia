@@ -10,3 +10,8 @@
 # Logs
 *.log
 /tmp/
+
+# Personal notes (not app source)
+/memory/courses/
+/memory/thesis/
+/memory/courses-agent
