@@ -1,6 +1,6 @@
 module study-app
 
-go 1.19
+go 1.24.1
 
 require (
 	github.com/JohannesKaufmann/html-to-markdown v1.6.0
