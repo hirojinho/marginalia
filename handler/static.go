@@ -74,16 +74,16 @@ func (h *Handler) handleDebugHealth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	resp := healthResponse{VaultRoot: h.App.Config.VaultRoot}
-	resp.Config = checkFile(h.App.VaultPath("study-app", "CLAUDE.local.md"))
+	resp.Config = checkFile(h.App.VaultPath("CLAUDE.local.md"))
 
 	for _, c := range agent.KnownCourses {
 		resp.Plans = append(resp.Plans, checkFile(h.App.VaultPath("data", "plans", c.ID+".json")))
 	}
 	resp.Memory = []fileStatus{
-		checkFile(h.App.VaultPath("study-app", "memory", "study-context.md")),
+		checkFile(h.App.VaultPath("memory", "study-context.md")),
 	}
 	for _, c := range agent.KnownCourses {
-		resp.Memory = append(resp.Memory, checkFile(h.App.VaultPath("study-app", "memory", "courses", c.ID, "study-plan.md")))
+		resp.Memory = append(resp.Memory, checkFile(h.App.VaultPath("memory", "courses", c.ID, "study-plan.md")))
 	}
 	for _, c := range agent.KnownCourses {
 		resp.DataCourses = append(resp.DataCourses, checkFile(h.App.VaultPath("data", "courses", c.ID, "interests.md")))
@@ -106,8 +106,8 @@ func (h *Handler) handleDebugHealth(w http.ResponseWriter, r *http.Request) {
 // Pure logging — does not affect startup.
 func LogStartupHealth(app *agent.App) {
 	checks := []string{
-		app.VaultPath("study-app", "CLAUDE.local.md"),
-		app.VaultPath("study-app", "memory", "study-context.md"),
+		app.VaultPath("CLAUDE.local.md"),
+		app.VaultPath("memory", "study-context.md"),
 	}
 	for _, c := range agent.KnownCourses {
 		checks = append(checks, app.VaultPath("data", "plans", c.ID+".json"))

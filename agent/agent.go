@@ -38,8 +38,8 @@ You have access to these tools — use them proactively when appropriate:
 // rule guidance.
 func (a *App) LoadSystemPrompt() string {
 	candidates := []string{
-		a.VaultPath("study-app", "CLAUDE.local.md"),
-		a.VaultPath("study-app", "memory", "study-context.md"),
+		a.VaultPath("CLAUDE.local.md"),
+		a.VaultPath("memory", "study-context.md"),
 	}
 
 	var loaded, missing []string
