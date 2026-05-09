@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/exec"
@@ -491,7 +491,7 @@ func (a *App) toolPDFExtract(args json.RawMessage) string {
 
 	cached := strings.Join(pageTexts, "\n---PAGE BREAK---\n")
 	if err := os.WriteFile(cachePath, []byte(cached), 0644); err != nil {
-		log.Printf("warn: failed to cache pdf text for id %d: %v", p.PdfID, err)
+		slog.Warn("cache pdf text", "pdf_id", p.PdfID, "err", err)
 	}
 
 	if p.Pages != "" {
@@ -522,7 +522,7 @@ func pickPages(pages []string, indices []int) []string {
 func (a *App) ExtractAndCachePDFText(id int64, pdfPath string) {
 	cacheDir := a.VaultPath("data", "pdf-texts")
 	if err := os.MkdirAll(cacheDir, 0755); err != nil {
-		log.Printf("pdf cache dir: %v", err)
+		slog.Error("create pdf cache dir", "err", err)
 		return
 	}
 	cachePath := filepath.Join(cacheDir, fmt.Sprintf("%d.txt", id))
@@ -532,7 +532,7 @@ func (a *App) ExtractAndCachePDFText(id int64, pdfPath string) {
 
 	f, r, err := pdf.Open(pdfPath)
 	if err != nil {
-		log.Printf("PDF auto-extract failed for id %d: %v", id, err)
+		slog.Error("pdf auto-extract", "pdf_id", id, "err", err)
 		return
 	}
 	defer f.Close()
@@ -549,10 +549,10 @@ func (a *App) ExtractAndCachePDFText(id int64, pdfPath string) {
 
 	cached := strings.Join(pageTexts, "\n---PAGE BREAK---\n")
 	if err := os.WriteFile(cachePath, []byte(cached), 0644); err != nil {
-		log.Printf("pdf cache write id %d: %v", id, err)
+		slog.Warn("pdf cache write", "pdf_id", id, "err", err)
 		return
 	}
-	log.Printf("PDF auto-extracted id %d (%d pages)", id, r.NumPage())
+	slog.Info("pdf auto-extracted", "pdf_id", id, "pages", r.NumPage())
 }
 
 // parsePageSelection turns a string like "1-5,7,10-12" into 0-based
@@ -816,7 +816,7 @@ func (a *App) GetSessionSystemPrompt(sessionID int64, basePrompt string) string 
 			if data, err := os.ReadFile(lastFleeting); err == nil {
 				extra += "\n\nLatest fleeting note:\n" + string(data)
 			} else {
-				log.Printf("fleeting note unread: %s", lastFleeting)
+				slog.Info("fleeting note unread", "path", lastFleeting)
 			}
 		}
 	}

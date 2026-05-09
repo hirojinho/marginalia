@@ -1,7 +1,7 @@
 package agent
 
 import (
-	"log"
+	"log/slog"
 	"os"
 	"strings"
 )
@@ -55,10 +55,10 @@ func (a *App) LoadSystemPrompt() string {
 	}
 
 	if len(loaded) > 0 {
-		log.Printf("system prompt loaded: %v", loaded)
+		slog.Info("system prompt loaded", "files", loaded)
 	}
 	if len(missing) > 0 {
-		log.Printf("system prompt files missing: %v", missing)
+		slog.Warn("system prompt files missing", "files", missing)
 	}
 
 	body := strings.Join(parts, "\n\n---\n\n")
@@ -74,7 +74,7 @@ func (a *App) LoadSystemPrompt() string {
 func readFileWithLog(path string) string {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		log.Printf("file not found: %s", path)
+		slog.Warn("file not found", "path", path)
 		return ""
 	}
 	return string(data)

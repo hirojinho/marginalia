@@ -4,6 +4,7 @@ import (
 	"context"
 	"embed"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -37,6 +38,8 @@ var dataSubdirs = []string{
 }
 
 func main() {
+	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo})))
+
 	cfg, err := loadConfig()
 	if err != nil {
 		log.Fatal(err)
@@ -54,19 +57,19 @@ func main() {
 	if err := agent.InitSchema(db); err != nil {
 		log.Fatalf("init schema: %v", err)
 	}
-	log.Println("SQLite initialized")
+	slog.Info("sqlite initialized", "path", dbPath)
 
 	app := agent.NewApp(cfg, db)
 	defer app.Close()
 
 	if err := app.InitVectorStore(); err != nil {
-		log.Printf("warn: vector store init failed: %v", err)
+		slog.Warn("vector store init failed", "err", err)
 	} else {
 		go func() {
 			if err := app.IndexCorpus(); err != nil {
-				log.Printf("corpus indexing failed: %v", err)
+				slog.Error("corpus indexing failed", "err", err)
 			} else {
-				log.Println("corpus indexed successfully")
+				slog.Info("corpus indexed")
 			}
 		}()
 	}
@@ -89,7 +92,7 @@ func main() {
 		IdleTimeout:  httpIdleTimeout,
 	}
 
-	log.Printf("study app listening on %s (model: %s, api: %s)", cfg.ListenAddr, cfg.Model, cfg.APIURL)
+	slog.Info("study app listening", "addr", cfg.ListenAddr, "model", cfg.Model, "api", cfg.APIURL)
 
 	serveErr := make(chan error, 1)
 	go func() {
@@ -103,7 +106,7 @@ func main() {
 
 	select {
 	case sig := <-quit:
-		log.Printf("received %s, shutting down...", sig)
+		slog.Info("shutting down", "signal", sig.String())
 	case err := <-serveErr:
 		log.Fatalf("server error: %v", err)
 	}
@@ -111,9 +114,9 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), shutdownGracePeriod)
 	defer cancel()
 	if err := srv.Shutdown(ctx); err != nil {
-		log.Printf("graceful shutdown failed: %v", err)
+		slog.Warn("graceful shutdown failed", "err", err)
 	} else {
-		log.Println("shutdown complete")
+		slog.Info("shutdown complete")
 	}
 }
 

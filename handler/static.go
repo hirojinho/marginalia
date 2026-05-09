@@ -1,7 +1,7 @@
 package handler
 
 import (
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"strings"
@@ -21,7 +21,7 @@ func (h *Handler) handleIndex(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if _, err := w.Write(data); err != nil {
-		log.Printf("write index.html: %v", err)
+		slog.Error("write index.html", "err", err)
 	}
 }
 
@@ -39,7 +39,7 @@ func (h *Handler) handleStatic(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/wasm")
 	}
 	if _, err := w.Write(data); err != nil {
-		log.Printf("write static %s: %v", filePath, err)
+		slog.Error("write static asset", "path", filePath, "err", err)
 	}
 }
 
@@ -120,11 +120,8 @@ func LogStartupHealth(app *agent.App) {
 		}
 	}
 	if len(issues) > 0 {
-		log.Printf("startup health: %d issue(s)", len(issues))
-		for _, i := range issues {
-			log.Printf("  - %s", i)
-		}
+		slog.Warn("startup health issues", "count", len(issues), "issues", issues)
 	} else {
-		log.Print("startup health: all expected files present")
+		slog.Info("startup health ok")
 	}
 }

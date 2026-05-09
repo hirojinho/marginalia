@@ -3,7 +3,7 @@ package agent
 import (
 	"database/sql"
 	"fmt"
-	"log"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -91,7 +91,7 @@ func InitSchema(db *sql.DB) error {
 	}
 	for _, m := range migrations {
 		if _, err := db.Exec(m); err != nil && !strings.Contains(err.Error(), "duplicate column") {
-			log.Printf("Migration warning: %v", err)
+			slog.Warn("schema migration", "stmt", m, "err", err)
 		}
 	}
 
@@ -227,7 +227,7 @@ func (a *App) SetActiveSession(id int64) error {
 func (a *App) LoadActiveSessionID() {
 	id, err := a.getMetaInt("last_session")
 	if err != nil {
-		log.Printf("warn: load active session id: %v", err)
+		slog.Warn("load active session id", "err", err)
 	}
 	a.SetActiveSessionIDInMemory(id)
 }
@@ -346,7 +346,7 @@ func (a *App) getMetaInt(key string) (int64, error) {
 	}
 	var n int64
 	if _, err := fmt.Sscanf(v, "%d", &n); err != nil {
-		log.Printf("warn: parse meta %q value %q as int: %v", key, v, err)
+		slog.Warn("parse meta int", "key", key, "value", v, "err", err)
 		return 0, nil
 	}
 	return n, nil

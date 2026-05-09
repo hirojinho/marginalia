@@ -9,7 +9,7 @@ import (
 	"embed"
 	"encoding/json"
 	"errors"
-	"log"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -66,7 +66,7 @@ func writeJSON(w http.ResponseWriter, status int, v interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	if err := json.NewEncoder(w).Encode(v); err != nil {
-		log.Printf("encode response: %v", err)
+		slog.Warn("encode response", "err", err)
 	}
 }
 
@@ -78,7 +78,7 @@ func writeError(w http.ResponseWriter, status int, msg string) {
 // writeServerError logs the underlying cause and returns a generic 500.
 // Use this for failures whose details should not leak to the client.
 func writeServerError(w http.ResponseWriter, op string, err error) {
-	log.Printf("%s: %v", op, err)
+	slog.Error(op, "err", err)
 	writeError(w, http.StatusInternalServerError, "internal error")
 }
 

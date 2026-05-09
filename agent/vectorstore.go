@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"log"
+	"log/slog"
 	"math"
 	"os"
 	"path/filepath"
@@ -65,7 +65,7 @@ func (a *App) IndexCorpus() error {
 		}
 		needsIndex, err := a.NeedsReindex(absPath)
 		if err != nil {
-			log.Printf("Error checking reindex for %s: %v", absPath, err)
+			slog.Warn("reindex check", "path", absPath, "err", err)
 			return nil
 		}
 		if needsIndex {
@@ -73,19 +73,19 @@ func (a *App) IndexCorpus() error {
 		}
 		return nil
 	}); err != nil {
-		log.Printf("walk corpus dir %s: %v", corpusDir, err)
+		slog.Warn("walk corpus dir", "dir", corpusDir, "err", err)
 	}
 
 	if len(filesToIndex) == 0 {
-		log.Println("Corpus is up to date, no reindex needed")
+		slog.Info("corpus up to date")
 		return nil
 	}
 
 	for _, f := range filesToIndex {
 		if err := a.IndexFile(f); err != nil {
-			log.Printf("Failed to index %s: %v", f, err)
+			slog.Error("index file failed", "path", f, "err", err)
 		} else {
-			log.Printf("Indexed: %s", f)
+			slog.Info("indexed file", "path", f)
 		}
 	}
 
@@ -141,9 +141,9 @@ func (a *App) IndexFile(absPath string) error {
 
 	var embeddingsCount int
 	if err := a.DB.QueryRow("SELECT COUNT(*) FROM corpus_chunks WHERE path = ? AND embedding IS NOT NULL", relPath).Scan(&embeddingsCount); err != nil {
-		log.Printf("warn: count embeddings for %s: %v", relPath, err)
+		slog.Warn("count embeddings", "path", relPath, "err", err)
 	}
-	log.Printf("Indexed %s: %d chunks (%d with embeddings)", relPath, len(chunks), embeddingsCount)
+	slog.Info("indexed chunks", "path", relPath, "chunks", len(chunks), "with_embeddings", embeddingsCount)
 	return nil
 }
 
@@ -179,7 +179,7 @@ func (a *App) NeedsReindex(absPath string) (bool, error) {
 
 	var nullEmbeds int
 	if err := a.DB.QueryRow("SELECT COUNT(*) FROM corpus_chunks WHERE path = ? AND embedding IS NULL", relPath).Scan(&nullEmbeds); err != nil {
-		log.Printf("warn: count null embeddings for %s: %v", relPath, err)
+		slog.Warn("count null embeddings", "path", relPath, "err", err)
 	}
 	if nullEmbeds > 0 {
 		return true, nil
@@ -196,7 +196,7 @@ func (a *App) deleteStalePaths() {
 	corpusDir := a.VaultPath("data", "corpus")
 	rows, err := a.DB.Query("SELECT DISTINCT path FROM corpus_chunks")
 	if err != nil {
-		log.Printf("warn: list corpus paths for stale check: %v", err)
+		slog.Warn("list corpus paths for stale check", "err", err)
 		return
 	}
 	defer rows.Close()
@@ -205,23 +205,23 @@ func (a *App) deleteStalePaths() {
 	for rows.Next() {
 		var p string
 		if err := rows.Scan(&p); err != nil {
-			log.Printf("warn: scan corpus path: %v", err)
+			slog.Warn("scan corpus path", "err", err)
 			continue
 		}
 		paths = append(paths, p)
 	}
 	if err := rows.Err(); err != nil {
-		log.Printf("warn: iterate corpus paths: %v", err)
+		slog.Warn("iterate corpus paths", "err", err)
 	}
 
 	for _, p := range paths {
 		fullPath := filepath.Join(corpusDir, p)
 		if _, err := os.Stat(fullPath); os.IsNotExist(err) {
 			if _, err := a.DB.Exec("DELETE FROM corpus_chunks WHERE path = ?", p); err != nil {
-				log.Printf("warn: delete stale corpus chunks for %s: %v", p, err)
+				slog.Warn("delete stale corpus chunks", "path", p, "err", err)
 				continue
 			}
-			log.Printf("Removed stale corpus chunks for: %s", p)
+			slog.Info("removed stale corpus chunks", "path", p)
 		}
 	}
 }

@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"strings"
 
@@ -191,14 +191,14 @@ func (h *Handler) handleChat(w http.ResponseWriter, r *http.Request) {
 	// client disconnects.
 	content, err := h.App.ProcessWithTools(r.Context(), h.LLM, history, prompt, w, flusher)
 	if err != nil {
-		log.Printf("processWithTools session %d: %v", sessionID, err)
+		slog.Error("process with tools", "session_id", sessionID, "err", err)
 	}
 
 	// Persist whatever content was produced before any error/cancellation.
 	if content != "" {
 		h.App.LockChat()
 		if err := h.App.SaveMessage(sessionID, "assistant", content); err != nil {
-			log.Printf("save assistant message: %v", err)
+			slog.Error("save assistant message", "session_id", sessionID, "err", err)
 		}
 		h.App.UnlockChat()
 	}
@@ -215,12 +215,12 @@ func (h *Handler) handleChat(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) maybeGenerateSummary(sessionID int64) {
 	count, err := h.App.GetMessageCount(sessionID)
 	if err != nil {
-		log.Printf("get message count: %v", err)
+		slog.Warn("get message count", "session_id", sessionID, "err", err)
 		return
 	}
 	_, summaryAt, err := h.App.GetSessionSummary(sessionID)
 	if err != nil {
-		log.Printf("get session summary: %v", err)
+		slog.Warn("get session summary", "session_id", sessionID, "err", err)
 		return
 	}
 	if !(count > summaryAt+summaryThreshold && count > 10) {
@@ -232,21 +232,21 @@ func (h *Handler) maybeGenerateSummary(sessionID int64) {
 		history, err := h.App.GetSessionHistory(sid)
 		h.App.UnlockChat()
 		if err != nil {
-			log.Printf("summary: load history: %v", err)
+			slog.Error("summary load history", "session_id", sid, "err", err)
 			return
 		}
 		summary, err := h.LLM.GenerateSummary(context.Background(), history)
 		if err != nil {
-			log.Printf("summary: generate: %v", err)
+			slog.Error("summary generate", "session_id", sid, "err", err)
 			return
 		}
 		h.App.LockChat()
 		err = h.App.UpdateSessionSummary(sid, summary, len(history))
 		h.App.UnlockChat()
 		if err != nil {
-			log.Printf("summary: update: %v", err)
+			slog.Error("summary update", "session_id", sid, "err", err)
 			return
 		}
-		log.Printf("summary generated for session %d (%d messages)", sid, len(history))
+		slog.Info("summary generated", "session_id", sid, "messages", len(history))
 	}(sessionID)
 }
