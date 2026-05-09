@@ -30,6 +30,7 @@ func loadConfig() (agent.Config, error) {
 		Model:          firstNonEmpty(os.Getenv("LLM_MODEL"), defaultModel),
 		EmbeddingModel: firstNonEmpty(os.Getenv("EMBEDDING_MODEL"), defaultEmbeddingModel),
 		ListenAddr:     firstNonEmpty(os.Getenv("LISTEN_ADDR"), defaultListenAddr),
+		AuthToken:      os.Getenv("AUTH_TOKEN"),
 	}, nil
 }
 

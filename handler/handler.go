@@ -42,6 +42,7 @@ func New(app *agent.App, llm *agent.LLMClient, static embed.FS) *Handler {
 func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("/", h.handleIndex)
 	mux.HandleFunc("/static/", h.handleStatic)
+	mux.HandleFunc("/login", h.handleLogin)
 	mux.HandleFunc("/chat", h.handleChat)
 	mux.HandleFunc("/api/sessions", h.handleSessions)
 	mux.HandleFunc("/api/sessions/active", h.handleSessionActive)

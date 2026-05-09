@@ -16,6 +16,10 @@ type Config struct {
 	Model          string
 	EmbeddingModel string
 	ListenAddr     string
+	// AuthToken gates all non-/login routes when non-empty. When empty,
+	// the auth middleware logs a warning and lets all requests through —
+	// intended only for local development.
+	AuthToken string
 }
 
 // App owns all shared mutable state for the study app: the database
