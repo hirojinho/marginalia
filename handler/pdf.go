@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 
@@ -66,7 +67,7 @@ func (h *Handler) handlePDFUpload(w http.ResponseWriter, r *http.Request) {
 		// itself fails, log it but report the original error to the
 		// client.
 		if delErr := h.App.DeletePDF(id); delErr != nil {
-			fmt.Println("warning: failed to clean up orphan pdf row", id, delErr)
+			log.Printf("warn: failed to clean up orphan pdf row %d: %v", id, delErr)
 		}
 		writeServerError(w, "save pdf", err)
 		return
@@ -75,7 +76,7 @@ func (h *Handler) handlePDFUpload(w http.ResponseWriter, r *http.Request) {
 	if err := h.App.SetLastOpenedPDF(id); err != nil {
 		// Non-fatal: file is saved, row is good — only the "last
 		// opened" hint is missing. Carry on.
-		fmt.Println("warning: set last_opened_pdf:", err)
+		log.Printf("warn: set last_opened_pdf: %v", err)
 	}
 
 	go h.App.ExtractAndCachePDFText(id, filePath)

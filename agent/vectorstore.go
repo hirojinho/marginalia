@@ -56,7 +56,7 @@ func (a *App) IndexCorpus() error {
 	}
 
 	var filesToIndex []string
-	filepath.WalkDir(corpusDir, func(absPath string, d os.DirEntry, err error) error {
+	if err := filepath.WalkDir(corpusDir, func(absPath string, d os.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -72,7 +72,9 @@ func (a *App) IndexCorpus() error {
 			filesToIndex = append(filesToIndex, absPath)
 		}
 		return nil
-	})
+	}); err != nil {
+		log.Printf("walk corpus dir %s: %v", corpusDir, err)
+	}
 
 	if len(filesToIndex) == 0 {
 		log.Println("Corpus is up to date, no reindex needed")
@@ -138,7 +140,9 @@ func (a *App) IndexFile(absPath string) error {
 	}
 
 	var embeddingsCount int
-	a.DB.QueryRow("SELECT COUNT(*) FROM corpus_chunks WHERE path = ? AND embedding IS NOT NULL", relPath).Scan(&embeddingsCount)
+	if err := a.DB.QueryRow("SELECT COUNT(*) FROM corpus_chunks WHERE path = ? AND embedding IS NOT NULL", relPath).Scan(&embeddingsCount); err != nil {
+		log.Printf("warn: count embeddings for %s: %v", relPath, err)
+	}
 	log.Printf("Indexed %s: %d chunks (%d with embeddings)", relPath, len(chunks), embeddingsCount)
 	return nil
 }
@@ -174,7 +178,9 @@ func (a *App) NeedsReindex(absPath string) (bool, error) {
 	}
 
 	var nullEmbeds int
-	a.DB.QueryRow("SELECT COUNT(*) FROM corpus_chunks WHERE path = ? AND embedding IS NULL", relPath).Scan(&nullEmbeds)
+	if err := a.DB.QueryRow("SELECT COUNT(*) FROM corpus_chunks WHERE path = ? AND embedding IS NULL", relPath).Scan(&nullEmbeds); err != nil {
+		log.Printf("warn: count null embeddings for %s: %v", relPath, err)
+	}
 	if nullEmbeds > 0 {
 		return true, nil
 	}
@@ -190,6 +196,7 @@ func (a *App) deleteStalePaths() {
 	corpusDir := a.VaultPath("data", "corpus")
 	rows, err := a.DB.Query("SELECT DISTINCT path FROM corpus_chunks")
 	if err != nil {
+		log.Printf("warn: list corpus paths for stale check: %v", err)
 		return
 	}
 	defer rows.Close()
@@ -198,15 +205,22 @@ func (a *App) deleteStalePaths() {
 	for rows.Next() {
 		var p string
 		if err := rows.Scan(&p); err != nil {
+			log.Printf("warn: scan corpus path: %v", err)
 			continue
 		}
 		paths = append(paths, p)
+	}
+	if err := rows.Err(); err != nil {
+		log.Printf("warn: iterate corpus paths: %v", err)
 	}
 
 	for _, p := range paths {
 		fullPath := filepath.Join(corpusDir, p)
 		if _, err := os.Stat(fullPath); os.IsNotExist(err) {
-			a.DB.Exec("DELETE FROM corpus_chunks WHERE path = ?", p)
+			if _, err := a.DB.Exec("DELETE FROM corpus_chunks WHERE path = ?", p); err != nil {
+				log.Printf("warn: delete stale corpus chunks for %s: %v", p, err)
+				continue
+			}
 			log.Printf("Removed stale corpus chunks for: %s", p)
 		}
 	}

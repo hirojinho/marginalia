@@ -225,7 +225,10 @@ func (a *App) SetActiveSession(id int64) error {
 // LoadActiveSessionID reads the persisted active session id from meta
 // and stores it in memory. Call once at startup.
 func (a *App) LoadActiveSessionID() {
-	id, _ := a.getMetaInt("last_session")
+	id, err := a.getMetaInt("last_session")
+	if err != nil {
+		log.Printf("warn: load active session id: %v", err)
+	}
 	a.SetActiveSessionIDInMemory(id)
 }
 
@@ -342,7 +345,10 @@ func (a *App) getMetaInt(key string) (int64, error) {
 		return 0, fmt.Errorf("get meta %q: %w", key, err)
 	}
 	var n int64
-	fmt.Sscanf(v, "%d", &n)
+	if _, err := fmt.Sscanf(v, "%d", &n); err != nil {
+		log.Printf("warn: parse meta %q value %q as int: %v", key, v, err)
+		return 0, nil
+	}
 	return n, nil
 }
 
