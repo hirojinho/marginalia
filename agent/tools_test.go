@@ -2,6 +2,7 @@ package agent
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -33,5 +34,34 @@ func TestParsePageSelection(t *testing.T) {
 				t.Fatalf("parsePageSelection(%q, %d) = %v, want %v", tc.pages, tc.total, got, tc.want)
 			}
 		})
+	}
+}
+
+func TestPickPages(t *testing.T) {
+	pages := []string{"alpha", "bravo", "charlie", "delta"}
+
+	got := pickPages(pages, []int{0, 2})
+	if len(got) != 2 {
+		t.Fatalf("expected 2 results, got %d", len(got))
+	}
+	if !strings.HasPrefix(got[0], "### Page 1\n") || !strings.Contains(got[0], "alpha") {
+		t.Fatalf("first result wrong: %q", got[0])
+	}
+	if !strings.HasPrefix(got[1], "### Page 3\n") || !strings.Contains(got[1], "charlie") {
+		t.Fatalf("second result wrong: %q", got[1])
+	}
+}
+
+func TestPickPagesIgnoresOutOfRange(t *testing.T) {
+	pages := []string{"alpha", "bravo"}
+	got := pickPages(pages, []int{-1, 0, 5, 1, 99})
+	if len(got) != 2 {
+		t.Fatalf("expected 2 in-range results, got %d: %v", len(got), got)
+	}
+}
+
+func TestPickPagesEmptyIndices(t *testing.T) {
+	if got := pickPages([]string{"a"}, nil); got != nil {
+		t.Fatalf("expected nil for nil indices, got %v", got)
 	}
 }
