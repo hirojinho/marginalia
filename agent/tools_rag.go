@@ -6,7 +6,13 @@ import (
 	"strings"
 )
 
-func (a *App) toolRAGSearch(args json.RawMessage) string {
+// ToolRAGSearch executes a vector search over the indexed corpus and
+// returns a human-readable list of hits. Args JSON shape:
+//
+//	{"query": "...", "course": "ce297", "top_k": 5}
+//
+// `course` is optional; `top_k` defaults to 3 and is clamped to [1, 10].
+func (a *App) ToolRAGSearch(args json.RawMessage) string {
 	var p struct {
 		Query  string `json:"query"`
 		Course string `json:"course"`

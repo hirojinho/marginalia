@@ -63,6 +63,59 @@ func resolveSkillsDir(override string) string {
 	return "skills"
 }
 
+// newAppFromEnv constructs a fully-configured *agent.App from environment
+// variables, mirroring the server's loadConfig. The dbPath argument is the
+// already-resolved absolute path from resolveDBPath; this helper does NOT
+// re-resolve. requireAPIKey controls whether a missing LLM_API_KEY/
+// OPENCODE_API_KEY is a hard error: read-only subcommands pass false; RAG
+// and any subcommand that hits the embedding API pass true.
+func newAppFromEnv(dbPath string, requireAPIKey bool) (*agent.App, error) {
+	apiKey := os.Getenv("LLM_API_KEY")
+	if apiKey == "" {
+		apiKey = os.Getenv("OPENCODE_API_KEY")
+	}
+	if apiKey == "" && requireAPIKey {
+		return nil, fmt.Errorf("LLM_API_KEY or OPENCODE_API_KEY must be set")
+	}
+	vaultRoot := os.Getenv("VAULT_ROOT")
+	if vaultRoot == "" {
+		vaultRoot = resolveStudyRoot()
+	}
+	if vaultRoot == "" {
+		vaultRoot = "/workspace"
+	}
+	apiURL := os.Getenv("LLM_API_URL")
+	if apiURL == "" {
+		apiURL = os.Getenv("OPENCODE_API_URL")
+	}
+	if apiURL == "" {
+		apiURL = "https://opencode.ai/zen/go/v1"
+	}
+	model := os.Getenv("LLM_MODEL")
+	if model == "" {
+		model = "qwen3.6-plus"
+	}
+	embeddingModel := os.Getenv("EMBEDDING_MODEL")
+	if embeddingModel == "" {
+		embeddingModel = "nomic-ai/nomic-embed-text-v1.5"
+	}
+	cfg := agent.Config{
+		VaultRoot:      vaultRoot,
+		APIKey:         apiKey,
+		APIURL:         apiURL,
+		Model:          model,
+		EmbeddingModel: embeddingModel,
+	}
+	db, err := agent.OpenDB(dbPath)
+	if err != nil {
+		return nil, fmt.Errorf("open db: %w", err)
+	}
+	if err := agent.InitSchema(db); err != nil {
+		return nil, fmt.Errorf("init schema: %w", err)
+	}
+	return agent.NewApp(cfg, db), nil
+}
+
 func main() {
 	dbPath := os.Getenv("CLAW_STUDY_DB")
 	if dbPath == "" {
@@ -87,8 +140,10 @@ func runWithStdin(args []string, stdin io.Reader, stdout, stderr io.Writer, dbPa
 	switch args[1] {
 	case "memory":
 		return runMemory(args[2:], stdin, stdout, stderr, dbPath)
+	case "rag":
+		return runRag(args[2:], stdout, stderr, dbPath)
 	default:
-		fmt.Fprintf(stderr, "unknown subcommand: %q\n", args[1])
+		_, _ = fmt.Fprintf(stderr, "unknown subcommand: %q\n", args[1])
 		return 2
 	}
 }
@@ -287,5 +342,53 @@ func memorySave(args []string, stdin io.Reader, stdout, stderr io.Writer, dbPath
 		"kind":  saved.Kind,
 		"title": saved.Title,
 	})
+	return 0
+}
+
+func runRag(args []string, stdout, stderr io.Writer, dbPath string) int {
+	if len(args) < 1 {
+		_, _ = fmt.Fprintln(stderr, "usage: claw-cli rag <search> [args]")
+		return 2
+	}
+	switch args[0] {
+	case "search":
+		return ragSearch(args[1:], stdout, stderr, dbPath)
+	default:
+		_, _ = fmt.Fprintf(stderr, "unknown rag subcommand: %q\n", args[0])
+		return 2
+	}
+}
+
+func ragSearch(args []string, stdout, stderr io.Writer, dbPath string) int {
+	fs := flag.NewFlagSet("rag search", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	query := fs.String("query", "", "search query (required)")
+	course := fs.String("course", "", "course id filter (optional)")
+	topK := fs.Int("top-k", 3, "number of results (1-10)")
+	dbOverride := fs.String("db", "", "path to study.db (default: $CLAW_STUDY_DB or $CLAW_STUDY_ROOT/data/study.db)")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	if *query == "" {
+		_, _ = fmt.Fprintln(stderr, "rag search: --query is required")
+		return 2
+	}
+	resolvedDB, err := resolveDBPath(*dbOverride, dbPath)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return 1
+	}
+	app, err := newAppFromEnv(resolvedDB, true)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return 1
+	}
+	defer func() { _ = app.Close() }()
+	argsJSON, _ := json.Marshal(map[string]any{
+		"query":  *query,
+		"course": *course,
+		"top_k":  *topK,
+	})
+	_, _ = fmt.Fprintln(stdout, app.ToolRAGSearch(argsJSON))
 	return 0
 }

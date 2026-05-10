@@ -187,7 +187,7 @@ func (a *App) ExecuteTool(name string, args json.RawMessage) string {
 	case "study_skill":
 		return a.toolStudySkill(args)
 	case "rag_search":
-		return a.toolRAGSearch(args)
+		return a.ToolRAGSearch(args)
 	}
 	return "unknown tool: " + name
 }

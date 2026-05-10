@@ -256,3 +256,27 @@ func TestRunMemoryLoadDefaultSkillsDirMissingIsOK(t *testing.T) {
 		t.Fatalf("expected skill section fallback, got: %s", stdout.String())
 	}
 }
+
+func TestRunRagSearchRequiresAPIKey(t *testing.T) {
+	dbPath := newTempDB(t)
+	t.Setenv("LLM_API_KEY", "")
+	t.Setenv("OPENCODE_API_KEY", "")
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"clawcli", "rag", "search", "--query", "x", "--db", dbPath}, &stdout, &stderr, "")
+	if code != 1 {
+		t.Fatalf("exit %d, want 1; stderr: %s", code, stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "LLM_API_KEY") {
+		t.Fatalf("expected LLM_API_KEY error, got: %s", stderr.String())
+	}
+}
+
+func TestRunRagSearchMissingQueryExits2(t *testing.T) {
+	dbPath := newTempDB(t)
+	t.Setenv("LLM_API_KEY", "stub")
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"clawcli", "rag", "search", "--db", dbPath}, &stdout, &stderr, "")
+	if code != 2 {
+		t.Fatalf("exit %d, want 2", code)
+	}
+}
