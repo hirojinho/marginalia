@@ -144,6 +144,8 @@ func runWithStdin(args []string, stdin io.Reader, stdout, stderr io.Writer, dbPa
 		return runRag(args[2:], stdout, stderr, dbPath)
 	case "plan":
 		return runPlan(args[2:], stdout, stderr, dbPath)
+	case "course":
+		return runCourse(args[2:], stdout, stderr, dbPath)
 	default:
 		_, _ = fmt.Fprintf(stderr, "unknown subcommand: %q\n", args[1])
 		return 2
@@ -441,6 +443,53 @@ func planToggle(args []string, stdout, stderr io.Writer, dbPath string) int {
 		"task_index": *taskIndex,
 	})
 	_, _ = fmt.Fprintln(stdout, app.ToolUpdatePlan(argsJSON))
+	return 0
+}
+
+func runCourse(args []string, stdout, stderr io.Writer, dbPath string) int {
+	if len(args) < 1 {
+		_, _ = fmt.Fprintln(stderr, "usage: claw-cli course <interests> [args]")
+		return 2
+	}
+	switch args[0] {
+	case "interests":
+		return courseInterests(args[1:], stdout, stderr, dbPath)
+	default:
+		_, _ = fmt.Fprintf(stderr, "unknown course subcommand: %q\n", args[0])
+		return 2
+	}
+}
+
+func courseInterests(args []string, stdout, stderr io.Writer, dbPath string) int {
+	fs := flag.NewFlagSet("course interests", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	course := fs.String("course", "", "course id (required)")
+	dbOverride := fs.String("db", "", "path to study.db")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	if *course == "" {
+		_, _ = fmt.Fprintln(stderr, "course interests: --course is required")
+		return 2
+	}
+	resolvedDB, err := resolveDBPath(*dbOverride, dbPath)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return 1
+	}
+	app, err := newAppFromEnv(resolvedDB, false)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return 1
+	}
+	defer func() { _ = app.Close() }()
+	path := app.VaultPath("memory", "courses", *course, "interests.md")
+	body, err := os.ReadFile(path)
+	if err != nil {
+		_, _ = fmt.Fprintf(stderr, "interests not found at %q: %v\n", path, err)
+		return 1
+	}
+	_, _ = stdout.Write(body)
 	return 0
 }
 

@@ -306,3 +306,36 @@ func TestRunPlanToggleMissingTaskExits2(t *testing.T) {
 		t.Fatalf("expected missing-task error, got: %s", stderr.String())
 	}
 }
+
+func TestRunCourseInterestsReturnsFile(t *testing.T) {
+	dbPath := newTempDB(t)
+	vault := t.TempDir()
+	dir := filepath.Join(vault, "memory", "courses", "ce297")
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	body := "# CE-297 interests\n\nFormal methods angle on safety.\n"
+	if err := os.WriteFile(filepath.Join(dir, "interests.md"), []byte(body), 0644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("VAULT_ROOT", vault)
+
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"clawcli", "course", "interests", "--course", "ce297", "--db", dbPath}, &stdout, &stderr, "")
+	if code != 0 {
+		t.Fatalf("exit %d, stderr: %s", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "Formal methods angle on safety") {
+		t.Fatalf("expected file contents in stdout, got: %s", stdout.String())
+	}
+}
+
+func TestRunCourseInterestsMissingFileExits1(t *testing.T) {
+	dbPath := newTempDB(t)
+	t.Setenv("VAULT_ROOT", t.TempDir())
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"clawcli", "course", "interests", "--course", "no-such", "--db", dbPath}, &stdout, &stderr, "")
+	if code != 1 {
+		t.Fatalf("exit %d, want 1", code)
+	}
+}
