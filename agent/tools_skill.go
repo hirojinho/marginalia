@@ -10,7 +10,9 @@ import (
 	"strings"
 )
 
-func (a *App) toolStudySkill(args json.RawMessage) string {
+// ToolStudySkill dispatches a named study skill (orientation, study_notes,
+// self_test, review, grill_me) for the given topic and course.
+func (a *App) ToolStudySkill(args json.RawMessage) string {
 	var p struct {
 		Skill  string            `json:"skill"`
 		Params map[string]string `json:"params"`

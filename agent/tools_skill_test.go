@@ -65,7 +65,7 @@ func TestReadDirAsCorpus_FiltersToMarkdown(t *testing.T) {
 
 func TestToolStudySkill_BadJSON(t *testing.T) {
 	a := newMemoryApp(t)
-	if out := a.toolStudySkill(json.RawMessage(`bad`)); !strings.HasPrefix(out, "error:") {
+	if out := a.ToolStudySkill(json.RawMessage(`bad`)); !strings.HasPrefix(out, "error:") {
 		t.Fatalf("got %q", out)
 	}
 }
@@ -88,7 +88,7 @@ func TestToolStudySkill_AllSkillBranches(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.skill, func(t *testing.T) {
 			args := json.RawMessage(`{"skill":"` + tc.skill + `","params":{"topic":"STPA","course_id":"ce297","count":"3"}}`)
-			out := a.toolStudySkill(args)
+			out := a.ToolStudySkill(args)
 			if !strings.Contains(out, tc.want) {
 				t.Fatalf("got %q", out)
 			}
@@ -129,7 +129,7 @@ func TestToolStudySkill_SelfTestCountClamping(t *testing.T) {
 	if err := a.InitVectorStore(); err != nil {
 		t.Fatalf("init: %v", err)
 	}
-	out := a.toolStudySkill(json.RawMessage(`{"skill":"self_test","params":{"topic":"X","count":"99"}}`))
+	out := a.ToolStudySkill(json.RawMessage(`{"skill":"self_test","params":{"topic":"X","count":"99"}}`))
 	if !strings.Contains(out, "5 exam-style") {
 		t.Fatalf("expected default 5 when count > 20, got %q", out)
 	}
@@ -137,7 +137,7 @@ func TestToolStudySkill_SelfTestCountClamping(t *testing.T) {
 
 func TestToolStudySkill_UnknownSkill(t *testing.T) {
 	a := newMemoryApp(t)
-	out := a.toolStudySkill(json.RawMessage(`{"skill":"floof"}`))
+	out := a.ToolStudySkill(json.RawMessage(`{"skill":"floof"}`))
 	if !strings.Contains(out, "unknown skill") {
 		t.Fatalf("got %q", out)
 	}

@@ -423,3 +423,29 @@ func TestRunNoteSaveMissingFlagsExits2(t *testing.T) {
 		t.Fatalf("expected --content in stderr, got: %s", stderr.String())
 	}
 }
+
+func TestRunSkillDispatchReturnsPrompt(t *testing.T) {
+	dbPath := newTempDB(t)
+	t.Setenv("VAULT_ROOT", t.TempDir())
+	var stdout, stderr bytes.Buffer
+	code := run([]string{
+		"clawcli", "skill", "dispatch",
+		"--skill", "orientation", "--topic", "STAMP", "--course", "ce297",
+		"--db", dbPath,
+	}, &stdout, &stderr, "")
+	if code != 0 {
+		t.Fatalf("exit %d, stderr: %s", code, stderr.String())
+	}
+	if stdout.Len() == 0 {
+		t.Fatalf("expected non-empty prompt output")
+	}
+}
+
+func TestRunSkillDispatchMissingFlagsExits2(t *testing.T) {
+	dbPath := newTempDB(t)
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"clawcli", "skill", "dispatch", "--db", dbPath}, &stdout, &stderr, "")
+	if code != 2 {
+		t.Fatalf("exit %d, want 2", code)
+	}
+}

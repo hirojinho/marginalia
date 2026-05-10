@@ -153,6 +153,8 @@ func runWithStdin(args []string, stdin io.Reader, stdout, stderr io.Writer, dbPa
 		return runPDF(args[2:], stdout, stderr, dbPath)
 	case "web":
 		return runWeb(args[2:], stdout, stderr, dbPath)
+	case "skill":
+		return runSkill(args[2:], stdout, stderr, dbPath)
 	default:
 		_, _ = fmt.Fprintf(stderr, "unknown subcommand: %q\n", args[1])
 		return 2
@@ -626,6 +628,58 @@ func webFetch(args []string, stdout, stderr io.Writer, dbPath string) int {
 	_ = resolvedDB
 	argsJSON, _ := json.Marshal(map[string]any{"url": url}) // Marshal of string value cannot fail
 	_, _ = fmt.Fprintln(stdout, agent.ToolWebFetch(argsJSON))
+	return 0
+}
+
+func runSkill(args []string, stdout, stderr io.Writer, dbPath string) int {
+	if len(args) < 1 {
+		_, _ = fmt.Fprintln(stderr, "usage: claw-cli skill <dispatch> [args]")
+		return 2
+	}
+	switch args[0] {
+	case "dispatch":
+		return skillDispatch(args[1:], stdout, stderr, dbPath)
+	default:
+		_, _ = fmt.Fprintf(stderr, "unknown skill subcommand: %q\n", args[0])
+		return 2
+	}
+}
+
+func skillDispatch(args []string, stdout, stderr io.Writer, dbPath string) int {
+	fs := flag.NewFlagSet("skill dispatch", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	skill := fs.String("skill", "", "skill name (required)")
+	topic := fs.String("topic", "", "topic for the skill (required)")
+	course := fs.String("course", "", "course id (required)")
+	count := fs.Int("count", 5, "number of items (optional, default 5)")
+	dbOverride := fs.String("db", "", "path to study.db")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	if *skill == "" || *topic == "" || *course == "" {
+		_, _ = fmt.Fprintln(stderr, "skill dispatch: --skill, --topic, and --course are required")
+		return 2
+	}
+	resolvedDB, err := resolveDBPath(*dbOverride, dbPath)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return 1
+	}
+	app, err := newAppFromEnv(resolvedDB, false)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return 1
+	}
+	defer func() { _ = app.Close() }()
+	argsJSON, _ := json.Marshal(map[string]any{ // Marshal of string/int values cannot fail
+		"skill": *skill,
+		"params": map[string]string{
+			"topic":     *topic,
+			"course_id": *course,
+			"count":     fmt.Sprintf("%d", *count),
+		},
+	})
+	_, _ = fmt.Fprintln(stdout, app.ToolStudySkill(argsJSON))
 	return 0
 }
 
