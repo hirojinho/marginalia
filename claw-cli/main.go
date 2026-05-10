@@ -453,18 +453,17 @@ func runCourse(args []string, stdout, stderr io.Writer, dbPath string) int {
 	}
 	switch args[0] {
 	case "interests":
-		return courseInterests(args[1:], stdout, stderr, dbPath)
+		return courseInterests(args[1:], stdout, stderr)
 	default:
 		_, _ = fmt.Fprintf(stderr, "unknown course subcommand: %q\n", args[0])
 		return 2
 	}
 }
 
-func courseInterests(args []string, stdout, stderr io.Writer, dbPath string) int {
+func courseInterests(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("course interests", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	course := fs.String("course", "", "course id (required)")
-	dbOverride := fs.String("db", "", "path to study.db")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -472,21 +471,18 @@ func courseInterests(args []string, stdout, stderr io.Writer, dbPath string) int
 		_, _ = fmt.Fprintln(stderr, "course interests: --course is required")
 		return 2
 	}
-	resolvedDB, err := resolveDBPath(*dbOverride, dbPath)
-	if err != nil {
-		_, _ = fmt.Fprintln(stderr, err)
+	vaultRoot := os.Getenv("VAULT_ROOT")
+	if vaultRoot == "" {
+		vaultRoot = resolveStudyRoot()
+	}
+	if vaultRoot == "" {
+		_, _ = fmt.Fprintln(stderr, "course interests: VAULT_ROOT or CLAW_STUDY_ROOT must be set")
 		return 1
 	}
-	app, err := newAppFromEnv(resolvedDB, false)
+	interestsPath := filepath.Join(vaultRoot, "memory", "courses", *course, "interests.md")
+	body, err := os.ReadFile(interestsPath)
 	if err != nil {
-		_, _ = fmt.Fprintln(stderr, err)
-		return 1
-	}
-	defer func() { _ = app.Close() }()
-	path := app.VaultPath("memory", "courses", *course, "interests.md")
-	body, err := os.ReadFile(path)
-	if err != nil {
-		_, _ = fmt.Fprintf(stderr, "interests not found at %q: %v\n", path, err)
+		_, _ = fmt.Fprintf(stderr, "interests not found at %q: %v\n", interestsPath, err)
 		return 1
 	}
 	_, _ = stdout.Write(body)

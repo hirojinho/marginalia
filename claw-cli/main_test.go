@@ -308,7 +308,6 @@ func TestRunPlanToggleMissingTaskExits2(t *testing.T) {
 }
 
 func TestRunCourseInterestsReturnsFile(t *testing.T) {
-	dbPath := newTempDB(t)
 	vault := t.TempDir()
 	dir := filepath.Join(vault, "memory", "courses", "ce297")
 	if err := os.MkdirAll(dir, 0755); err != nil {
@@ -321,7 +320,7 @@ func TestRunCourseInterestsReturnsFile(t *testing.T) {
 	t.Setenv("VAULT_ROOT", vault)
 
 	var stdout, stderr bytes.Buffer
-	code := run([]string{"clawcli", "course", "interests", "--course", "ce297", "--db", dbPath}, &stdout, &stderr, "")
+	code := run([]string{"clawcli", "course", "interests", "--course", "ce297"}, &stdout, &stderr, "")
 	if code != 0 {
 		t.Fatalf("exit %d, stderr: %s", code, stderr.String())
 	}
@@ -331,11 +330,21 @@ func TestRunCourseInterestsReturnsFile(t *testing.T) {
 }
 
 func TestRunCourseInterestsMissingFileExits1(t *testing.T) {
-	dbPath := newTempDB(t)
 	t.Setenv("VAULT_ROOT", t.TempDir())
 	var stdout, stderr bytes.Buffer
-	code := run([]string{"clawcli", "course", "interests", "--course", "no-such", "--db", dbPath}, &stdout, &stderr, "")
+	code := run([]string{"clawcli", "course", "interests", "--course", "no-such"}, &stdout, &stderr, "")
 	if code != 1 {
 		t.Fatalf("exit %d, want 1", code)
+	}
+}
+
+func TestRunCourseInterestsMissingCourseExits2(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"clawcli", "course", "interests"}, &stdout, &stderr, "")
+	if code != 2 {
+		t.Fatalf("exit %d, want 2 (missing --course)", code)
+	}
+	if !strings.Contains(stderr.String(), "--course") {
+		t.Fatalf("expected --course error in stderr, got: %s", stderr.String())
 	}
 }
