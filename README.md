@@ -75,17 +75,15 @@ To roll back: `mv study-app study-app.broken && mv study-app.bak study-app && sy
 
 The cloudflared tunnel (`tunnel: 7dede37f-...`) keeps `https://study.claw-study.xyz` mapped to `127.0.0.1:8081`. The tunnel survives app restarts and only reconnects when its own service is restarted.
 
-## Specs and design docs
+## Documentation
 
-| File | Subject |
-|---|---|
-| `SPEC-ARCHITECTURE.md` | Top-level architecture and dependency boundaries. |
-| `SPEC-RAG-SEARCH.md` | Vector-store layout and retrieval flow. |
-| `SPEC-PDF-VIEWER.md` | Embedded pdf.js viewer + annotation persistence. |
-| `SPEC-TOOLS.md` | Function-call tools the LLM can invoke. |
-| `SPEC-PHASE2.1.md`, `SPEC-PHASE2.2.md` | Architecture milestones during the App-struct refactor. |
-| `DESIGN.md` | Older overall design notes. |
-| `IMPLEMENTATION-PLAN.md`, `PLAN-RAG-IMPLEMENTATION.md` | Step-by-step plans (historical). |
+- [`docs/`](docs/) — index of specs, ADRs, and skill docs.
+- [`docs/specs/`](docs/specs/) — current behavior (architecture, RAG, PDF viewer, tools).
+- [`docs/adr/`](docs/adr/) — architecture decision records.
+- [`CHANGELOG.md`](CHANGELOG.md) — what shipped, when.
+- [`ROADMAP.md`](ROADMAP.md) — Now / Next / Later.
+
+Historical phase plans and superseded designs live in [`docs/specs/archive/`](docs/specs/archive/).
 
 ## Stack
 
