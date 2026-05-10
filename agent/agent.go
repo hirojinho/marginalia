@@ -1,3 +1,7 @@
+// Package agent owns the study-agent's persistence, LLM, vector store, RAG,
+// tools, prompts, and AGENTS.md memory subsystem. The App struct centralizes
+// shared state (DB, config, mutex, active session); methods on App are the
+// primary persistence + orchestration surface.
 package agent
 
 import (

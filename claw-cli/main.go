@@ -1,4 +1,4 @@
-// claw-cli is the agent's command-line surface into claw-study state.
+// Command claw-cli is the agent's command-line surface into claw-study state.
 // It is invoked by Pi via the bash tool. All subcommands write JSON
 // (or markdown for `memory load`) to stdout. Errors go to stderr with
 // non-zero exit codes.

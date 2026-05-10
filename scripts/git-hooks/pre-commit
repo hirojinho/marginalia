@@ -12,23 +12,38 @@ STAGED_JS=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '\.(js|ht
 
 if [ -n "$STAGED_GO" ]; then
   echo "==> gofmt -s -d (staged Go files)"
-  fmt_out="$(gofmt -s -d $STAGED_GO || true)"
-  if [ -n "$fmt_out" ]; then
-    echo "$fmt_out"
-    echo "FAIL: run 'gofmt -s -w <file>' to fix"
+  # Capture stdout (diffs) and stderr (parse errors) separately.
+  # 'set -e' is disabled here because gofmt exits non-zero on both parse errors and diffs.
+  set +e
+  fmt_diff="$(gofmt -s -d $STAGED_GO 2>/dev/null)"
+  fmt_err="$(gofmt -s -d $STAGED_GO 2>&1 >/dev/null)"
+  set -e
+  if [ -n "$fmt_err" ]; then
+    echo "$fmt_err"
+    echo "FAIL: gofmt failed (likely a parse error)"
+    exit 1
+  fi
+  if [ -n "$fmt_diff" ]; then
+    echo "$fmt_diff"
+    echo "FAIL: formatting issues found; run 'gofmt -s -w <file>' to fix"
     exit 1
   fi
 
-  echo "==> golangci-lint run (staged Go files)"
-  if ! golangci-lint run $STAGED_GO; then
+  # Lint the packages (directories) containing staged Go files, not individual files —
+  # golangci-lint per-file mode produces spurious typecheck errors.
+  # --new-from-rev HEAD means: only report issues introduced since the last commit,
+  # so pre-existing debt does not block new commits.
+  STAGED_GO_PKGS=$(echo "$STAGED_GO" | xargs -n1 dirname | sort -u | sed 's|^|./|;s|$|/...|')
+  echo "==> golangci-lint run (packages: $STAGED_GO_PKGS)"
+  if ! golangci-lint run --new-from-rev HEAD $STAGED_GO_PKGS; then
     echo "FAIL: fix lint violations in staged Go files"
     exit 1
   fi
 fi
 
 if [ -n "$STAGED_JS" ]; then
-  if [ ! -d "$ROOT/node_modules" ]; then
-    echo "WARN: node_modules missing; run 'npm install' to enable JS lint."
+  if [ ! -x "$ROOT/node_modules/.bin/prettier" ]; then
+    echo "WARN: prettier missing in node_modules; run 'npm install' to enable JS lint."
     echo "Skipping prettier+eslint for this commit."
   else
     echo "==> prettier --check (staged files)"

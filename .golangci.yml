@@ -16,9 +16,19 @@ linters:
     - misspell       # typos in comments and strings
     - unconvert      # unnecessary type conversions
     - prealloc       # slice prealloc opportunities
+    - gochecknoinits  # ban init() functions (invisible execution order)
+    - gochecknoglobals # ban package-level mutable state (concurrency + test pollution)
+    - forbidigo       # ban any/interface{} outside protocol boundaries
   settings:
     gocyclo:
       min-complexity: 15
+    forbidigo:
+      forbid:
+        - pattern: '\binterface\{\}'
+          msg: 'use a concrete type or named interface; interface{} only at protocol boundaries (JSON, sql.Scan)'
+        - pattern: '\bany\b'
+          msg: 'use a concrete type or named interface; any only at protocol boundaries'
+      analyze-types: true
     revive:
       rules:
         - name: var-naming
@@ -30,8 +40,32 @@ linters:
         - name: empty-block
         - name: superfluous-else
   exclusions:
+    paths:
+      - node_modules
     rules:
       - path: _test\.go
-        linters: [gocyclo]
+        linters: [gocyclo, gochecknoglobals, gochecknoinits, forbidigo]
       - path: agent/db\.go
         linters: [gocyclo]
+      # LLM/embed request bodies, tool parameter schemas, vectorstore SQL args —
+      # all JSON/sql.Scan protocol boundaries where interface{} is legitimate.
+      - path: 'agent/(llm|embed|tools|vectorstore|memory)\.go'
+        linters: [forbidigo]
+      # HTTP response boundary: writeJSON and ad-hoc map responses use interface{}.
+      - path: 'handler/.*\.go'
+        linters: [forbidigo]
+      # JSON output boundary in the CLI: ad-hoc response maps use any.
+      - path: 'claw-cli/main\.go'
+        linters: [forbidigo]
+      # Rate-limiter vars are package-scoped singletons by design (see comment in file).
+      - path: 'agent/tools_web\.go'
+        linters: [gochecknoglobals]
+      # KnownCourses is a package-level read-only lookup table, not mutable state.
+      - path: 'agent/tools\.go'
+        linters: [gochecknoglobals]
+      # courseNames is a compile-time read-only map used only in the convert binary.
+      - path: 'convert/main\.go'
+        linters: [gochecknoglobals]
+      # dataSubdirs is a compile-time read-only slice of directory names for initialization.
+      - path: '^main\.go'
+        linters: [gochecknoglobals]

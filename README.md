@@ -38,6 +38,8 @@ $VAULT_ROOT/
 
 ## Running locally
 
+**Prerequisites:** Go ≥ 1.24, Node ≥ 18.18 (for ESLint 9 flat config), Homebrew.
+
 Requires Go ≥ 1.24 (for `github.com/ledongthuc/pdf`).
 
 ```bash

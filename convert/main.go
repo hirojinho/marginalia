@@ -1,3 +1,7 @@
+// Command convert is a one-shot CLI that transforms legacy plan JSON files
+// from the old schema (sessions-based) to the current phases/tasks schema
+// used by the study app. Run once per plan file; idempotent on already-
+// converted files (no-ops if the target schema is already present).
 package main
 
 import (
@@ -9,16 +13,16 @@ import (
 )
 
 type Plan struct {
-	ID       string  `json:"id"`
-	Name     string  `json:"name"`
-	Phases   []Phase `json:"phases"`
+	ID       string    `json:"id"`
+	Name     string    `json:"name"`
+	Phases   []Phase   `json:"phases"`
 	Sessions []Session `json:"sessions,omitempty"`
 }
 
 type Phase struct {
-	Title     string    `json:"title"`
-	Clusters  []Cluster `json:"clusters,omitempty"`
-	Tasks     []Task    `json:"tasks,omitempty"`
+	Title    string    `json:"title"`
+	Clusters []Cluster `json:"clusters,omitempty"`
+	Tasks    []Task    `json:"tasks,omitempty"`
 }
 
 type Cluster struct {
@@ -41,11 +45,11 @@ type Session struct {
 }
 
 var courseNames = map[string]string{
-	"ce297":    "Safety Models and Techniques (CE-297)",
-	"ddia":     "Designing Data-Intensive Applications",
+	"ce297":         "Safety Models and Techniques (CE-297)",
+	"ddia":          "Designing Data-Intensive Applications",
 	"dsa-interview": "DSA Interview Prep",
 	"software-arch": "Software Architecture",
-	"thesis":   "Thesis — Phase 1 Survey",
+	"thesis":        "Thesis — Phase 1 Survey",
 }
 
 func main() {

@@ -5,7 +5,7 @@ from a 2026-05-10 grill-me session and are not up for re-litigation without an e
 session.
 
 > **For agents:** read this file before writing any code. Lint enforces the mechanically-checkable
-> subset (see `.golangci.yml`, `.eslintrc.cjs`); the prose rules below carry the rest.
+> subset (see `.golangci.yml`, `eslint.config.js`); the prose rules below carry the rest.
 > Pre-commit blocks on lint failures — do not bypass without permission.
 
 ---
@@ -205,7 +205,7 @@ See the **Embrace / ban** section below.
 | Go specifics + examples | `docs/style/go.md` |
 | JS specifics + examples | `docs/style/js.md` |
 | Go lint config | `.golangci.yml` |
-| JS lint config | `.eslintrc.cjs` |
+| JS lint config | `eslint.config.js` |
 | Format config (JS) | `.prettierrc.json` |
 | Pre-commit hook | `scripts/git-hooks/pre-commit` |
 

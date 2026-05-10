@@ -1,3 +1,7 @@
+// Command claw-study is the main entrypoint for the study app HTTP server.
+// It loads config from environment variables, opens the SQLite database,
+// builds the agent.App, registers handler routes, and starts the server
+// with graceful shutdown on SIGINT/SIGTERM.
 package main
 
 import (
