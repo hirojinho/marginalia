@@ -142,6 +142,8 @@ func runWithStdin(args []string, stdin io.Reader, stdout, stderr io.Writer, dbPa
 		return runMemory(args[2:], stdin, stdout, stderr, dbPath)
 	case "rag":
 		return runRag(args[2:], stdout, stderr, dbPath)
+	case "plan":
+		return runPlan(args[2:], stdout, stderr, dbPath)
 	default:
 		_, _ = fmt.Fprintf(stderr, "unknown subcommand: %q\n", args[1])
 		return 2
@@ -357,6 +359,89 @@ func runRag(args []string, stdout, stderr io.Writer, dbPath string) int {
 		_, _ = fmt.Fprintf(stderr, "unknown rag subcommand: %q\n", args[0])
 		return 2
 	}
+}
+
+func runPlan(args []string, stdout, stderr io.Writer, dbPath string) int {
+	if len(args) < 1 {
+		_, _ = fmt.Fprintln(stderr, "usage: claw-cli plan <show|toggle> [args]")
+		return 2
+	}
+	switch args[0] {
+	case "show":
+		return planShow(args[1:], stdout, stderr, dbPath)
+	case "toggle":
+		return planToggle(args[1:], stdout, stderr, dbPath)
+	default:
+		_, _ = fmt.Fprintf(stderr, "unknown plan subcommand: %q\n", args[0])
+		return 2
+	}
+}
+
+func planShow(args []string, stdout, stderr io.Writer, dbPath string) int {
+	fs := flag.NewFlagSet("plan show", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	course := fs.String("course", "", "course id (required)")
+	dbOverride := fs.String("db", "", "path to study.db")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	if *course == "" {
+		_, _ = fmt.Fprintln(stderr, "plan show: --course is required")
+		return 2
+	}
+	resolvedDB, err := resolveDBPath(*dbOverride, dbPath)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return 1
+	}
+	app, err := newAppFromEnv(resolvedDB, false)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return 1
+	}
+	defer func() { _ = app.Close() }()
+	plan := app.LoadPlan(*course)
+	if plan == nil {
+		_, _ = fmt.Fprintf(stderr, "plan not found for course %q\n", *course)
+		return 1
+	}
+	enc := json.NewEncoder(stdout)
+	enc.SetIndent("", "  ")
+	_ = enc.Encode(plan)
+	return 0
+}
+
+func planToggle(args []string, stdout, stderr io.Writer, dbPath string) int {
+	fs := flag.NewFlagSet("plan toggle", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	course := fs.String("course", "", "course id / plan id (required)")
+	taskIndex := fs.Int("task", -1, "task index in plan (required, ≥0)")
+	dbOverride := fs.String("db", "", "path to study.db")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	if *course == "" || *taskIndex < 0 {
+		_, _ = fmt.Fprintln(stderr, "plan toggle: --course and --task (≥0) are required")
+		return 2
+	}
+	resolvedDB, err := resolveDBPath(*dbOverride, dbPath)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return 1
+	}
+	app, err := newAppFromEnv(resolvedDB, false)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return 1
+	}
+	defer func() { _ = app.Close() }()
+	argsJSON, _ := json.Marshal(map[string]any{ // Marshal of string/int values cannot fail
+		"plan_id":    *course,
+		"action":     "toggle",
+		"task_index": *taskIndex,
+	})
+	_, _ = fmt.Fprintln(stdout, app.ToolUpdatePlan(argsJSON))
+	return 0
 }
 
 func ragSearch(args []string, stdout, stderr io.Writer, dbPath string) int {

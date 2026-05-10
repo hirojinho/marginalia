@@ -280,3 +280,26 @@ func TestRunRagSearchMissingQueryExits2(t *testing.T) {
 		t.Fatalf("exit %d, want 2", code)
 	}
 }
+
+func TestRunPlanShowEmptyPlanReturnsError(t *testing.T) {
+	dbPath := newTempDB(t)
+	t.Setenv("VAULT_ROOT", t.TempDir()) // empty vault → no plan files
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"clawcli", "plan", "show", "--course", "ce297", "--db", dbPath}, &stdout, &stderr, "")
+	// Plan not found is a soft error: exit 1 with a clear message.
+	if code != 1 {
+		t.Fatalf("exit %d, want 1; stderr: %s", code, stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "plan not found") {
+		t.Fatalf("expected plan-not-found error, got: %s", stderr.String())
+	}
+}
+
+func TestRunPlanToggleMissingTaskExits2(t *testing.T) {
+	dbPath := newTempDB(t)
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"clawcli", "plan", "toggle", "--course", "ce297", "--db", dbPath}, &stdout, &stderr, "")
+	if code != 2 {
+		t.Fatalf("exit %d, want 2 (missing --task)", code)
+	}
+}

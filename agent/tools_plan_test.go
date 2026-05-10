@@ -95,7 +95,7 @@ func TestCountTasksInPlan(t *testing.T) {
 
 func TestToolUpdatePlan_BadJSON(t *testing.T) {
 	a := newMemoryApp(t)
-	out := a.toolUpdatePlan(json.RawMessage("not json"))
+	out := a.ToolUpdatePlan(json.RawMessage("not json"))
 	if !strings.HasPrefix(out, "error:") {
 		t.Fatalf("expected error, got %q", out)
 	}
@@ -103,7 +103,7 @@ func TestToolUpdatePlan_BadJSON(t *testing.T) {
 
 func TestToolUpdatePlan_MissingPlanID(t *testing.T) {
 	a := newMemoryApp(t)
-	out := a.toolUpdatePlan(json.RawMessage(`{}`))
+	out := a.ToolUpdatePlan(json.RawMessage(`{}`))
 	if !strings.Contains(out, "plan_id is required") {
 		t.Fatalf("got %q", out)
 	}
@@ -111,7 +111,7 @@ func TestToolUpdatePlan_MissingPlanID(t *testing.T) {
 
 func TestToolUpdatePlan_PlanNotFound(t *testing.T) {
 	a := newMemoryApp(t)
-	out := a.toolUpdatePlan(json.RawMessage(`{"plan_id":"missing","action":"toggle","task_index":0}`))
+	out := a.ToolUpdatePlan(json.RawMessage(`{"plan_id":"missing","action":"toggle","task_index":0}`))
 	if !strings.Contains(out, "plan not found") {
 		t.Fatalf("got %q", out)
 	}
@@ -121,7 +121,7 @@ func TestToolUpdatePlan_Toggle(t *testing.T) {
 	a := newMemoryApp(t)
 	writePlan(t, a, samplePlan())
 
-	out := a.toolUpdatePlan(json.RawMessage(`{"plan_id":"ce297","action":"toggle","task_index":0}`))
+	out := a.ToolUpdatePlan(json.RawMessage(`{"plan_id":"ce297","action":"toggle","task_index":0}`))
 	if !strings.Contains(out, "marked as done") {
 		t.Fatalf("expected toggled-to-done, got %q", out)
 	}
@@ -137,7 +137,7 @@ func TestToolUpdatePlan_SetDoneOnClusterTask(t *testing.T) {
 	writePlan(t, a, samplePlan())
 
 	// indices: 0,1 phase tasks; 2,3 cluster tasks
-	out := a.toolUpdatePlan(json.RawMessage(`{"plan_id":"ce297","action":"set_done","task_index":3}`))
+	out := a.ToolUpdatePlan(json.RawMessage(`{"plan_id":"ce297","action":"set_done","task_index":3}`))
 	if !strings.Contains(out, "cluster") || !strings.Contains(out, "done") {
 		t.Fatalf("got %q", out)
 	}
@@ -150,7 +150,7 @@ func TestToolUpdatePlan_SetDoneOnClusterTask(t *testing.T) {
 func TestToolUpdatePlan_TaskIndexOutOfRange(t *testing.T) {
 	a := newMemoryApp(t)
 	writePlan(t, a, samplePlan())
-	out := a.toolUpdatePlan(json.RawMessage(`{"plan_id":"ce297","action":"toggle","task_index":99}`))
+	out := a.ToolUpdatePlan(json.RawMessage(`{"plan_id":"ce297","action":"toggle","task_index":99}`))
 	if !strings.Contains(out, "not found") {
 		t.Fatalf("got %q", out)
 	}
@@ -160,7 +160,7 @@ func TestToolUpdatePlan_AddTask(t *testing.T) {
 	a := newMemoryApp(t)
 	writePlan(t, a, samplePlan())
 
-	out := a.toolUpdatePlan(json.RawMessage(`{"plan_id":"ce297","action":"add_task","task_title":"New thing","task_priority":"high"}`))
+	out := a.ToolUpdatePlan(json.RawMessage(`{"plan_id":"ce297","action":"add_task","task_title":"New thing","task_priority":"high"}`))
 	if !strings.Contains(out, "Added task") {
 		t.Fatalf("got %q", out)
 	}
@@ -174,7 +174,7 @@ func TestToolUpdatePlan_AddTask(t *testing.T) {
 func TestToolUpdatePlan_AddTaskMissingTitle(t *testing.T) {
 	a := newMemoryApp(t)
 	writePlan(t, a, samplePlan())
-	out := a.toolUpdatePlan(json.RawMessage(`{"plan_id":"ce297","action":"add_task"}`))
+	out := a.ToolUpdatePlan(json.RawMessage(`{"plan_id":"ce297","action":"add_task"}`))
 	if !strings.Contains(out, "task_title is required") {
 		t.Fatalf("got %q", out)
 	}
@@ -183,7 +183,7 @@ func TestToolUpdatePlan_AddTaskMissingTitle(t *testing.T) {
 func TestToolUpdatePlan_AddTaskNoPhases(t *testing.T) {
 	a := newMemoryApp(t)
 	writePlan(t, a, &JSONPlan{ID: "empty", Name: "Empty"})
-	out := a.toolUpdatePlan(json.RawMessage(`{"plan_id":"empty","action":"add_task","task_title":"X"}`))
+	out := a.ToolUpdatePlan(json.RawMessage(`{"plan_id":"empty","action":"add_task","task_title":"X"}`))
 	if !strings.Contains(out, "no phases") {
 		t.Fatalf("got %q", out)
 	}
@@ -192,7 +192,7 @@ func TestToolUpdatePlan_AddTaskNoPhases(t *testing.T) {
 func TestToolUpdatePlan_UnknownAction(t *testing.T) {
 	a := newMemoryApp(t)
 	writePlan(t, a, samplePlan())
-	out := a.toolUpdatePlan(json.RawMessage(`{"plan_id":"ce297","action":"floof","task_index":0}`))
+	out := a.ToolUpdatePlan(json.RawMessage(`{"plan_id":"ce297","action":"floof","task_index":0}`))
 	if !strings.Contains(out, "unknown action") {
 		t.Fatalf("got %q", out)
 	}
