@@ -9,12 +9,17 @@ Nothing pending.
 ## [2026-05-10]
 
 ### Added
+- Pre-push dev loop now includes `staticcheck ./...` alongside `go vet` and `go test`. Install once with `go install honnef.co/go/tools/cmd/staticcheck@latest`. README documents the checklist.
+- Test coverage on `agent/` raised from 17.6% to 47.4%, focused on the `tools_*.go` surface (`toolUpdatePlan`, `toolReadFile`/`toolListFiles`/`toolSaveNote`, `ExecuteTool` dispatch, `toolStudySkill` skill branches, `toolRAGSearch` argument paths, `reserveWebFetchSlot` rate-limit, `LoadSystemPrompt`, `ChunkFile`). 9 new test files in `agent/`. No production-code edits.
+- Documentation reorganization: root specs moved into `docs/specs/` (active) and `docs/specs/archive/` (historical phase plans). New `docs/adr/` with five ADRs (0001 stay-with-Go, 0002 no-service-repo-split, 0003 no-Docker, 0004 vanilla-JS, 0005 push-to-main). Top-level `CHANGELOG.md` and `ROADMAP.md` added; root `README.md` points at the new tree.
 - Global `window.onerror` + `unhandledrejection` handlers with a fixed-position recovery banner.
 - `apiFetch` wrapper: up to 3 attempts on network errors and 5xx for idempotent GETs, exponential backoff with jitter (200/400/800ms +0–100ms). Non-GET methods pass through with one attempt to avoid duplicating writes.
 - Input validation on chat (≤4000 chars), session topic (≤200 chars), PDF (type + ≤50 MiB), surfaced via the error banner.
 - Loading state on session create button.
 
 ### Changed
+- `agent/tools.go` split from one 970-line god-file into per-concern files: `tools.go` (manifest + dispatch), `tools_file.go`, `tools_rag.go`, `tools_plan.go`, `tools_pdf.go`, `tools_web.go`, `tools_skill.go`. No behavior change.
+- `static/app.js` split from one 1,318-line file into native ES modules: `app.js` (entry + `data-action` dispatcher), `apiFetch.js`, `errorBanner.js`, `dom.js`, `marked.js` (shim), `chat.js`, `sessions.js`, `plan.js`, `pdf.js`. Loaded as `<script type="module">`; no bundler. No behavior change.
 - `static/index.html` split into `static/style.css` (828 lines) and `static/app.js` (1,203 lines, `defer`-loaded). `index.html` shrank from 2,159 to 127 lines.
 - `marked.min.js` v15.0.12 bundled locally — last CDN dependency removed.
 - Inline `onclick` replaced with `data-action` event delegation across `index.html` and templates.
