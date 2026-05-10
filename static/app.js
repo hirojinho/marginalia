@@ -1,3 +1,58 @@
+// === GLOBAL ERROR HANDLER ===
+function showErrorBanner(msg) {
+  let banner = document.getElementById('error-banner');
+  if (!banner) {
+    banner = document.createElement('div');
+    banner.id = 'error-banner';
+    banner.innerHTML = '<span class="error-banner-msg"></span>' +
+      '<button class="error-banner-reload" type="button">Reload</button>' +
+      '<button class="error-banner-close" type="button" aria-label="Dismiss">&times;</button>';
+    document.body.appendChild(banner);
+    banner.querySelector('.error-banner-reload').addEventListener('click', function () { location.reload(); });
+    banner.querySelector('.error-banner-close').addEventListener('click', function () { banner.classList.remove('visible'); });
+  }
+  banner.querySelector('.error-banner-msg').textContent = msg;
+  banner.classList.add('visible');
+}
+window.addEventListener('error', function (e) {
+  console.error('window.error', e.error || e.message);
+  showErrorBanner('Something broke: ' + (e.message || 'unknown error'));
+});
+window.addEventListener('unhandledrejection', function (e) {
+  console.error('unhandledrejection', e.reason);
+  var reason = e.reason;
+  var msg = reason && reason.message ? reason.message : String(reason);
+  showErrorBanner('Network or runtime error: ' + msg);
+});
+
+// === apiFetch — retry + exponential backoff for idempotent GETs ===
+// Non-GET methods are passed through with a single attempt to avoid
+// duplicating writes. Pass { noRetry: true } to opt a GET out of retry.
+async function apiFetch(url, opts) {
+  opts = opts || {};
+  const method = (opts.method || 'GET').toUpperCase();
+  const retriable = !opts.noRetry && method === 'GET';
+  const maxAttempts = retriable ? 3 : 1;
+  let lastErr;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const resp = await fetch(url, opts);
+      if (resp.status >= 500 && attempt < maxAttempts) {
+        lastErr = new Error('HTTP ' + resp.status);
+      } else {
+        return resp;
+      }
+    } catch (err) {
+      if (err.name === 'AbortError') throw err;
+      lastErr = err;
+      if (attempt >= maxAttempts) throw err;
+    }
+    const delay = 200 * Math.pow(2, attempt - 1) + Math.random() * 100;
+    await new Promise(function (r) { setTimeout(r, delay); });
+  }
+  throw lastErr;
+}
+
 let currentAssistantMsg = null;
 let activeSessionId = null;
 let allSessions = [];
@@ -14,7 +69,7 @@ const courseMeta = {
 // === SESSIONS ===
 async function loadSessions() {
   try {
-    const resp = await fetch('/api/sessions');
+    const resp = await apiFetch('/api/sessions');
     allSessions = await resp.json();
     renderSessionList();
   } catch (err) {
@@ -24,7 +79,7 @@ async function loadSessions() {
 
 async function loadActiveSession() {
   try {
-    const resp = await fetch('/api/sessions/active');
+    const resp = await apiFetch('/api/sessions/active');
     const data = await resp.json();
     if (data && data.id) {
       activeSessionId = data.id;
@@ -112,7 +167,7 @@ async function loadSessionMessages() {
     return;
   }
   try {
-    const resp = await fetch('/api/sessions/messages?session_id=' + activeSessionId);
+    const resp = await apiFetch('/api/sessions/messages?session_id=' + activeSessionId);
     const msgs = await resp.json();
     const container = document.getElementById('messages');
     container.innerHTML = '';
@@ -374,7 +429,7 @@ async function fetchPlanList() {
   showPlanHeader();
   drawerBody.innerHTML = '<div style="text-align:center;color:var(--text-tertiary);padding:48px 0;">Loading...</div>';
   try {
-    const resp = await fetch('/api/plan');
+    const resp = await apiFetch('/api/plan');
     const data = await resp.json();
     renderCourseList(data);
   } catch (err) {
@@ -422,8 +477,8 @@ function showPlanList() {
 async function fetchFullPlan(courseId) {
   try {
     const [planResp, pdfResp] = await Promise.all([
-      fetch('/api/plan?view=full&id=' + encodeURIComponent(courseId)),
-      fetch('/pdf/list')
+      apiFetch('/api/plan?view=full&id=' + encodeURIComponent(courseId)),
+      apiFetch('/pdf/list')
     ]);
     const plan = await planResp.json();
     const allPdfs = await pdfResp.json();
@@ -743,7 +798,7 @@ async function loadPdfEmptyState() {
   const container = document.getElementById('pdf-list-container');
   container.innerHTML = '<div style="text-align:center;color:var(--text-tertiary);">Loading...</div>';
   try {
-    const resp = await fetch('/pdf/list');
+    const resp = await apiFetch('/pdf/list');
     const pdfs = await resp.json();
     renderPdfEmptyList(pdfs);
   } catch (err) {
@@ -788,7 +843,7 @@ async function openPdf(id) {
   }
 
   try {
-    const resp = await fetch('/pdf/list');
+    const resp = await apiFetch('/pdf/list');
     const pdfs = await resp.json();
     const pdf = pdfs.find(p => p.id === id);
     if (!pdf) throw new Error('PDF not found');
@@ -1107,7 +1162,7 @@ window.addEventListener('resize', () => {
 // Auto-open last PDF on startup in split view
 window.addEventListener('pdfjs-ready', async () => {
   try {
-    const resp = await fetch('/pdf/last');
+    const resp = await apiFetch('/pdf/last');
     const data = await resp.json();
     if (data && data.pdf) {
       currentPdfId = data.pdf.id;
@@ -1128,7 +1183,7 @@ document.getElementById('pdf-filename')?.addEventListener('click', async functio
     return;
   }
   try {
-    const resp = await fetch('/pdf/list');
+    const resp = await apiFetch('/pdf/list');
     const pdfs = await resp.json();
     renderPdfDropdown(pdfs);
     dropdown.classList.add('open');

@@ -826,3 +826,37 @@ header small {
 #health-dot.error { background: #ef4444; }
 #health-dot.checking { animation: pulse 1s ease-in-out infinite; }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+/* === ERROR BANNER === */
+#error-banner {
+  position: fixed;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%) translateY(140%);
+  background: #7f1d1d;
+  color: #fee2e2;
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-md);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+  z-index: 10000;
+  max-width: 560px;
+  transition: transform 0.2s ease;
+}
+#error-banner.visible { transform: translateX(-50%) translateY(0); }
+#error-banner .error-banner-msg { flex: 1; word-break: break-word; }
+#error-banner button {
+  background: rgba(255,255,255,0.15);
+  color: inherit;
+  border: none;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 12px;
+  font-family: inherit;
+}
+#error-banner button:hover { background: rgba(255,255,255,0.25); }
+#error-banner .error-banner-close { padding: 2px 8px; font-size: 16px; line-height: 1; }
