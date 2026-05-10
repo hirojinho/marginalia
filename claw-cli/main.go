@@ -134,7 +134,7 @@ func run(args []string, stdout, stderr io.Writer, dbPath string) int {
 
 func runWithStdin(args []string, stdin io.Reader, stdout, stderr io.Writer, dbPath string) int {
 	if len(args) < 2 {
-		fmt.Fprintln(stderr, "usage: claw-cli <subcommand> [args]")
+		_, _ = fmt.Fprintln(stderr, "usage: claw-cli <subcommand> [args]")
 		return 2
 	}
 	switch args[1] {
@@ -384,7 +384,7 @@ func ragSearch(args []string, stdout, stderr io.Writer, dbPath string) int {
 		return 1
 	}
 	defer func() { _ = app.Close() }()
-	argsJSON, _ := json.Marshal(map[string]any{
+	argsJSON, _ := json.Marshal(map[string]any{ // Marshal of string/int values cannot fail
 		"query":  *query,
 		"course": *course,
 		"top_k":  *topK,
