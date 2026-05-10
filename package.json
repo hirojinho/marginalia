@@ -1,0 +1,15 @@
+{
+  "name": "claw-study",
+  "private": true,
+  "description": "Devtools-only manifest. The app is Go; this exists to pin prettier + eslint for the vanilla-JS frontend.",
+  "scripts": {
+    "format": "prettier --check 'static/**/*.js' 'static/**/*.html' 'static/**/*.css'",
+    "format:write": "prettier --write 'static/**/*.js' 'static/**/*.html' 'static/**/*.css'",
+    "lint": "eslint 'static/**/*.js'"
+  },
+  "devDependencies": {
+    "eslint": "^9.0.0",
+    "globals": "^17.6.0",
+    "prettier": "^3.3.0"
+  }
+}
