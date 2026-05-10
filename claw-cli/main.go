@@ -99,13 +99,9 @@ func memorySearch(args []string, stdout, stderr io.Writer, dbPath string) int {
 	}
 	out := make([]searchResult, 0, len(rows))
 	for _, m := range rows {
-		snippet := m.Body
-		if len(snippet) > 200 {
-			snippet = snippet[:200] + "…"
-		}
 		out = append(out, searchResult{
 			ID: m.ID, Kind: m.Kind, CourseID: m.CourseID,
-			Title: m.Title, Snippet: snippet,
+			Title: m.Title, Snippet: agent.TruncateRunes(m.Body, 200),
 		})
 	}
 	enc := json.NewEncoder(stdout)

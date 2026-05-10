@@ -199,9 +199,7 @@ func RecentSessionsForCourse(db *sql.DB, courseID string, limit int) ([]SessionD
 		if err := rows.Scan(&d.Topic, &d.Summary); err != nil {
 			return nil, fmt.Errorf("recent sessions scan: %w", err)
 		}
-		if len(d.Summary) > 200 {
-			d.Summary = d.Summary[:200] + "…"
-		}
+		d.Summary = TruncateRunes(d.Summary, 200)
 		out = append(out, d)
 	}
 	return out, rows.Err()
@@ -271,19 +269,12 @@ const (
 	capSkills        = 500
 )
 
-func truncate(s string, n int) string {
-	if len(s) <= n {
-		return s
-	}
-	return s[:n] + "…"
-}
-
 func AssembleAgentsMD(scope Scope, recent []SessionDigest, skills []SkillMeta, courseID string) string {
 	type section struct{ title, body string }
 	var sections []section
 
 	if scope.Profile != nil {
-		sections = append(sections, section{"## User profile", truncate(scope.Profile.Body, capProfile)})
+		sections = append(sections, section{"## User profile", TruncateRunes(scope.Profile.Body, capProfile)})
 	} else {
 		sections = append(sections, section{"## User profile", "_(none)_"})
 	}
@@ -301,7 +292,7 @@ func AssembleAgentsMD(scope Scope, recent []SessionDigest, skills []SkillMeta, c
 			b.WriteString(m.Body)
 			b.WriteString("\n")
 		}
-		body := truncate(b.String(), capCourse)
+		body := TruncateRunes(b.String(), capCourse)
 		if body == "" {
 			body = "_(none)_"
 		}
@@ -321,7 +312,7 @@ func AssembleAgentsMD(scope Scope, recent []SessionDigest, skills []SkillMeta, c
 			b.WriteString(m.Body)
 			b.WriteString("\n")
 		}
-		body := truncate(b.String(), capFeedback)
+		body := TruncateRunes(b.String(), capFeedback)
 		if body == "" {
 			body = "_(none)_"
 		}
@@ -339,7 +330,7 @@ func AssembleAgentsMD(scope Scope, recent []SessionDigest, skills []SkillMeta, c
 			}
 			b.WriteString("\n")
 		}
-		body := truncate(b.String(), capRecent)
+		body := TruncateRunes(b.String(), capRecent)
 		if body == "" {
 			body = "_(none)_"
 		}
@@ -355,7 +346,7 @@ func AssembleAgentsMD(scope Scope, recent []SessionDigest, skills []SkillMeta, c
 			b.WriteString(sk.Description)
 			b.WriteString("\n")
 		}
-		body := truncate(b.String(), capSkills)
+		body := TruncateRunes(b.String(), capSkills)
 		if body == "" {
 			body = "_(none yet)_"
 		}
