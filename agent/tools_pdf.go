@@ -12,7 +12,9 @@ import (
 	"github.com/ledongthuc/pdf"
 )
 
-func (a *App) toolPDFExtract(args json.RawMessage) string {
+// ToolPDFExtract extracts text from a stored PDF by its record ID.
+// args JSON: {"pdf_id": <int>, "pages": "<range, e.g. 1-5 or 1,3>" (optional)}.
+func (a *App) ToolPDFExtract(args json.RawMessage) string {
 	var p struct {
 		PdfID int64  `json:"pdf_id"`
 		Pages string `json:"pages"`

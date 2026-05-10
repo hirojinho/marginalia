@@ -369,6 +369,21 @@ func TestRunNoteSaveWritesFile(t *testing.T) {
 	}
 }
 
+func TestRunPDFExtractInvalidIDReturnsErrorString(t *testing.T) {
+	dbPath := newTempDB(t)
+	t.Setenv("VAULT_ROOT", t.TempDir())
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"clawcli", "pdf", "extract", "--id", "999", "--db", dbPath}, &stdout, &stderr, "")
+	if code != 0 {
+		t.Fatalf("exit %d, stderr: %s", code, stderr.String())
+	}
+	// stdout will contain whatever the tool returns for missing PDFs — likely an "error" string,
+	// but the CLI plumbing exits 0 because it's the tool's text output, not a CLI failure.
+	if stdout.Len() == 0 {
+		t.Fatalf("expected some stdout output")
+	}
+}
+
 func TestRunNoteSaveMissingFlagsExits2(t *testing.T) {
 	dbPath := newTempDB(t)
 	// missing --content

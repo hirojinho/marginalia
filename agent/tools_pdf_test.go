@@ -10,14 +10,14 @@ import (
 
 func TestToolPDFExtract_BadJSON(t *testing.T) {
 	a := newMemoryApp(t)
-	if out := a.toolPDFExtract(json.RawMessage(`bad`)); !strings.HasPrefix(out, "error:") {
+	if out := a.ToolPDFExtract(json.RawMessage(`bad`)); !strings.HasPrefix(out, "error:") {
 		t.Fatalf("got %q", out)
 	}
 }
 
 func TestToolPDFExtract_NotFound(t *testing.T) {
 	a := newMemoryApp(t)
-	out := a.toolPDFExtract(json.RawMessage(`{"pdf_id":4242}`))
+	out := a.ToolPDFExtract(json.RawMessage(`{"pdf_id":4242}`))
 	if !strings.Contains(out, "PDF not found") {
 		t.Fatalf("got %q", out)
 	}
@@ -44,7 +44,7 @@ func TestToolPDFExtract_CacheHitAllPages(t *testing.T) {
 	}
 	_ = id // id should be 1 since it's :memory: and first insert
 
-	out := a.toolPDFExtract(json.RawMessage(`{"pdf_id":1}`))
+	out := a.ToolPDFExtract(json.RawMessage(`{"pdf_id":1}`))
 	if !strings.Contains(out, "Original.pdf") || !strings.Contains(out, "3 pages") {
 		t.Fatalf("got %q", out)
 	}
@@ -65,7 +65,7 @@ func TestToolPDFExtract_CacheHitPageSelection(t *testing.T) {
 	cached := "alpha\n---PAGE BREAK---\nbravo\n---PAGE BREAK---\ncharlie"
 	_ = os.WriteFile(filepath.Join(cacheDir, "1.txt"), []byte(cached), 0644)
 
-	out := a.toolPDFExtract(json.RawMessage(`{"pdf_id":1,"pages":"1,3"}`))
+	out := a.ToolPDFExtract(json.RawMessage(`{"pdf_id":1,"pages":"1,3"}`))
 	if !strings.Contains(out, "alpha") || !strings.Contains(out, "charlie") {
 		t.Fatalf("missing content: %q", out)
 	}
@@ -88,7 +88,7 @@ func TestToolPDFExtract_CacheHitOutOfRangePages(t *testing.T) {
 	_ = os.MkdirAll(cacheDir, 0755)
 	_ = os.WriteFile(filepath.Join(cacheDir, "1.txt"), []byte("only-page"), 0644)
 
-	out := a.toolPDFExtract(json.RawMessage(`{"pdf_id":1,"pages":"5-10"}`))
+	out := a.ToolPDFExtract(json.RawMessage(`{"pdf_id":1,"pages":"5-10"}`))
 	if !strings.Contains(out, "no pages found") {
 		t.Fatalf("got %q", out)
 	}

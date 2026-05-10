@@ -181,7 +181,7 @@ func (a *App) ExecuteTool(name string, args json.RawMessage) string {
 	case "update_plan":
 		return a.ToolUpdatePlan(args)
 	case "pdf_extract":
-		return a.toolPDFExtract(args)
+		return a.ToolPDFExtract(args)
 	case "web_fetch":
 		return toolWebFetch(args)
 	case "study_skill":

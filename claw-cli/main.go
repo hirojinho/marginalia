@@ -149,6 +149,8 @@ func runWithStdin(args []string, stdin io.Reader, stdout, stderr io.Writer, dbPa
 		return runCourse(args[2:], stdout, stderr, dbPath)
 	case "note":
 		return runNote(args[2:], stdout, stderr, dbPath)
+	case "pdf":
+		return runPDF(args[2:], stdout, stderr, dbPath)
 	default:
 		_, _ = fmt.Fprintf(stderr, "unknown subcommand: %q\n", args[1])
 		return 2
@@ -538,6 +540,52 @@ func runNote(args []string, stdout, stderr io.Writer, dbPath string) int {
 		_, _ = fmt.Fprintf(stderr, "unknown note subcommand: %q\n", args[0])
 		return 2
 	}
+}
+
+func runPDF(args []string, stdout, stderr io.Writer, dbPath string) int {
+	if len(args) < 1 {
+		_, _ = fmt.Fprintln(stderr, "usage: claw-cli pdf <extract> [args]")
+		return 2
+	}
+	switch args[0] {
+	case "extract":
+		return pdfExtract(args[1:], stdout, stderr, dbPath)
+	default:
+		_, _ = fmt.Fprintf(stderr, "unknown pdf subcommand: %q\n", args[0])
+		return 2
+	}
+}
+
+func pdfExtract(args []string, stdout, stderr io.Writer, dbPath string) int {
+	fs := flag.NewFlagSet("pdf extract", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	id := fs.Int("id", 0, "PDF record ID (required, >0)")
+	pages := fs.String("pages", "", "page range, e.g. \"1-5\" (optional)")
+	dbOverride := fs.String("db", "", "path to study.db")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	if *id <= 0 {
+		_, _ = fmt.Fprintln(stderr, "pdf extract: --id (>0) is required")
+		return 2
+	}
+	resolvedDB, err := resolveDBPath(*dbOverride, dbPath)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return 1
+	}
+	app, err := newAppFromEnv(resolvedDB, false)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return 1
+	}
+	defer func() { _ = app.Close() }()
+	argsJSON, _ := json.Marshal(map[string]any{ // Marshal of int/string values cannot fail
+		"pdf_id": *id,
+		"pages":  *pages,
+	})
+	_, _ = fmt.Fprintln(stdout, app.ToolPDFExtract(argsJSON))
+	return 0
 }
 
 func noteSave(args []string, stdout, stderr io.Writer, dbPath string) int {
