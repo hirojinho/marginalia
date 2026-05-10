@@ -436,8 +436,12 @@ func TestRunSkillDispatchReturnsPrompt(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("exit %d, stderr: %s", code, stderr.String())
 	}
-	if stdout.Len() == 0 {
+	out := stdout.String()
+	if len(out) == 0 {
 		t.Fatalf("expected non-empty prompt output")
+	}
+	if !strings.Contains(out, "STAMP") {
+		t.Fatalf("expected STAMP in output, got: %s", out)
 	}
 }
 
