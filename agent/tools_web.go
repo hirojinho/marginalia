@@ -20,7 +20,10 @@ var (
 	webFetchTimes []time.Time
 )
 
-func toolWebFetch(args json.RawMessage) string {
+// ToolWebFetch fetches a URL and returns its content as plain text or
+// converted Markdown. It enforces a rolling 5-per-minute rate limit and
+// accepts only http:// and https:// URLs.
+func ToolWebFetch(args json.RawMessage) string {
 	var p struct{ URL string }
 	if err := json.Unmarshal(args, &p); err != nil {
 		return "error: " + err.Error()
@@ -57,27 +60,7 @@ func toolWebFetch(args json.RawMessage) string {
 
 	contentType := resp.Header.Get("Content-Type")
 	if strings.Contains(contentType, "text/html") {
-		converter := md.NewConverter("", true, nil)
-		markdown, err := converter.ConvertString(string(body))
-		if err != nil {
-			return "error converting HTML: " + err.Error()
-		}
-		if len(markdown) > 50000 {
-			markdown = markdown[:50000] + "\n\n[...truncated at 50,000 characters]"
-		}
-		title := ""
-		if idx := strings.Index(markdown, "# "); idx != -1 {
-			end := strings.Index(markdown[idx:], "\n")
-			if end != -1 {
-				title = markdown[idx+2 : idx+end]
-			}
-		}
-		result := fmt.Sprintf("Source: %s", p.URL)
-		if title != "" {
-			result += "\nTitle: " + title
-		}
-		result += "\n\n" + markdown
-		return result
+		return webBodyToMarkdown(p.URL, body)
 	}
 
 	text := string(body)
@@ -85,6 +68,32 @@ func toolWebFetch(args json.RawMessage) string {
 		text = text[:50000] + "\n\n[...truncated at 50,000 characters]"
 	}
 	return fmt.Sprintf("Source: %s\n\n%s", p.URL, text)
+}
+
+// webBodyToMarkdown converts an HTML body to Markdown and formats it with a
+// source/title header. Called by ToolWebFetch when the response is text/html.
+func webBodyToMarkdown(url string, body []byte) string {
+	converter := md.NewConverter("", true, nil)
+	markdown, err := converter.ConvertString(string(body))
+	if err != nil {
+		return "error converting HTML: " + err.Error()
+	}
+	if len(markdown) > 50000 {
+		markdown = markdown[:50000] + "\n\n[...truncated at 50,000 characters]"
+	}
+	title := ""
+	if idx := strings.Index(markdown, "# "); idx != -1 {
+		end := strings.Index(markdown[idx:], "\n")
+		if end != -1 {
+			title = markdown[idx+2 : idx+end]
+		}
+	}
+	result := fmt.Sprintf("Source: %s", url)
+	if title != "" {
+		result += "\nTitle: " + title
+	}
+	result += "\n\n" + markdown
+	return result
 }
 
 // reserveWebFetchSlot enforces a rolling 5-per-minute limit. Returns

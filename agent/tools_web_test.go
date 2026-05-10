@@ -48,7 +48,7 @@ func TestReserveWebFetchSlot_StaleEntriesAreEvicted(t *testing.T) {
 
 func TestToolWebFetch_BadJSON(t *testing.T) {
 	resetWebFetchLimiter()
-	out := toolWebFetch(json.RawMessage(`bad`))
+	out := ToolWebFetch(json.RawMessage(`bad`))
 	if !strings.HasPrefix(out, "error:") {
 		t.Fatalf("got %q", out)
 	}
@@ -56,7 +56,7 @@ func TestToolWebFetch_BadJSON(t *testing.T) {
 
 func TestToolWebFetch_RejectsNonHTTPScheme(t *testing.T) {
 	resetWebFetchLimiter()
-	out := toolWebFetch(json.RawMessage(`{"URL":"ftp://example.com"}`))
+	out := ToolWebFetch(json.RawMessage(`{"URL":"ftp://example.com"}`))
 	if !strings.Contains(out, "only http") {
 		t.Fatalf("got %q", out)
 	}
@@ -68,7 +68,7 @@ func TestToolWebFetch_RateLimited(t *testing.T) {
 	now := time.Now()
 	webFetchTimes = []time.Time{now, now, now, now, now}
 	webFetchMu.Unlock()
-	out := toolWebFetch(json.RawMessage(`{"URL":"https://example.com"}`))
+	out := ToolWebFetch(json.RawMessage(`{"URL":"https://example.com"}`))
 	if !strings.HasPrefix(out, "rate limited:") {
 		t.Fatalf("got %q", out)
 	}

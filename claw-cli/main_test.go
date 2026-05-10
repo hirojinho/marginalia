@@ -384,6 +384,30 @@ func TestRunPDFExtractInvalidIDReturnsErrorString(t *testing.T) {
 	}
 }
 
+func TestRunWebFetchOK(t *testing.T) {
+	if testing.Short() {
+		t.Skip("network test")
+	}
+	dbPath := newTempDB(t)
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"clawcli", "web", "fetch", "https://example.com", "--db", dbPath}, &stdout, &stderr, "")
+	if code != 0 {
+		t.Fatalf("exit %d, stderr: %s", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "Example Domain") {
+		t.Fatalf("expected example.com content, got: %s", stdout.String())
+	}
+}
+
+func TestRunWebFetchMissingURLExits2(t *testing.T) {
+	dbPath := newTempDB(t)
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"clawcli", "web", "fetch", "--db", dbPath}, &stdout, &stderr, "")
+	if code != 2 {
+		t.Fatalf("exit %d, want 2 (missing URL)", code)
+	}
+}
+
 func TestRunNoteSaveMissingFlagsExits2(t *testing.T) {
 	dbPath := newTempDB(t)
 	// missing --content

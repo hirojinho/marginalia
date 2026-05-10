@@ -151,6 +151,8 @@ func runWithStdin(args []string, stdin io.Reader, stdout, stderr io.Writer, dbPa
 		return runNote(args[2:], stdout, stderr, dbPath)
 	case "pdf":
 		return runPDF(args[2:], stdout, stderr, dbPath)
+	case "web":
+		return runWeb(args[2:], stdout, stderr, dbPath)
 	default:
 		_, _ = fmt.Fprintf(stderr, "unknown subcommand: %q\n", args[1])
 		return 2
@@ -585,6 +587,45 @@ func pdfExtract(args []string, stdout, stderr io.Writer, dbPath string) int {
 		"pages":  *pages,
 	})
 	_, _ = fmt.Fprintln(stdout, app.ToolPDFExtract(argsJSON))
+	return 0
+}
+
+func runWeb(args []string, stdout, stderr io.Writer, dbPath string) int {
+	if len(args) < 1 {
+		_, _ = fmt.Fprintln(stderr, "usage: claw-cli web <fetch> [args]")
+		return 2
+	}
+	switch args[0] {
+	case "fetch":
+		return webFetch(args[1:], stdout, stderr, dbPath)
+	default:
+		_, _ = fmt.Fprintf(stderr, "unknown web subcommand: %q\n", args[0])
+		return 2
+	}
+}
+
+func webFetch(args []string, stdout, stderr io.Writer, dbPath string) int {
+	fs := flag.NewFlagSet("web fetch", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	dbOverride := fs.String("db", "", "path to study.db")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	if fs.NArg() < 1 {
+		_, _ = fmt.Fprintln(stderr, "web fetch: URL argument required")
+		return 2
+	}
+	url := fs.Arg(0)
+	resolvedDB, err := resolveDBPath(*dbOverride, dbPath)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return 1
+	}
+	// web fetch doesn't actually need the DB but resolveDBPath enforces existence,
+	// which is a useful pre-flight signal that the env is correctly set.
+	_ = resolvedDB
+	argsJSON, _ := json.Marshal(map[string]any{"url": url}) // Marshal of string value cannot fail
+	_, _ = fmt.Fprintln(stdout, agent.ToolWebFetch(argsJSON))
 	return 0
 }
 
