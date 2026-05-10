@@ -13,7 +13,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"study-app/agent"
 )
@@ -34,8 +33,6 @@ func main() {
 	if err := agent.InitSchema(db); err != nil {
 		log.Fatalf("init schema: %v", err)
 	}
-	store := agent.NewMemoryStore(db)
-
 	rows, err := collect(*source)
 	if err != nil {
 		log.Fatalf("collect: %v", err)
@@ -49,15 +46,40 @@ func main() {
 		return
 	}
 
-	if _, err := db.Exec(`DELETE FROM agent_memory WHERE user_id = ?`, userID); err != nil {
+	tx, err := db.Begin()
+	if err != nil {
+		log.Fatalf("begin tx: %v", err)
+	}
+	committed := false
+	defer func() {
+		if !committed {
+			if rollbackErr := tx.Rollback(); rollbackErr != nil {
+				log.Printf("rollback: %v", rollbackErr)
+			}
+		}
+	}()
+	if _, err := tx.Exec(`DELETE FROM agent_memory WHERE user_id = ?`, userID); err != nil {
 		log.Fatalf("clear: %v", err)
 	}
+	stmt, err := tx.Prepare(`INSERT INTO agent_memory (user_id, course_id, kind, title, body, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`)
+	if err != nil {
+		log.Fatalf("prepare: %v", err)
+	}
+	defer func() { _ = stmt.Close() }()
 	for _, r := range rows {
 		r.UserID = userID
-		if _, err := store.Save(r); err != nil {
-			log.Fatalf("save %q: %v", r.Title, err)
+		var courseID interface{}
+		if r.CourseID != "" {
+			courseID = r.CourseID
+		}
+		if _, err := stmt.Exec(r.UserID, courseID, r.Kind, r.Title, r.Body, r.CreatedAt, r.CreatedAt); err != nil {
+			log.Fatalf("insert %q: %v", r.Title, err)
 		}
 	}
+	if err := tx.Commit(); err != nil {
+		log.Fatalf("commit: %v", err)
+	}
+	committed = true
 	log.Printf("seeded %d rows", len(rows))
 }
 
@@ -85,12 +107,16 @@ func collect(root string) ([]agent.Memory, error) {
 		if course == "" && kind != "profile" && kind != "feedback" {
 			return nil
 		}
+		info, err := os.Stat(path)
+		if err != nil {
+			return err
+		}
 		out = append(out, agent.Memory{
 			CourseID:  course,
 			Kind:      kind,
 			Title:     fm["name"],
 			Body:      strings.TrimSpace(body),
-			CreatedAt: time.Now().Unix(),
+			CreatedAt: info.ModTime().Unix(),
 		})
 		return nil
 	})

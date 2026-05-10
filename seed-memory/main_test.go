@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestDeriveCourseIDFromPath(t *testing.T) {
@@ -66,4 +67,30 @@ func contains(haystack, needle string) bool {
 		}
 	}
 	return false
+}
+
+func TestCollectUsesFileModTimeForCreatedAt(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "test.md")
+	content := []byte("---\nname: test\ndescription: x\ntype: feedback\n---\nbody\n")
+	if err := os.WriteFile(path, content, 0644); err != nil {
+		t.Fatal(err)
+	}
+	// Set the file's mtime to a fixed past timestamp.
+	wantTime := int64(1700000000) // 2023-11-14
+	mt := time.Unix(wantTime, 0)
+	if err := os.Chtimes(path, mt, mt); err != nil {
+		t.Fatal(err)
+	}
+
+	rows, err := collect(dir)
+	if err != nil {
+		t.Fatalf("collect: %v", err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("got %d rows, want 1", len(rows))
+	}
+	if rows[0].CreatedAt != wantTime {
+		t.Fatalf("CreatedAt = %d, want %d", rows[0].CreatedAt, wantTime)
+	}
 }
