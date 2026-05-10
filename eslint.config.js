@@ -3,6 +3,9 @@ import globals from 'globals';
 
 export default [
   {
+    ignores: ['static/**/*.min.js', 'node_modules/**'],
+  },
+  {
     files: ['static/**/*.js'],
     languageOptions: {
       ecmaVersion: 2022,

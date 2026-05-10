@@ -4,6 +4,18 @@ Personal study app — Go HTTP server with embedded SPA frontend, SQLite for ses
 
 Public URL: `https://study.claw-study.xyz` (gated by bearer token).
 
+## Setup (one-time)
+
+```
+git clone …
+cd claw-study
+npm install                          # prettier + eslint
+brew install golangci-lint           # if not already installed
+bash scripts/install-hooks.sh        # installs pre-commit hook
+```
+
+The pre-commit hook runs `gofmt`, `golangci-lint`, `prettier`, and `eslint` on staged files only. Style rules and the philosophy behind them live in [STYLE.md](./STYLE.md).
+
 ## Architecture
 
 - `main.go` — entry point; loads config, opens DB, builds `agent.App`, registers routes, starts the HTTP server with timeouts and graceful shutdown.
