@@ -390,7 +390,7 @@ func TestRunWebFetchOK(t *testing.T) {
 	}
 	dbPath := newTempDB(t)
 	var stdout, stderr bytes.Buffer
-	code := run([]string{"clawcli", "web", "fetch", "https://example.com", "--db", dbPath}, &stdout, &stderr, "")
+	code := run([]string{"clawcli", "web", "fetch", "--db", dbPath, "https://example.com"}, &stdout, &stderr, "")
 	if code != 0 {
 		t.Fatalf("exit %d, stderr: %s", code, stderr.String())
 	}
