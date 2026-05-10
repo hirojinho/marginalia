@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log/slog"
+	"strconv"
 	"strings"
 	"time"
 
@@ -344,8 +345,8 @@ func (a *App) getMetaInt(key string) (int64, error) {
 	if err != nil {
 		return 0, fmt.Errorf("get meta %q: %w", key, err)
 	}
-	var n int64
-	if _, err := fmt.Sscanf(v, "%d", &n); err != nil {
+	n, err := strconv.ParseInt(v, 10, 64)
+	if err != nil {
 		slog.Warn("parse meta int", "key", key, "value", v, "err", err)
 		return 0, nil
 	}
