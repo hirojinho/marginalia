@@ -11,6 +11,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"time"
 
 	"study-app/agent"
 )
@@ -146,6 +147,8 @@ func runWithStdin(args []string, stdin io.Reader, stdout, stderr io.Writer, dbPa
 		return runPlan(args[2:], stdout, stderr, dbPath)
 	case "course":
 		return runCourse(args[2:], stdout, stderr, dbPath)
+	case "note":
+		return runNote(args[2:], stdout, stderr, dbPath)
 	default:
 		_, _ = fmt.Fprintf(stderr, "unknown subcommand: %q\n", args[1])
 		return 2
@@ -520,5 +523,54 @@ func ragSearch(args []string, stdout, stderr io.Writer, dbPath string) int {
 		"top_k":  *topK,
 	})
 	_, _ = fmt.Fprintln(stdout, app.ToolRAGSearch(argsJSON))
+	return 0
+}
+
+func runNote(args []string, stdout, stderr io.Writer, dbPath string) int {
+	if len(args) < 1 {
+		_, _ = fmt.Fprintln(stderr, "usage: claw-cli note <save> [args]")
+		return 2
+	}
+	switch args[0] {
+	case "save":
+		return noteSave(args[1:], stdout, stderr, dbPath)
+	default:
+		_, _ = fmt.Fprintf(stderr, "unknown note subcommand: %q\n", args[0])
+		return 2
+	}
+}
+
+func noteSave(args []string, stdout, stderr io.Writer, dbPath string) int {
+	fs := flag.NewFlagSet("note save", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	course := fs.String("course", "", "course id (required)")
+	kind := fs.String("kind", "fleeting", "note kind (default: fleeting)")
+	content := fs.String("content", "", "note body (required)")
+	dbOverride := fs.String("db", "", "path to study.db")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	if *course == "" || *content == "" {
+		_, _ = fmt.Fprintln(stderr, "note save: --course and --content are required")
+		return 2
+	}
+	resolvedDB, err := resolveDBPath(*dbOverride, dbPath)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return 1
+	}
+	app, err := newAppFromEnv(resolvedDB, false)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return 1
+	}
+	defer func() { _ = app.Close() }()
+	filename := time.Now().UTC().Format("2006-01-02T150405") + ".md"
+	notePath := filepath.Join("memory", "courses", *course, *kind, filename)
+	argsJSON, _ := json.Marshal(map[string]any{ // Marshal of string values cannot fail
+		"path":    notePath,
+		"content": *content,
+	})
+	_, _ = fmt.Fprintln(stdout, app.ToolSaveNote(argsJSON))
 	return 0
 }

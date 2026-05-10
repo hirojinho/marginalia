@@ -77,7 +77,7 @@ func TestToolListFiles_BadJSON(t *testing.T) {
 
 func TestToolSaveNote_CreatesNestedDirsAndWrites(t *testing.T) {
 	a := newMemoryApp(t)
-	out := a.toolSaveNote(json.RawMessage(`{"path":"fleeting/2026/note.md","content":"# hi"}`))
+	out := a.ToolSaveNote(json.RawMessage(`{"path":"fleeting/2026/note.md","content":"# hi"}`))
 	if !strings.HasPrefix(out, "saved to ") {
 		t.Fatalf("got %q", out)
 	}
@@ -93,7 +93,7 @@ func TestToolSaveNote_CreatesNestedDirsAndWrites(t *testing.T) {
 
 func TestToolSaveNote_BadJSON(t *testing.T) {
 	a := newMemoryApp(t)
-	if out := a.toolSaveNote(json.RawMessage(`bad`)); !strings.HasPrefix(out, "error:") {
+	if out := a.ToolSaveNote(json.RawMessage(`bad`)); !strings.HasPrefix(out, "error:") {
 		t.Fatalf("got %q", out)
 	}
 }

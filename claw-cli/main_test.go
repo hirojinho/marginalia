@@ -348,3 +348,39 @@ func TestRunCourseInterestsMissingCourseExits2(t *testing.T) {
 		t.Fatalf("expected --course error in stderr, got: %s", stderr.String())
 	}
 }
+
+func TestRunNoteSaveWritesFile(t *testing.T) {
+	dbPath := newTempDB(t)
+	vault := t.TempDir()
+	t.Setenv("VAULT_ROOT", vault)
+	var stdout, stderr bytes.Buffer
+	code := run([]string{
+		"clawcli", "note", "save", "--course", "ce297",
+		"--kind", "fleeting", "--content", "test note from CLI",
+		"--db", dbPath,
+	}, &stdout, &stderr, "")
+	if code != 0 {
+		t.Fatalf("exit %d, stderr: %s", code, stderr.String())
+	}
+	// Confirm a file was written somewhere under vault/memory/courses/ce297/fleeting/
+	matches, _ := filepath.Glob(filepath.Join(vault, "memory", "courses", "ce297", "fleeting", "*.md"))
+	if len(matches) == 0 {
+		t.Fatalf("expected fleeting note written under vault, found none")
+	}
+}
+
+func TestRunNoteSaveMissingFlagsExits2(t *testing.T) {
+	dbPath := newTempDB(t)
+	// missing --content
+	var stdout, stderr bytes.Buffer
+	code := run([]string{
+		"clawcli", "note", "save", "--course", "ce297",
+		"--db", dbPath,
+	}, &stdout, &stderr, "")
+	if code != 2 {
+		t.Fatalf("exit %d, want 2 (missing --content)", code)
+	}
+	if !strings.Contains(stderr.String(), "--content") {
+		t.Fatalf("expected --content in stderr, got: %s", stderr.String())
+	}
+}

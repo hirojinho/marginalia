@@ -66,7 +66,9 @@ func (a *App) toolListFiles(args json.RawMessage) string {
 	return strings.Join(names, "\n")
 }
 
-func (a *App) toolSaveNote(args json.RawMessage) string {
+// ToolSaveNote writes a note to a path relative to the vault root.
+// Args JSON: {"path": "<relative-path>", "content": "<note-body>"}.
+func (a *App) ToolSaveNote(args json.RawMessage) string {
 	var p struct {
 		Path    string `json:"path"`
 		Content string `json:"content"`
