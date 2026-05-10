@@ -117,3 +117,26 @@ func TestDeleteSessionClearsActive(t *testing.T) {
 		t.Fatalf("expected active cleared, got %d", a.ActiveSessionID())
 	}
 }
+
+func TestInitSchemaCreatesAgentMemoryTable(t *testing.T) {
+	db, err := OpenDB(":memory:")
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer db.Close()
+	if err := InitSchema(db); err != nil {
+		t.Fatalf("init: %v", err)
+	}
+	var name string
+	row := db.QueryRow(`SELECT name FROM sqlite_master WHERE type='table' AND name='agent_memory'`)
+	if err := row.Scan(&name); err != nil {
+		t.Fatalf("agent_memory table missing: %v", err)
+	}
+	if name != "agent_memory" {
+		t.Fatalf("got %q, want agent_memory", name)
+	}
+	row = db.QueryRow(`SELECT name FROM sqlite_master WHERE type='index' AND name='agent_memory_scope'`)
+	if err := row.Scan(&name); err != nil {
+		t.Fatalf("agent_memory_scope index missing: %v", err)
+	}
+}

@@ -78,6 +78,17 @@ func InitSchema(db *sql.DB) error {
 		created_at TEXT NOT NULL,
 		FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
 	);
+	CREATE TABLE IF NOT EXISTS agent_memory (
+		id          INTEGER PRIMARY KEY AUTOINCREMENT,
+		user_id     TEXT NOT NULL,
+		course_id   TEXT,
+		kind        TEXT NOT NULL,
+		title       TEXT,
+		body        TEXT NOT NULL,
+		created_at  INTEGER NOT NULL,
+		updated_at  INTEGER NOT NULL
+	);
+	CREATE INDEX IF NOT EXISTS agent_memory_scope ON agent_memory (user_id, course_id, kind);
 	`
 	if _, err := db.Exec(schema); err != nil {
 		return fmt.Errorf("create schema: %w", err)
