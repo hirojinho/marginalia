@@ -1,0 +1,38 @@
+version: "2"
+
+run:
+  timeout: 3m
+
+linters:
+  default: none
+  enable:
+    - errcheck       # unhandled errors
+    - govet          # vet bugs
+    - ineffassign    # ineffective assignments
+    - staticcheck    # general static analysis (includes gosimple in v2)
+    - unused         # unused code
+    - revive         # naming + style (golint successor)
+    - gocyclo        # cyclomatic complexity
+    - misspell       # typos in comments and strings
+    - unconvert      # unnecessary type conversions
+    - prealloc       # slice prealloc opportunities
+  settings:
+    gocyclo:
+      min-complexity: 15
+    revive:
+      rules:
+        - name: var-naming
+        - name: exported
+          arguments: ["checkPrivateReceivers", "disableStutteringCheck"]
+        - name: package-comments
+        - name: unused-parameter
+          disabled: true
+        - name: empty-block
+        - name: superfluous-else
+
+issues:
+  exclude-rules:
+    - path: _test\.go
+      linters: [gocyclo]
+    - path: agent/db\.go
+      linters: [gocyclo]
