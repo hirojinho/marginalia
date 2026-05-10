@@ -50,8 +50,18 @@ The app binds to `LISTEN_ADDR` and serves the embedded SPA at `/`. Browser flow:
 
 ## Tests
 
+Run before every push:
+
 ```bash
+go vet ./...
 go test ./...
+staticcheck ./...
+```
+
+`staticcheck` is a separate tool — install it once with:
+
+```bash
+go install honnef.co/go/tools/cmd/staticcheck@latest
 ```
 
 Coverage focuses on pure functions (`agent/chunker`, `agent/vectorstore`, `agent/embed`, plan/db helpers) and HTTP handlers (`handler/*_test.go`) using `httptest` against in-memory SQLite. Auth middleware has its own table-driven tests in `handler/auth_test.go`.
@@ -92,5 +102,5 @@ Go 1.24+, `database/sql` + `mattn/go-sqlite3`, `ledongthuc/pdf`, embedded `stati
 ## Repo conventions
 
 - Commit straight to `main` (no PRs).
-- `go vet` clean and `go test ./...` passing before push.
+- `go vet`, `go test ./...`, and `staticcheck ./...` clean before push.
 - Personal notes (`memory/courses/*`, `memory/thesis/*`) are gitignored — sensitive, not source.
