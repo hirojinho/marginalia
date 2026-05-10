@@ -795,6 +795,7 @@ document.getElementById('pdf-btn').addEventListener('click', function() {
       showView('split');
     } else {
       showView('split');
+      const pdfPanel = document.getElementById('pdf-panel');
       pdfPanel.classList.add('panel-enter');
       loadPdfEmptyState();
       setTimeout(() => pdfPanel.classList.remove('panel-enter'), 300);
