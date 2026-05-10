@@ -89,3 +89,61 @@ Verification:
 ## Status
 
 DONE.
+
+## Phase 2 deploy 2026-05-10
+
+**Commit range:** `47f7a04..9c1b67e`
+
+```
+9c1b67e claw-cli: strengthen skill dispatch test assertion
+ae78496 claw-cli: skill dispatch subcommand
+e5d2586 claw-cli: fix flag order in web fetch test
+53d4b56 claw-cli: web fetch subcommand
+5adace4 claw-cli: pdf extract subcommand
+...
+47f7a04 (phase 2 start)
+```
+
+### Build + deploy
+
+- Cross-compiled two Linux/amd64 binaries on macOS with `/opt/homebrew/bin/go`: `study-app` (17.5 MB), `claw-cli` (15.1 MB).
+- Hot-swapped: backed up old binary to `study-app.bak`, swapped `study-app.new → study-app`, restarted `systemctl --user restart study-app.service`. Service came up `active` on first try.
+- `claw-cli` replaced in-place (no service restart needed for CLI binary).
+
+### Subcommand smoke results
+
+All commands run from `cd /home/eduardo/stack/study-app` with `.env` sourced (`set -a; source .env; set +a`).
+
+| Subcommand | Result |
+|---|---|
+| `plan show --course ce297` | `plan not found for course "ce297"` (expected — no plan seeded on VPS) |
+| `plan toggle --course ce297 --task 999` | `error: plan not found: ce297` (expected — intentional bad index) |
+| `course interests --course ce297` | `interests not found at ".../memory/courses/ce297/interests.md"` (expected — file not present on VPS) |
+| `note save --course ce297 --kind fleeting --content "phase2 smoke"` | `saved to .../memory/courses/ce297/fleeting/2026-05-10T214735.md` — OK |
+| `pdf extract --id 999` | `error: PDF not found (id: 999)` (expected — intentional bad id) |
+| `web fetch --db ./data/study.db https://example.com` | Returned title "Example Domain" and body excerpt — OK |
+| `skill dispatch --skill orientation --topic STAMP --course ce297` | Printed full orientation prompt with Prerequisites/Key Concepts/Watch Points sections — OK |
+
+Note: `plan show`, `plan toggle`, and `course interests` return expected "not found" errors (no corpus seeded on VPS); these are not regressions. `note save`, `pdf extract`, `web fetch`, and `skill dispatch` all behave correctly.
+
+### RAG search
+
+```
+rag search --query "STAMP" --course ce297 --top-k 3
+```
+
+- 3 hits returned from `courses/ce297/cast.md` (CAST/STAMP-related chunks), all at score 0.500.
+- Latency: **320 ms** wall-clock (real `0m0.320s`).
+
+### Health check
+
+- `GET /debug/health` with Bearer token → **200 OK**. Live `/chat` UI unaffected.
+
+### Deviations / surprises
+
+- Without sourcing `.env` first, `course interests` and `note save` fail with missing-env errors (`VAULT_ROOT or CLAW_STUDY_ROOT must be set` and `mkdir /workspace: permission denied`). This is expected behaviour — the service process itself has `.env` loaded via the systemd unit; the raw smoke script needed explicit sourcing.
+- No panics, no "command not found", no regressions.
+
+### Status
+
+DONE.
