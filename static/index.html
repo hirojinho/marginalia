@@ -21,7 +21,7 @@ window.dispatchEvent(new Event('pdfjs-ready'));
   <div style="display:flex;align-items:center;">
     <button id="sidebar-toggle" style="background:none;border:none;cursor:pointer;padding:4px 8px;margin-right:4px;color:var(--text-secondary);font-size:16px;line-height:1;" title="Toggle sessions">&#x2630;</button>
     <h1>Study App <small>claw</small></h1>
-    <span id="session-pill" style="display:none;" onclick="openDrawer()"></span>
+    <span id="session-pill" style="display:none;"></span>
   </div>
   <div class="header-actions">
     <span id="health-dot" style="width:8px;height:8px;border-radius:50%;background:var(--text-tertiary);display:inline-block;" title="Checking connection..."></span>
@@ -54,7 +54,7 @@ window.dispatchEvent(new Event('pdfjs-ready'));
 
   <div id="pdf-panel">
     <div id="pdf-empty-state">
-      <div id="pdf-upload-zone" onclick="document.getElementById('pdf-file-input').click()">
+      <div id="pdf-upload-zone">
         <h3>Drop PDF here or click to upload</h3>
         <p>Supported: .pdf files</p>
         <input type="file" id="pdf-file-input" accept=".pdf">
@@ -106,8 +106,8 @@ window.dispatchEvent(new Event('pdfjs-ready'));
     <label for="session-topic">Topic</label>
     <input type="text" id="session-topic" placeholder="e.g. FMEA basics, Ch5 Replication..." autocomplete="off">
     <div id="session-modal-actions">
-      <button class="btn-cancel" onclick="closeSessionModal()">Cancel</button>
-      <button class="btn-create" onclick="createSession()">Create</button>
+      <button class="btn-cancel" id="session-modal-cancel">Cancel</button>
+      <button class="btn-create" id="session-modal-create">Create</button>
     </div>
   </div>
 </div>

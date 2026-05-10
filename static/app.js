@@ -1,3 +1,8 @@
+// === LIMITS (mirror server-side caps) ===
+const MAX_MESSAGE_LEN = 4000;
+const MAX_TOPIC_LEN = 200;
+const MAX_PDF_BYTES = 50 * 1024 * 1024;
+
 // === GLOBAL ERROR HANDLER ===
 function showErrorBanner(msg) {
   let banner = document.getElementById('error-banner');
@@ -120,10 +125,10 @@ function renderSessionList() {
     for (const s of groups[key]) {
       const isActive = s.id === activeSessionId;
       const timeAgo = formatTimeAgo(s.updated_at);
-      html += `<div class="session-item${isActive ? ' active' : ''}" data-session-id="${s.id}" onclick="switchSession(${s.id})">
+      html += `<div class="session-item${isActive ? ' active' : ''}" data-session-id="${s.id}" data-action="switch-session">
         <div style="display:flex;justify-content:space-between;align-items:start;">
           <div class="session-topic">${escapeHtml(s.topic || 'General')}</div>
-          <span class="session-delete" onclick="event.stopPropagation();deleteSession(${s.id})" title="Delete">&#x2715;</span>
+          <span class="session-delete" data-action="delete-session" data-session-id="${s.id}" title="Delete">&#x2715;</span>
         </div>
         <div class="session-meta">${timeAgo}${s.pdf_name ? ' &middot; ' + escapeHtml(s.pdf_name.replace(/\.pdf$/i,'')) : ''}</div>
       </div>`;
@@ -229,12 +234,20 @@ function closeSessionModal() {
 async function createSession() {
   const courseId = document.getElementById('session-course').value;
   const topic = document.getElementById('session-topic').value.trim() || 'General';
+  if (topic.length > MAX_TOPIC_LEN) {
+    showErrorBanner('Topic is too long (max ' + MAX_TOPIC_LEN + ' characters).');
+    return;
+  }
+  const createBtn = document.getElementById('session-modal-create');
+  createBtn.disabled = true;
+  createBtn.textContent = 'Creating…';
   try {
     const resp = await fetch('/api/sessions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ course_id: courseId, topic: topic })
     });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
     const session = await resp.json();
     activeSessionId = session.id;
     await loadActiveSession();
@@ -243,6 +256,10 @@ async function createSession() {
     closeSessionModal();
   } catch (err) {
     console.error('Failed to create session', err);
+    showErrorBanner('Failed to create session: ' + err.message);
+  } finally {
+    createBtn.disabled = false;
+    createBtn.textContent = 'Create';
   }
 }
 
@@ -261,6 +278,34 @@ async function deleteSession(id) {
     console.error('Failed to delete session', err);
   }
 }
+
+// === EVENT DELEGATION ===
+// Single document-level click listener dispatches actions defined via
+// data-action attributes. Replaces inline onclick handlers throughout
+// templates so they're inspectable, debuggable, and CSP-friendly.
+document.addEventListener('click', function (e) {
+  const el = e.target.closest('[data-action]');
+  if (!el) return;
+  const action = el.dataset.action;
+  switch (action) {
+    case 'switch-session': switchSession(parseInt(el.dataset.sessionId, 10)); break;
+    case 'delete-session': e.stopPropagation(); deleteSession(parseInt(el.dataset.sessionId, 10)); break;
+    case 'open-full-plan': openFullPlan(el.dataset.courseId); break;
+    case 'open-pdf-from-drawer': openPdfFromDrawer(parseInt(el.dataset.pdfId, 10)); break;
+    case 'toggle-topic': toggleTopic(el.dataset.courseId, parseInt(el.dataset.idx, 10)); break;
+    case 'open-pdf': openPdf(parseInt(el.dataset.pdfId, 10)); break;
+    case 'trigger-upload': triggerUpload(); break;
+    case 'switch-pdf': switchPdf(parseInt(el.dataset.pdfId, 10)); break;
+  }
+});
+
+// Static buttons that previously used inline onclick.
+document.getElementById('session-pill').addEventListener('click', openDrawer);
+document.getElementById('pdf-upload-zone').addEventListener('click', function () {
+  document.getElementById('pdf-file-input').click();
+});
+document.getElementById('session-modal-cancel').addEventListener('click', closeSessionModal);
+document.getElementById('session-modal-create').addEventListener('click', createSession);
 
 document.getElementById('new-session-btn').addEventListener('click', openSessionModal);
 document.getElementById('session-course').addEventListener('change', function() {
@@ -303,6 +348,10 @@ document.getElementById('chat-form').addEventListener('submit', async function(e
   const input = document.getElementById('message-input');
   const msg = input.value.trim();
   if (!msg) return;
+  if (msg.length > MAX_MESSAGE_LEN) {
+    showErrorBanner('Message is too long (' + msg.length + '/' + MAX_MESSAGE_LEN + ' characters).');
+    return;
+  }
   input.value = '';
   document.getElementById('send-btn').disabled = true;
 
@@ -446,7 +495,7 @@ function renderCourseList(courses) {
   for (const c of courses) {
     const status = c.hasPlan ? (c.total === c.done ? 'All done' : c.done + '/' + c.total + ' done') : 'No plan';
     html += `
-      <div class="course-card" style="cursor:pointer;" onclick="openFullPlan('${escapeHtmlAttr(c.id)}')">
+      <div class="course-card" style="cursor:pointer;" data-action="open-full-plan" data-course-id="${escapeHtmlAttr(c.id)}">
         <div class="course-card-header" style="cursor:pointer;">
           <div>
             <h3>${escapeHtml(c.name)}</h3>
@@ -539,7 +588,7 @@ function renderFullPlan(plan, coursePdfs) {
     html += `<h2 style="font-size:13px;font-weight:700;margin:24px 0 8px;text-transform:uppercase;letter-spacing:0.3px;color:var(--text-secondary);">PDFs</h2>`;
     for (const pdf of coursePdfs) {
       const progress = pdf.last_page > 1 ? 'p.' + pdf.last_page + '/' + pdf.pages : pdf.pages + ' pages';
-      html += `<div class="drawer-pdf-item" onclick="openPdfFromDrawer(${pdf.id})">
+      html += `<div class="drawer-pdf-item" data-action="open-pdf-from-drawer" data-pdf-id="${pdf.id}">
         <span class="dpf-name">${escapeHtml(pdf.original_name.replace(/\.pdf$/i, ''))}</span>
         <span class="dpf-progress">${escapeHtml(progress)}</span>
       </div>`;
@@ -567,7 +616,7 @@ function renderTaskRow(task, idx, courseId) {
   const priority = task.priority ? {high:'!',medium:'\u00B7',low:'\u223C'}[task.priority]||'' : '';
   const renderedTitle = marked.parseInline(task.title) || escapeHtml(task.title);
   const notes = task.notes ? `<div style="font-size:11px;color:var(--text-secondary);margin:2px 0 6px 26px;line-height:1.4;">${marked.parse(task.notes)}</div>` : '';
-  return `<div class="topic-row" onclick="toggleTopic('${escapeHtmlAttr(courseId)}', ${idx})">
+  return `<div class="topic-row" data-action="toggle-topic" data-course-id="${escapeHtmlAttr(courseId)}" data-idx="${idx}">
     <div class="topic-checkbox ${task.done ? 'done' : ''}">${task.done ? '&#x2713;' : ''}</div>
     <div class="topic-title ${task.done ? 'done' : ''}">
       ${priority ? '<span style="color:var(--text-tertiary);margin-right:4px;">' + escapeHtml(priority) + '</span>' : ''}${renderedTitle}
@@ -773,6 +822,16 @@ fileInput.addEventListener('change', function() {
 });
 
 async function uploadPdf(file) {
+  const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+  if (!isPdf) {
+    showErrorBanner('Only PDF files are supported.');
+    return;
+  }
+  if (file.size > MAX_PDF_BYTES) {
+    const mb = (file.size / 1024 / 1024).toFixed(1);
+    showErrorBanner('PDF too large: ' + mb + ' MB (max ' + (MAX_PDF_BYTES / 1024 / 1024) + ' MB).');
+    return;
+  }
   const courseSelect = document.getElementById('pdf-course-select');
   const formData = new FormData();
   formData.append('file', file);
@@ -827,7 +886,7 @@ function renderPdfEmptyList(pdfs) {
     html += '<div class="pdf-list-section"><h4>' + escapeHtml(groupName) + '</h4>';
     for (const pdf of group.pdfs) {
       const progress = pdf.last_page > 1 ? 'p.' + pdf.last_page + ' / ' + pdf.pages : 'Not started';
-      html += '<div class="pdf-list-item" onclick="openPdf(' + pdf.id + ')">' +
+      html += '<div class="pdf-list-item" data-action="open-pdf" data-pdf-id="' + pdf.id + '">' +
         '<span class="pdf-name">' + escapeHtml(pdf.original_name.replace(/\.pdf$/i, '')) + '</span>' +
         '<span class="pdf-progress">' + escapeHtml(progress) + '</span></div>';
     }
@@ -1210,13 +1269,13 @@ function renderPdfDropdown(pdfs) {
     groups[key].pdfs.push(pdf);
   }
 
-  let html = '<div class="dropdown-item" style="font-weight:600;" onclick="triggerUpload()">\u2191 Upload PDF</div>';
+  let html = '<div class="dropdown-item" style="font-weight:600;" data-action="trigger-upload">\u2191 Upload PDF</div>';
   html += '<div style="height:1px;background:var(--border);margin:4px 0;"></div>';
   for (const [key, group] of Object.entries(groups)) {
     html += '<div class="dropdown-section"><div class="dropdown-section-title">' + escapeHtml(group.name) + '</div>';
     for (const pdf of group.pdfs) {
       const progress = pdf.last_page > 1 ? 'p.' + pdf.last_page + '/' + pdf.pages : pdf.pages + ' pages';
-      html += '<div class="dropdown-item" onclick="switchPdf(' + pdf.id + ')">' +
+      html += '<div class="dropdown-item" data-action="switch-pdf" data-pdf-id="' + pdf.id + '">' +
         '<span class="item-name">' + escapeHtml(pdf.original_name.replace(/\.pdf$/i, '')) + '</span>' +
         '<span class="item-progress">' + escapeHtml(progress) + '</span></div>';
     }
