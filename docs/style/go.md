@@ -213,6 +213,18 @@ state:
 func AssembleAgentsMD(scope Scope, recent []SessionDigest, skills []SkillMeta, courseID string) string
 ```
 
+**Behavior interface** — narrow the capability at the call site. A caller that only writes memory should not depend on the full store:
+
+```go
+// MemorySaver narrows MemoryStore to the Save capability for callers that
+// only need to write. Tests can supply a fake without dragging in the full store.
+type MemorySaver interface {
+    Save(Memory) (Memory, error)
+}
+```
+
+Declare behavior interfaces in the package that consumes them, not the package that implements them. The concrete `MemoryStore` satisfies `MemorySaver` automatically; no registration required.
+
 **Bad pattern** — a struct with one method is just a free function wearing a disguise:
 
 ```go
@@ -224,7 +236,7 @@ func truncate(s string, n int) string { ... }
 ```
 
 **File-split rule** — if the responsibility statement needs an "and", split the file. Reference:
-`agent/memory.go` is 387 lines covering three concerns (Memory CRUD, skill parsing, document
+`agent/memory.go` is ~390 lines covering three concerns (Memory CRUD, skill parsing, document
 assembly). It is cohesive today because all three serve the same pipeline. Watch the threshold;
 if a fourth concern lands, split.
 
@@ -257,6 +269,17 @@ package main
 // into the agent_memory SQLite table. Idempotent: deletes all rows for
 // the user before reseeding.
 package main
+```
+
+**Good file header** — memory subsystem: store + AGENTS.md assembly + helpers (`handler/handler.go`):
+
+```go
+// Package handler holds the HTTP layer for the study app.
+//
+// All handlers hang off Handler, which carries the App (database +
+// config) and an LLM client. Construct one with New, then call
+// Register to wire the routes onto an http.ServeMux.
+package handler
 ```
 
 **Good inline comment** — explains a non-obvious constraint (`agent/db.go`):
@@ -301,7 +324,7 @@ Stdlib `testing` only.
 ```go
 func TestMemoryStoreSearchCourseFilter(t *testing.T) { ... }
 func TestMemoryStoreSaveAssignsID(t *testing.T) { ... }
-func TestGetMetaIntCorruptValueReturnsZero(t *testing.T) { ... }
+func TestAssembleAgentsMDIncludesAllSections(t *testing.T) { ... }
 ```
 
 **Bad test name** — opaque or indexed:
