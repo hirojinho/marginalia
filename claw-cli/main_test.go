@@ -129,3 +129,52 @@ func TestRunMemorySearchMissingQueryExits2(t *testing.T) {
 		t.Fatalf("exit: %d", code)
 	}
 }
+
+func TestRunMemoryLoadProducesAgentsMD(t *testing.T) {
+	dbPath := newTempDB(t)
+	for _, args := range [][]string{
+		{"--kind", "profile", "--title", "user", "--body", "Eduardo studies safety at ITA"},
+		{"--kind", "project", "--course", "ce297", "--title", "course-arc", "--body", "STAMP vs Avizienis"},
+		{"--kind", "feedback", "--course", "ce297", "--title", "no-abbrev", "--body", "spell out Software Control Category"},
+		{"--kind", "feedback", "--title", "density", "--body", "match existing density"},
+	} {
+		var sb, eb bytes.Buffer
+		full := append([]string{"clawcli", "memory", "save"}, args...)
+		if code := run(full, &sb, &eb, dbPath); code != 0 {
+			t.Fatalf("seed: %s", eb.String())
+		}
+	}
+	var stdout, stderr bytes.Buffer
+	code := run([]string{
+		"clawcli", "memory", "load", "--course", "ce297", "--user", "eduardo",
+	}, &stdout, &stderr, dbPath)
+	if code != 0 {
+		t.Fatalf("exit %d, stderr: %s", code, stderr.String())
+	}
+	out := stdout.String()
+	for _, want := range []string{
+		"# AGENTS.md", "## User profile", "Eduardo studies safety",
+		"## Course context: ce297", "STAMP",
+		"## Active feedback rules", "no-abbrev", "density",
+		"## Available skills", "_(none yet)_",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("missing %q in output:\n%s", want, out)
+		}
+	}
+	if len(out) > 3072 {
+		t.Fatalf("over cap: %d", len(out))
+	}
+}
+
+func TestRunMemoryLoadEmptyDBStillProducesShell(t *testing.T) {
+	dbPath := newTempDB(t)
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"clawcli", "memory", "load", "--course", "ce297"}, &stdout, &stderr, dbPath)
+	if code != 0 {
+		t.Fatalf("exit %d, stderr: %s", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "# AGENTS.md") {
+		t.Fatalf("expected AGENTS.md header even on empty db")
+	}
+}

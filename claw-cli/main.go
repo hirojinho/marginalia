@@ -52,6 +52,8 @@ func runMemory(args []string, stdin io.Reader, stdout, stderr io.Writer, dbPath 
 		return memorySave(args[1:], stdin, stdout, stderr, dbPath)
 	case "search":
 		return memorySearch(args[1:], stdout, stderr, dbPath)
+	case "load":
+		return memoryLoad(args[1:], stdout, stderr, dbPath)
 	default:
 		fmt.Fprintf(stderr, "unknown memory subcommand: %q\n", args[0])
 		return 2
@@ -109,6 +111,49 @@ func memorySearch(args []string, stdout, stderr io.Writer, dbPath string) int {
 	enc := json.NewEncoder(stdout)
 	enc.SetIndent("", "  ")
 	_ = enc.Encode(map[string]any{"results": out})
+	return 0
+}
+
+func memoryLoad(args []string, stdout, stderr io.Writer, dbPath string) int {
+	fs := flag.NewFlagSet("memory load", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	course := fs.String("course", "", "course id")
+	user := fs.String("user", defaultUserID, "user id")
+	skillsDir := fs.String("skills-dir", "skills", "directory containing SKILL.md files")
+	_ = fs.String("session", "", "session id (informational; unused in v1)")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	db, err := agent.OpenDB(dbPath)
+	if err != nil {
+		fmt.Fprintf(stderr, "open db: %v\n", err)
+		return 1
+	}
+	defer db.Close()
+	if err := agent.InitSchema(db); err != nil {
+		fmt.Fprintf(stderr, "init schema: %v\n", err)
+		return 1
+	}
+	store := agent.NewMemoryStore(db)
+	scope, err := store.LoadByScope(*user, *course)
+	if err != nil {
+		fmt.Fprintf(stderr, "load scope: %v\n", err)
+		return 1
+	}
+	var recent []agent.SessionDigest
+	if *course != "" {
+		recent, err = agent.RecentSessionsForCourse(db, *course, 2)
+		if err != nil {
+			fmt.Fprintf(stderr, "recent sessions: %v\n", err)
+			return 1
+		}
+	}
+	skills, err := agent.ParseSkillsDir(*skillsDir)
+	if err != nil {
+		fmt.Fprintf(stderr, "parse skills: %v\n", err)
+		return 1
+	}
+	fmt.Fprint(stdout, agent.AssembleAgentsMD(scope, recent, skills, *course))
 	return 0
 }
 
