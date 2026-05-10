@@ -50,10 +50,66 @@ func runMemory(args []string, stdin io.Reader, stdout, stderr io.Writer, dbPath 
 	switch args[0] {
 	case "save":
 		return memorySave(args[1:], stdin, stdout, stderr, dbPath)
+	case "search":
+		return memorySearch(args[1:], stdout, stderr, dbPath)
 	default:
 		fmt.Fprintf(stderr, "unknown memory subcommand: %q\n", args[0])
 		return 2
 	}
+}
+
+type searchResult struct {
+	ID       int64  `json:"id"`
+	Kind     string `json:"kind"`
+	CourseID string `json:"course_id,omitempty"`
+	Title    string `json:"title,omitempty"`
+	Snippet  string `json:"snippet"`
+}
+
+func memorySearch(args []string, stdout, stderr io.Writer, dbPath string) int {
+	fs := flag.NewFlagSet("memory search", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	query := fs.String("query", "", "search query (required)")
+	course := fs.String("course", "", "course id (optional)")
+	limit := fs.Int("limit", 20, "max results")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	if *query == "" {
+		fmt.Fprintln(stderr, "memory search: --query is required")
+		return 2
+	}
+	db, err := agent.OpenDB(dbPath)
+	if err != nil {
+		fmt.Fprintf(stderr, "open db: %v\n", err)
+		return 1
+	}
+	defer db.Close()
+	if err := agent.InitSchema(db); err != nil {
+		fmt.Fprintf(stderr, "init schema: %v\n", err)
+		return 1
+	}
+	store := agent.NewMemoryStore(db)
+	rows, err := store.Search(defaultUserID, *query, *course, *limit)
+	if err != nil {
+		fmt.Fprintf(stderr, "search: %v\n", err)
+		return 1
+	}
+	out := make([]searchResult, 0, len(rows))
+	for _, m := range rows {
+		snippet := m.Body
+		if len(snippet) > 200 {
+			snippet = snippet[:200] + "…"
+		}
+		out = append(out, searchResult{
+			ID: m.ID, Kind: m.Kind, CourseID: m.CourseID,
+			Title: m.Title, Snippet: snippet,
+		})
+	}
+	enc := json.NewEncoder(stdout)
+	enc.SetIndent("", "  ")
+	_ = enc.Encode(map[string]any{"results": out})
+	return 0
 }
 
 func memorySave(args []string, stdin io.Reader, stdout, stderr io.Writer, dbPath string) int {

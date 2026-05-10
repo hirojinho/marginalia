@@ -89,3 +89,43 @@ func TestRunMissingRequiredFlagExits2(t *testing.T) {
 }
 
 var _ = os.Stdout
+
+func TestRunMemorySearchReturnsResults(t *testing.T) {
+	dbPath := newTempDB(t)
+	var sb, eb bytes.Buffer
+	for _, body := range []string{"density rule", "abbreviations rule", "unrelated text"} {
+		sb.Reset(); eb.Reset()
+		code := run([]string{
+			"clawcli", "memory", "save",
+			"--kind", "feedback", "--title", body, "--body", body,
+		}, &sb, &eb, dbPath)
+		if code != 0 {
+			t.Fatalf("seed: %s", eb.String())
+		}
+	}
+	var stdout, stderr bytes.Buffer
+	code := run([]string{
+		"clawcli", "memory", "search", "--query", "rule",
+	}, &stdout, &stderr, dbPath)
+	if code != 0 {
+		t.Fatalf("exit %d, stderr: %s", code, stderr.String())
+	}
+	var got struct {
+		Results []map[string]any `json:"results"`
+	}
+	if err := json.Unmarshal(stdout.Bytes(), &got); err != nil {
+		t.Fatalf("parse: %v\n%s", err, stdout.String())
+	}
+	if len(got.Results) != 2 {
+		t.Fatalf("expected 2 hits, got %d:\n%s", len(got.Results), stdout.String())
+	}
+}
+
+func TestRunMemorySearchMissingQueryExits2(t *testing.T) {
+	dbPath := newTempDB(t)
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"clawcli", "memory", "search"}, &stdout, &stderr, dbPath)
+	if code != 2 {
+		t.Fatalf("exit: %d", code)
+	}
+}
