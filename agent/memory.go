@@ -1,8 +1,14 @@
 package agent
 
 import (
+	"bufio"
 	"database/sql"
+	"errors"
 	"fmt"
+	"io/fs"
+	"os"
+	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -166,4 +172,215 @@ func (s *MemoryStore) LoadByScope(userID, courseID string) (Scope, error) {
 		scope.Feedback = append(scope.Feedback, m)
 	}
 	return scope, fbRows.Err()
+}
+
+type SessionDigest struct {
+	Topic   string
+	Summary string
+}
+
+func RecentSessionsForCourse(db *sql.DB, courseID string, limit int) ([]SessionDigest, error) {
+	if limit <= 0 {
+		limit = 2
+	}
+	rows, err := db.Query(
+		`SELECT topic, summary FROM sessions
+		 WHERE course_id = ?
+		 ORDER BY updated_at DESC, id DESC LIMIT ?`,
+		courseID, limit,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("recent sessions: %w", err)
+	}
+	defer rows.Close()
+	out := []SessionDigest{}
+	for rows.Next() {
+		var d SessionDigest
+		if err := rows.Scan(&d.Topic, &d.Summary); err != nil {
+			return nil, fmt.Errorf("recent sessions scan: %w", err)
+		}
+		if len(d.Summary) > 200 {
+			d.Summary = d.Summary[:200] + "…"
+		}
+		out = append(out, d)
+	}
+	return out, rows.Err()
+}
+
+type SkillMeta struct {
+	Name        string
+	Description string
+}
+
+func ParseSkillsDir(dir string) ([]SkillMeta, error) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("skills dir: %w", err)
+	}
+	var out []SkillMeta
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		path := filepath.Join(dir, e.Name(), "SKILL.md")
+		fm, err := parseFrontmatter(path)
+		if err != nil {
+			continue
+		}
+		out = append(out, SkillMeta{Name: fm["name"], Description: fm["description"]})
+	}
+	return out, nil
+}
+
+func parseFrontmatter(path string) (map[string]string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	sc := bufio.NewScanner(f)
+	if !sc.Scan() || strings.TrimSpace(sc.Text()) != "---" {
+		return nil, fmt.Errorf("no frontmatter in %s", path)
+	}
+	out := map[string]string{}
+	for sc.Scan() {
+		line := sc.Text()
+		if strings.TrimSpace(line) == "---" {
+			return out, nil
+		}
+		idx := strings.Index(line, ":")
+		if idx <= 0 {
+			continue
+		}
+		key := strings.TrimSpace(line[:idx])
+		val := strings.TrimSpace(line[idx+1:])
+		out[key] = val
+	}
+	return nil, fmt.Errorf("unterminated frontmatter in %s", path)
+}
+
+const (
+	agentsMDTotalCap = 3072
+	capProfile       = 500
+	capCourse        = 800
+	capFeedback      = 1200
+	capRecent        = 500
+	capSkills        = 500
+)
+
+func truncate(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	return s[:n] + "…"
+}
+
+func AssembleAgentsMD(scope Scope, recent []SessionDigest, skills []SkillMeta, courseID string) string {
+	type section struct{ title, body string }
+	var sections []section
+
+	if scope.Profile != nil {
+		sections = append(sections, section{"## User profile", truncate(scope.Profile.Body, capProfile)})
+	} else {
+		sections = append(sections, section{"## User profile", "_(none)_"})
+	}
+
+	if courseID != "" {
+		var b strings.Builder
+		for _, m := range scope.CourseProjects {
+			if m.Title != "" {
+				b.WriteString("- **")
+				b.WriteString(m.Title)
+				b.WriteString("**: ")
+			} else {
+				b.WriteString("- ")
+			}
+			b.WriteString(m.Body)
+			b.WriteString("\n")
+		}
+		body := truncate(b.String(), capCourse)
+		if body == "" {
+			body = "_(none)_"
+		}
+		sections = append(sections, section{"## Course context: " + courseID, body})
+	}
+
+	{
+		var b strings.Builder
+		for _, m := range scope.Feedback {
+			if m.Title != "" {
+				b.WriteString("- **")
+				b.WriteString(m.Title)
+				b.WriteString("**: ")
+			} else {
+				b.WriteString("- ")
+			}
+			b.WriteString(m.Body)
+			b.WriteString("\n")
+		}
+		body := truncate(b.String(), capFeedback)
+		if body == "" {
+			body = "_(none)_"
+		}
+		sections = append(sections, section{"## Active feedback rules", body})
+	}
+
+	{
+		var b strings.Builder
+		for _, d := range recent {
+			b.WriteString("- ")
+			b.WriteString(d.Topic)
+			if d.Summary != "" {
+				b.WriteString(" — ")
+				b.WriteString(d.Summary)
+			}
+			b.WriteString("\n")
+		}
+		body := truncate(b.String(), capRecent)
+		if body == "" {
+			body = "_(none)_"
+		}
+		sections = append(sections, section{"## Recent sessions", body})
+	}
+
+	{
+		var b strings.Builder
+		for _, sk := range skills {
+			b.WriteString("- `")
+			b.WriteString(sk.Name)
+			b.WriteString("` — ")
+			b.WriteString(sk.Description)
+			b.WriteString("\n")
+		}
+		body := truncate(b.String(), capSkills)
+		if body == "" {
+			body = "_(none yet)_"
+		}
+		sections = append(sections, section{"## Available skills", body})
+	}
+
+	render := func(secs []section) string {
+		var b strings.Builder
+		b.WriteString("# AGENTS.md\n\n")
+		for _, s := range secs {
+			b.WriteString(s.title)
+			b.WriteString("\n\n")
+			b.WriteString(s.body)
+			if !strings.HasSuffix(s.body, "\n") {
+				b.WriteString("\n")
+			}
+			b.WriteString("\n")
+		}
+		return b.String()
+	}
+
+	out := render(sections)
+	for len(out) > agentsMDTotalCap && len(sections) > 1 {
+		sections = sections[:len(sections)-1]
+		out = render(sections)
+	}
+	return out
 }
