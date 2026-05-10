@@ -10,16 +10,67 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 
 	"study-app/agent"
 )
 
 const defaultUserID = "eduardo"
 
+// resolveStudyRoot returns CLAW_STUDY_ROOT or empty.
+func resolveStudyRoot() string {
+	return os.Getenv("CLAW_STUDY_ROOT")
+}
+
+// resolveDBPath returns the effective study.db path. Order of precedence:
+// explicit override > fallback (from main) > CLAW_STUDY_DB > CLAW_STUDY_ROOT/data/study.db.
+// Returns an error if the final path is empty or does not exist on disk.
+// claw-cli never bootstraps a fresh DB — seed-memory is the canonical first-run path.
+func resolveDBPath(override, fallback string) (string, error) {
+	resolved := override
+	if resolved == "" {
+		resolved = fallback
+	}
+	if resolved == "" {
+		resolved = os.Getenv("CLAW_STUDY_DB")
+	}
+	if resolved == "" {
+		if root := resolveStudyRoot(); root != "" {
+			resolved = filepath.Join(root, "data", "study.db")
+		}
+	}
+	if resolved == "" {
+		return "", fmt.Errorf("no database path: pass --db, set CLAW_STUDY_DB, or set CLAW_STUDY_ROOT")
+	}
+	if _, err := os.Stat(resolved); err != nil {
+		return "", fmt.Errorf("database not found at %q: %w", resolved, err)
+	}
+	return resolved, nil
+}
+
+// resolveSkillsDir returns the skills directory path. Order of precedence:
+// explicit override > CLAW_STUDY_ROOT/skills > "skills". Does not Stat — a
+// defaulted missing dir is OK (Phase 3 has not populated skills/ yet);
+// callers must Stat themselves if they want to enforce existence on an
+// explicit override.
+func resolveSkillsDir(override string) string {
+	if override != "" {
+		return override
+	}
+	if root := resolveStudyRoot(); root != "" {
+		return filepath.Join(root, "skills")
+	}
+	return "skills"
+}
+
 func main() {
 	dbPath := os.Getenv("CLAW_STUDY_DB")
 	if dbPath == "" {
-		dbPath = "data/study.db"
+		if root := os.Getenv("CLAW_STUDY_ROOT"); root != "" {
+			dbPath = filepath.Join(root, "data", "study.db")
+		} else {
+			dbPath = "data/study.db"
+		}
 	}
 	os.Exit(run(os.Args, os.Stdout, os.Stderr, dbPath))
 }
@@ -74,6 +125,7 @@ func memorySearch(args []string, stdout, stderr io.Writer, dbPath string) int {
 	query := fs.String("query", "", "search query (required)")
 	course := fs.String("course", "", "course id (optional)")
 	limit := fs.Int("limit", 20, "max results")
+	dbOverride := fs.String("db", "", "path to study.db (default: $CLAW_STUDY_DB or $CLAW_STUDY_ROOT/data/study.db)")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -81,7 +133,12 @@ func memorySearch(args []string, stdout, stderr io.Writer, dbPath string) int {
 		fmt.Fprintln(stderr, "memory search: --query is required")
 		return 2
 	}
-	db, err := agent.OpenDB(dbPath)
+	resolvedDB, err := resolveDBPath(*dbOverride, dbPath)
+	if err != nil {
+		_, _ = fmt.Fprintf(stderr, "%v\n", err)
+		return 1
+	}
+	db, err := agent.OpenDB(resolvedDB)
 	if err != nil {
 		fmt.Fprintf(stderr, "open db: %v\n", err)
 		return 1
@@ -115,12 +172,28 @@ func memoryLoad(args []string, stdout, stderr io.Writer, dbPath string) int {
 	fs.SetOutput(stderr)
 	course := fs.String("course", "", "course id")
 	user := fs.String("user", defaultUserID, "user id")
-	skillsDir := fs.String("skills-dir", "skills", "directory containing SKILL.md files")
+	skillsDirFlag := fs.String("skills-dir", "", "directory containing SKILL.md files (default: $CLAW_STUDY_ROOT/skills, then 'skills')")
+	dbOverride := fs.String("db", "", "path to study.db (default: $CLAW_STUDY_DB or $CLAW_STUDY_ROOT/data/study.db)")
 	_ = fs.String("session", "", "session id (informational; unused in v1)")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
-	db, err := agent.OpenDB(dbPath)
+
+	resolvedDB, err := resolveDBPath(*dbOverride, dbPath)
+	if err != nil {
+		_, _ = fmt.Fprintf(stderr, "%v\n", err)
+		return 1
+	}
+
+	resolvedSkills := resolveSkillsDir(*skillsDirFlag)
+	if *skillsDirFlag != "" {
+		if _, statErr := os.Stat(resolvedSkills); statErr != nil {
+			_, _ = fmt.Fprintf(stderr, "skills directory not found at %q: %v\n", resolvedSkills, statErr)
+			return 1
+		}
+	}
+
+	db, err := agent.OpenDB(resolvedDB)
 	if err != nil {
 		fmt.Fprintf(stderr, "open db: %v\n", err)
 		return 1
@@ -144,7 +217,7 @@ func memoryLoad(args []string, stdout, stderr io.Writer, dbPath string) int {
 			return 1
 		}
 	}
-	skills, err := agent.ParseSkillsDir(*skillsDir)
+	skills, err := agent.ParseSkillsDir(resolvedSkills)
 	if err != nil {
 		fmt.Fprintf(stderr, "parse skills: %v\n", err)
 		return 1
@@ -160,6 +233,7 @@ func memorySave(args []string, stdin io.Reader, stdout, stderr io.Writer, dbPath
 	course := fs.String("course", "", "course id (optional)")
 	title := fs.String("title", "", "memory title")
 	body := fs.String("body", "", "memory body, or `-` to read from stdin")
+	dbOverride := fs.String("db", "", "path to study.db (default: $CLAW_STUDY_DB or $CLAW_STUDY_ROOT/data/study.db)")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -178,7 +252,13 @@ func memorySave(args []string, stdin io.Reader, stdout, stderr io.Writer, dbPath
 		bodyText = string(raw)
 	}
 
-	db, err := agent.OpenDB(dbPath)
+	resolvedDB, err := resolveDBPath(*dbOverride, dbPath)
+	if err != nil {
+		_, _ = fmt.Fprintf(stderr, "%v\n", err)
+		return 1
+	}
+
+	db, err := agent.OpenDB(resolvedDB)
 	if err != nil {
 		fmt.Fprintf(stderr, "open db: %v\n", err)
 		return 1

@@ -94,7 +94,8 @@ func TestRunMemorySearchReturnsResults(t *testing.T) {
 	dbPath := newTempDB(t)
 	var sb, eb bytes.Buffer
 	for _, body := range []string{"density rule", "abbreviations rule", "unrelated text"} {
-		sb.Reset(); eb.Reset()
+		sb.Reset()
+		eb.Reset()
 		code := run([]string{
 			"clawcli", "memory", "save",
 			"--kind", "feedback", "--title", body, "--body", body,
@@ -176,5 +177,82 @@ func TestRunMemoryLoadEmptyDBStillProducesShell(t *testing.T) {
 	}
 	if !strings.Contains(stdout.String(), "# AGENTS.md") {
 		t.Fatalf("expected AGENTS.md header even on empty db")
+	}
+}
+
+func TestRunMemoryLoadResolvesDBFromEnvRoot(t *testing.T) {
+	root := t.TempDir()
+	dataDir := filepath.Join(root, "data")
+	if err := os.MkdirAll(dataDir, 0755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	dbPath := filepath.Join(dataDir, "study.db")
+	db, err := agent.OpenDB(dbPath)
+	if err != nil {
+		t.Fatalf("seed open: %v", err)
+	}
+	if err := agent.InitSchema(db); err != nil {
+		t.Fatalf("seed init: %v", err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatalf("close: %v", err)
+	}
+
+	t.Setenv("CLAW_STUDY_ROOT", root)
+	t.Setenv("CLAW_STUDY_DB", "")
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"clawcli", "memory", "load", "--course", "ce297"}, &stdout, &stderr, "")
+	if code != 0 {
+		t.Fatalf("exit %d, stderr: %s", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "# AGENTS.md") {
+		t.Fatalf("expected AGENTS.md output, got: %s", stdout.String())
+	}
+}
+
+func TestRunMemoryLoadErrorsOnExplicitMissingDB(t *testing.T) {
+	t.Setenv("CLAW_STUDY_ROOT", "")
+	t.Setenv("CLAW_STUDY_DB", "")
+	missing := filepath.Join(t.TempDir(), "missing.db")
+	var stdout, stderr bytes.Buffer
+	code := run([]string{
+		"clawcli", "memory", "load", "--course", "ce297", "--db", missing,
+	}, &stdout, &stderr, "")
+	if code != 1 {
+		t.Fatalf("exit %d, want 1; stderr: %s", code, stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "database not found") || !strings.Contains(stderr.String(), missing) {
+		t.Fatalf("expected database-not-found error mentioning %q, got: %s", missing, stderr.String())
+	}
+}
+
+func TestRunMemoryLoadErrorsOnExplicitMissingSkillsDir(t *testing.T) {
+	dbPath := newTempDB(t)
+	missing := filepath.Join(t.TempDir(), "no-such-skills")
+	var stdout, stderr bytes.Buffer
+	code := run([]string{
+		"clawcli", "memory", "load", "--course", "ce297",
+		"--db", dbPath, "--skills-dir", missing,
+	}, &stdout, &stderr, "")
+	if code != 1 {
+		t.Fatalf("exit %d, want 1; stderr: %s", code, stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "skills directory not found") || !strings.Contains(stderr.String(), missing) {
+		t.Fatalf("expected skills-not-found error, got: %s", stderr.String())
+	}
+}
+
+func TestRunMemoryLoadDefaultSkillsDirMissingIsOK(t *testing.T) {
+	dbPath := newTempDB(t)
+	t.Setenv("CLAW_STUDY_ROOT", t.TempDir()) // root has no skills/ subdir
+	var stdout, stderr bytes.Buffer
+	code := run([]string{
+		"clawcli", "memory", "load", "--course", "ce297", "--db", dbPath,
+	}, &stdout, &stderr, "")
+	if code != 0 {
+		t.Fatalf("exit %d, stderr: %s", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "_(none yet)_") {
+		t.Fatalf("expected skill section fallback, got: %s", stdout.String())
 	}
 }
