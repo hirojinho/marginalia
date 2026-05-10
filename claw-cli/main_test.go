@@ -302,4 +302,7 @@ func TestRunPlanToggleMissingTaskExits2(t *testing.T) {
 	if code != 2 {
 		t.Fatalf("exit %d, want 2 (missing --task)", code)
 	}
+	if !strings.Contains(stderr.String(), "--task") {
+		t.Fatalf("expected missing-task error, got: %s", stderr.String())
+	}
 }

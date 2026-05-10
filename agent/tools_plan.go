@@ -50,7 +50,10 @@ func (a *App) applyToggle(plan *JSONPlan, action string, taskIndex int) string {
 			count++
 		}
 		for k := range plan.Phases[i].Clusters {
-			if msg, found := a.applyToggleCluster(plan, action, taskIndex, i, k, &count); found {
+			if msg, found := applyToggleCluster(plan, action, taskIndex, i, k, &count); found {
+				if err := a.SavePlan(plan); err != nil {
+					return "error saving plan: " + err.Error()
+				}
 				return msg
 			}
 		}
@@ -59,13 +62,10 @@ func (a *App) applyToggle(plan *JSONPlan, action string, taskIndex int) string {
 }
 
 // applyToggleCluster applies the action to a task inside a cluster, if the sequential count matches taskIndex.
-func (a *App) applyToggleCluster(plan *JSONPlan, action string, taskIndex, phaseIdx, clusterIdx int, count *int) (string, bool) {
+func applyToggleCluster(plan *JSONPlan, action string, taskIndex, phaseIdx, clusterIdx int, count *int) (string, bool) {
 	for j := range plan.Phases[phaseIdx].Clusters[clusterIdx].Tasks {
 		if *count == taskIndex {
 			applyAction(&plan.Phases[phaseIdx].Clusters[clusterIdx].Tasks[j].Done, action)
-			if err := a.SavePlan(plan); err != nil {
-				return "error saving plan: " + err.Error(), true
-			}
 			return fmt.Sprintf("Task %d %q in cluster %q marked as %s",
 				taskIndex,
 				plan.Phases[phaseIdx].Clusters[clusterIdx].Tasks[j].Title,
