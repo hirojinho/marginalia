@@ -12,6 +12,10 @@ Last reviewed: 2026-05-10 (post-audit).
 
 Cheap, small, ready when there's an excuse to pull them in.
 
+- **Inline reasoning stream.** Thinking tokens currently land in a single collapsible block at the top of the assistant message regardless of when the model emitted them. Render them in event order instead: each reasoning span shows up inline between the answer tokens that surround it (answer → thinking → answer …). Backend already emits `event: reasoning` and `event: token` separately; the work is in `static/chat.js`'s render loop, which routes all `reasoning` events into one container.
+- **Surface tool calls in the chat UI.** When the LLM invokes a tool (`toolReadFile`, `toolRAGSearch`, `toolPDFExtract`, …), show what was called and a summary of the result. Today it's invisible to the user — answers reference things with no trail. Needs a new SSE event from `/chat` for tool start/end (plus a render path in `chat.js`). Decide whether to fold it into the same inline timeline as reasoning.
+- **Pomodoro timer.** 25-min focus / 5-min break, ambient — no chat integration in v1, just a corner widget. Decide later whether it logs anything to plans.
+- **Courses-drawer UX review.** Current courses/sessions management feels poor. Brainstorm pass first — list what's clumsy, what's missing, what should disappear — before touching code. Likely splits into 2–3 small follow-up items.
 - **Phase 2.6 — migration system.** Inline migrations in `agent/db.go` cover the current schema. The first time the schema needs a non-trivial change, replace them with a numbered-migration runner (something `golang-migrate`-shaped or a tiny in-tree version).
 - **Cloudflare Access on top of bearer auth.** Optional second auth layer at the CF edge. Belt-and-suspenders — only worth it if you want zero unauthenticated traffic ever reaching the app.
 
@@ -19,6 +23,8 @@ Cheap, small, ready when there's an excuse to pull them in.
 
 Bigger things, not blocking, would need their own design pass.
 
+- **"Fast study" mode.** Undefined — placeholder for a low-friction path to short, lookup-style study moments (no orientation, no full session lifecycle?). Brainstorm before prioritising; capture the trigger first, then the shape.
+- **Review the app ↔ Claw agent relationship.** Revisit how `claw-study` (this app) and Claw (the Telegram bot) divide responsibilities. Tier A `claw-study-read` skill is shipped; Tiers B/C/D from the original plan are speculative. Question is whether the Tier model is still right or whether the boundary should be redrawn. Output is likely an ADR (or one that supersedes Tier B/C/D below).
 - **Tier B `claw-study-notes` skill.** Mutating skill for Claw — fleeting notes, plan toggles, memory edits.
 - **Tier C `claw-study-api` skill.** HTTP API client for things the filesystem doesn't expose well (RAG search, chat).
 - **Tier D `claw-study-deploy` skill.** Build / scp / systemctl / git ops on the repo.
