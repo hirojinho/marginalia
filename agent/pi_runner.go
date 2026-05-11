@@ -152,7 +152,7 @@ func truncatePiSummary(s string) string {
 func RunPi(ctx context.Context, sandboxDir, message, model, piPath, skillsDir, apiKey string) (<-chan PiEvent, error) {
 	args := []string{"--mode", "rpc", "--provider", "opencode-go", "--model", model}
 	if skillsDir != "" {
-		args = append(args, "--skills-dir", skillsDir)
+		args = append(args, "--skill", skillsDir)
 	}
 
 	cmd := exec.CommandContext(ctx, piPath, args...)
@@ -175,11 +175,14 @@ func RunPi(ctx context.Context, sandboxDir, message, model, piPath, skillsDir, a
 	prompt := piPromptCmd{ID: "m1", Type: "prompt", Message: message}
 	promptJSON, _ := json.Marshal(prompt)
 	_, _ = fmt.Fprintf(stdin, "%s\n", promptJSON)
-	_ = stdin.Close()
+	// Do NOT close stdin here — pi exits immediately on stdin EOF even if the
+	// prompt is still being processed. Stdin is closed by the goroutine below
+	// once agent_end is received or the context is cancelled.
 
 	events := make(chan PiEvent, 64)
 	go func() {
 		defer close(events)
+		defer func() { _ = stdin.Close() }()
 		defer func() { _ = cmd.Wait() }()
 
 		scanner := bufio.NewScanner(stdout)

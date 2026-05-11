@@ -148,6 +148,26 @@ rag search --query "STAMP" --course ce297 --top-k 3
 
 DONE.
 
+## Phase 5 — Pi SSE proxy (2026-05-11)
+
+Deployed commits eb6f21d..bfe9a2e to VPS. .env updated with PI_PATH,
+SKILLS_DIR, AGENT_MODEL=deepseek-v4-pro.
+
+Two bugs found and fixed during deploy:
+- `--skills-dir` flag does not exist in pi v0.74.0; correct flag is `--skill <dir>` (agent/pi_runner.go).
+- Closing stdin immediately after sending the prompt caused pi to exit before
+  making the LLM call; stdin is now closed by the goroutine after agent_end
+  is received (agent/pi_runner.go).
+
+Both fixes were committed and redeployed on the same day.
+
+Smoke results:
+- POST /chat-v2 streams SSE with token events ✅
+- event: done received at end of turn ✅
+- reasoning events (thinking_delta) stream before text_delta tokens ✅
+- /debug/health 200 ✅
+- No panics or errors in service logs ✅
+
 ## Phase 4 — Sandbox manager (2026-05-10)
 
 Deployed commits from Phase 4 to VPS.
