@@ -139,12 +139,10 @@ func parsePiLine(line []byte) (PiEvent, bool) {
 	return PiEvent{}, false
 }
 
-// truncatePiSummary truncates s to piSummaryMaxBytes bytes, appending "…" if cut.
+// truncatePiSummary truncates s to piSummaryMaxBytes bytes at a rune
+// boundary, appending "…" if cut. Uses TruncateRunes for UTF-8 safety.
 func truncatePiSummary(s string) string {
-	if len(s) <= piSummaryMaxBytes {
-		return s
-	}
-	return s[:piSummaryMaxBytes] + "…"
+	return TruncateRunes(s, piSummaryMaxBytes)
 }
 
 // RunPi spawns a Pi RPC subprocess in sandboxDir, sends message, and returns

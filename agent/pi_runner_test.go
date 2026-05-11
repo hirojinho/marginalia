@@ -146,3 +146,15 @@ func TestParsePiLineTruncatesLongInputSummary(t *testing.T) {
 		t.Errorf("InputSummary not truncated: len=%d", len(ev.InputSummary))
 	}
 }
+
+func TestTruncatePiSummaryBoundary(t *testing.T) {
+	exact := strings.Repeat("x", 80)
+	if got := truncatePiSummary(exact); got != exact {
+		t.Errorf("80-byte string should not be truncated, got %q", got)
+	}
+	oneBeyond := strings.Repeat("x", 81)
+	got := truncatePiSummary(oneBeyond)
+	if len(got) > 83 { // 80 bytes + 3-byte UTF-8 "…"
+		t.Errorf("81-byte string should be truncated, got len=%d", len(got))
+	}
+}
