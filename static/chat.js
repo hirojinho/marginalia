@@ -6,8 +6,6 @@ import { createToolPanel, createSkillChip, appendCompactionNotice, updateModelFo
 
 const MAX_MESSAGE_LEN = 4000;
 
-let currentAssistantMsg = null;
-
 export function initChat() {
   document.getElementById('chat-form').addEventListener('submit', async function (e) {
     e.preventDefault();
@@ -24,18 +22,19 @@ export function initChat() {
       return;
     }
     input.value = '';
+    const messagesContainer = document.getElementById('messages');
     document.getElementById('send-btn').disabled = true;
 
     const userDiv = document.createElement('div');
     userDiv.className = 'msg msg-user';
     userDiv.innerHTML = '<div class="msg-label">You</div><div class="msg-content">' + escapeHtml(msg) + '</div>';
-    document.getElementById('messages').appendChild(userDiv);
+    messagesContainer.appendChild(userDiv);
 
     const assistantDiv = document.createElement('div');
     assistantDiv.className = 'msg msg-assistant';
     assistantDiv.innerHTML = '<div class="msg-label">Claw</div><div class="msg-content"><div class="thinking-block" style="display:none;"><details><summary>Thinking</summary><div class="thinking-content"></div></details></div><div class="answer-content"></div></div>';
-    document.getElementById('messages').appendChild(assistantDiv);
-    currentAssistantMsg = assistantDiv.querySelector('.msg-content');
+    messagesContainer.appendChild(assistantDiv);
+    let currentAssistantMsg = assistantDiv.querySelector('.msg-content');
     const thinkingBlock = currentAssistantMsg.querySelector('.thinking-block');
     const thinkingContent = currentAssistantMsg.querySelector('.thinking-content');
     const answerContent = currentAssistantMsg.querySelector('.answer-content');
