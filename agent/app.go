@@ -29,6 +29,18 @@ type Config struct {
 	// UserID identifies the single tenant. Used when generating AGENTS.md.
 	// Defaults to "eduardo" when empty in the sandbox write path.
 	UserID string
+
+	// PiPath is the absolute path to the pi binary. When empty, /chat-v2
+	// returns 503 Service Unavailable.
+	PiPath string
+
+	// SkillsDir is the directory passed to pi --skills-dir. When empty,
+	// Pi is launched without a skills directory.
+	SkillsDir string
+
+	// AgentModel is the model ID passed to pi --model. Falls back to
+	// Config.Model when empty.
+	AgentModel string
 }
 
 // App owns all shared mutable state for the study app: the database
@@ -48,6 +60,10 @@ type App struct {
 
 	// Sandbox manages per-session ephemeral Pi working directories.
 	Sandbox *SandboxManager
+
+	// piActive tracks sessions with an in-flight Pi turn. sync.Map key is
+	// int64 session ID; value is struct{}.
+	piActive sync.Map
 }
 
 // NewApp constructs an App with all subsystems initialised. Caller is
@@ -86,3 +102,15 @@ func (a *App) SetActiveSessionIDInMemory(id int64) {
 // LockChat acquires the chat-turn mutex.
 func (a *App) LockChat()   { a.chatMu.Lock() }
 func (a *App) UnlockChat() { a.chatMu.Unlock() }
+
+// AcquirePiLock marks sessionID as having an active Pi turn. Returns
+// false if a turn is already active for that session.
+func (a *App) AcquirePiLock(sessionID int64) bool {
+	_, loaded := a.piActive.LoadOrStore(sessionID, struct{}{})
+	return !loaded
+}
+
+// ReleasePiLock clears the active Pi turn marker for sessionID.
+func (a *App) ReleasePiLock(sessionID int64) {
+	a.piActive.Delete(sessionID)
+}

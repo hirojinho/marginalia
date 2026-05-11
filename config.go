@@ -33,6 +33,9 @@ func loadConfig() (agent.Config, error) {
 		AuthToken:      os.Getenv("AUTH_TOKEN"),
 		ClawCLIPath:    os.Getenv("CLAW_CLI_PATH"),
 		UserID:         firstNonEmpty(os.Getenv("USER_ID"), "eduardo"),
+		PiPath:         os.Getenv("PI_PATH"),
+		SkillsDir:      os.Getenv("SKILLS_DIR"),
+		AgentModel:     os.Getenv("AGENT_MODEL"),
 	}, nil
 }
 
