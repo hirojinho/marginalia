@@ -155,6 +155,8 @@ func runWithStdin(args []string, stdin io.Reader, stdout, stderr io.Writer, dbPa
 		return runWeb(args[2:], stdout, stderr, dbPath)
 	case "skill":
 		return runSkill(args[2:], stdout, stderr, dbPath)
+	case "session":
+		return runSession(args[2:], stdout, stderr, dbPath)
 	default:
 		_, _ = fmt.Fprintf(stderr, "unknown subcommand: %q\n", args[1])
 		return 2
@@ -680,6 +682,54 @@ func skillDispatch(args []string, stdout, stderr io.Writer, dbPath string) int {
 		},
 	})
 	_, _ = fmt.Fprintln(stdout, app.ToolStudySkill(argsJSON))
+	return 0
+}
+
+func runSession(args []string, stdout, stderr io.Writer, dbPath string) int {
+	if len(args) < 1 {
+		_, _ = fmt.Fprintln(stderr, "usage: claw-cli session <topic> [args]")
+		return 2
+	}
+	switch args[0] {
+	case "topic":
+		return sessionTopic(args[1:], stdout, stderr, dbPath)
+	default:
+		_, _ = fmt.Fprintf(stderr, "unknown session subcommand: %q\n", args[0])
+		return 2
+	}
+}
+
+func sessionTopic(args []string, stdout, stderr io.Writer, dbPath string) int {
+	fs := flag.NewFlagSet("session topic", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	sessionID := fs.Int64("session-id", 0, "session id (required, >0)")
+	topic := fs.String("topic", "", "new topic (required)")
+	dbOverride := fs.String("db", "", "path to study.db")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	if *sessionID <= 0 || *topic == "" {
+		_, _ = fmt.Fprintln(stderr, "session topic: --session-id (>0) and --topic are required")
+		return 2
+	}
+	resolvedDB, err := resolveDBPath(*dbOverride, dbPath)
+	if err != nil {
+		_, _ = fmt.Fprintf(stderr, "%v\n", err)
+		return 1
+	}
+	app, err := newAppFromEnv(resolvedDB, false)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return 1
+	}
+	defer func() { _ = app.Close() }()
+	if err := app.UpdateSessionTopic(*sessionID, *topic); err != nil {
+		_, _ = fmt.Fprintf(stderr, "update topic: %v\n", err)
+		return 1
+	}
+	enc := json.NewEncoder(stdout)
+	enc.SetIndent("", "  ")
+	_ = enc.Encode(map[string]any{"ok": true, "session_id": *sessionID, "topic": *topic})
 	return 0
 }
 

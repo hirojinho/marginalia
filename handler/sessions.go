@@ -23,8 +23,10 @@ func (h *Handler) handleSessions(w http.ResponseWriter, r *http.Request) {
 		h.createSession(w, r)
 	case http.MethodDelete:
 		h.deleteSession(w, r)
+	case http.MethodPatch:
+		h.renameSession(w, r)
 	default:
-		methodNotAllowed(w, r, http.MethodGet, http.MethodPost, http.MethodDelete)
+		methodNotAllowed(w, r, http.MethodGet, http.MethodPost, http.MethodDelete, http.MethodPatch)
 	}
 }
 
@@ -65,6 +67,39 @@ func (h *Handler) deleteSession(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := h.App.DeleteSession(id); err != nil {
 		writeServerError(w, "delete session", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+}
+
+func (h *Handler) renameSession(w http.ResponseWriter, r *http.Request) {
+	id, err := parseInt64(r.URL.Query().Get("id"), "id")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	var body struct {
+		Topic string `json:"topic"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid json")
+		return
+	}
+	topic := strings.TrimSpace(body.Topic)
+	if topic == "" {
+		writeError(w, http.StatusBadRequest, "topic is required")
+		return
+	}
+	if len([]rune(topic)) > 200 {
+		writeError(w, http.StatusBadRequest, "topic too long")
+		return
+	}
+	if err := h.App.UpdateSessionTopic(id, topic); err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			writeError(w, http.StatusNotFound, "session not found")
+			return
+		}
+		writeServerError(w, "rename session", err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})

@@ -132,6 +132,12 @@ func (sm *SandboxManager) writeAgentsMD(path, clawCLIPath string, sessionID int6
 		content = []byte("# Agent context\n\nNo memory loaded for this session.\n")
 	}
 
+	sessionSection := fmt.Sprintf(
+		"\n## Session\n\nID: %d\n\nAt the start of your **first turn**, call:\n```\nclaw-cli session topic --session-id %d --topic \"<a short descriptive title for this conversation>\"\n```\n",
+		sessionID, sessionID,
+	)
+	content = append(content, []byte(sessionSection)...)
+
 	if err := os.WriteFile(path, content, 0644); err != nil {
 		return fmt.Errorf("write agents.md: %w", err)
 	}

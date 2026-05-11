@@ -48,7 +48,7 @@ func GetTools() []ToolDef {
 			Parameters: map[string]interface{}{
 				"type": "object",
 				"properties": map[string]interface{}{
-					"path": map[string]interface{}{"type": "string", "description": "Absolute file path to read"},
+					"path": map[string]interface{}{"type": "string", "description": "Absolute file path or vault-relative path to read"},
 				},
 				"required": []string{"path"},
 			},
@@ -71,7 +71,7 @@ func GetTools() []ToolDef {
 			Parameters: map[string]interface{}{
 				"type": "object",
 				"properties": map[string]interface{}{
-					"path": map[string]interface{}{"type": "string", "description": "Directory path"},
+					"path": map[string]interface{}{"type": "string", "description": "Directory path, absolute or vault-relative"},
 				},
 				"required": []string{"path"},
 			},

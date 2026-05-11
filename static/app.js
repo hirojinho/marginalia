@@ -13,6 +13,7 @@ import {
 import { initChat } from './chat.js';
 import { initPlan, openFullPlan, toggleTopic, openPdfFromDrawer } from './plan.js';
 import { initPdf, openPdf, triggerUpload, switchPdf } from './pdf.js';
+import { initPomodoro } from './pomodoro.js';
 
 installErrorBanner();
 
@@ -71,6 +72,7 @@ async function loadRuntimeEndpoint() {
 initSessionsUI();
 initPlan();
 initPdf();
+initPomodoro();
 
 // Sessions startup
 (async function initApp() {

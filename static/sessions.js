@@ -6,19 +6,23 @@ import { escapeHtml, renderContent } from './dom.js';
 const MAX_TOPIC_LEN = 200;
 
 export const courseMeta = {
-  'ce297': { name: 'CE-297 Safety', color: '#B45309' },
-  'ddia': { name: 'DDIA', color: '#2563EB' },
+  ce297: { name: 'CE-297 Safety', color: '#B45309' },
+  ddia: { name: 'DDIA', color: '#2563EB' },
   'dsa-interview': { name: 'DSA Interview', color: '#059669' },
   'software-arch': { name: 'Software Arch', color: '#7C3AED' },
-  'thesis': { name: 'Thesis', color: '#DC2626' },
+  thesis: { name: 'Thesis', color: '#DC2626' },
   '': { name: 'General', color: '#78716C' },
 };
 
 let activeSessionId = null;
 let allSessions = [];
 
-export function getActiveSessionId() { return activeSessionId; }
-export function setActiveSessionId(id) { activeSessionId = id; }
+export function getActiveSessionId() {
+  return activeSessionId;
+}
+export function setActiveSessionId(id) {
+  activeSessionId = id;
+}
 
 export async function loadSessions() {
   try {
@@ -42,7 +46,7 @@ export async function loadActiveSession() {
       updateSessionPill(null);
     }
     highlightActiveSession();
-  } catch (err) {
+  } catch {
     activeSessionId = null;
     updateSessionPill(null);
   }
@@ -51,7 +55,8 @@ export async function loadActiveSession() {
 function renderSessionList() {
   const container = document.getElementById('session-list');
   if (!allSessions || allSessions.length === 0) {
-    container.innerHTML = '<div style="text-align:center;color:var(--text-tertiary);font-size:13px;padding:24px 12px;">No sessions yet.<br>Click <strong>+ New</strong> to start.</div>';
+    container.innerHTML =
+      '<div style="text-align:center;color:var(--text-tertiary);font-size:13px;padding:24px 12px;">No sessions yet.<br>Click <strong>+ New</strong> to start.</div>';
     return;
   }
 
@@ -75,10 +80,13 @@ function renderSessionList() {
       const timeAgo = formatTimeAgo(s.updated_at);
       html += `<div class="session-item${isActive ? ' active' : ''}" data-session-id="${s.id}" data-action="switch-session">
         <div style="display:flex;justify-content:space-between;align-items:start;">
-          <div class="session-topic">${escapeHtml(s.topic || 'General')}</div>
+          <div class="session-topic-wrap">
+            <span class="session-topic" data-action="start-rename" data-session-id="${s.id}">${escapeHtml(s.topic || 'General')}</span>
+            <span class="session-rename-btn" data-action="start-rename" data-session-id="${s.id}" title="Rename">&#x270E;</span>
+          </div>
           <span class="session-delete" data-action="delete-session" data-session-id="${s.id}" title="Delete">&#x2715;</span>
         </div>
-        <div class="session-meta">${timeAgo}${s.pdf_name ? ' &middot; ' + escapeHtml(s.pdf_name.replace(/\.pdf$/i,'')) : ''}</div>
+        <div class="session-meta">${timeAgo}${s.pdf_name ? ' &middot; ' + escapeHtml(s.pdf_name.replace(/\.pdf$/i, '')) : ''}</div>
       </div>`;
     }
   }
@@ -102,11 +110,11 @@ export async function switchSession(id) {
     await fetch('/api/sessions/active', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: id })
+      body: JSON.stringify({ id: id }),
     });
     activeSessionId = id;
     highlightActiveSession();
-    updateSessionPill(allSessions.find(s => s.id === id) || { id: id, topic: 'Session' });
+    updateSessionPill(allSessions.find((s) => s.id === id) || { id: id, topic: 'Session' });
     await loadSessionMessages();
     await loadSessions();
   } catch (err) {
@@ -128,12 +136,18 @@ export async function loadSessionMessages() {
       if (m.role === 'user') {
         const div = document.createElement('div');
         div.className = 'msg msg-user';
-        div.innerHTML = '<div class="msg-label">You</div><div class="msg-content">' + renderContent(m.content) + '</div>';
+        div.innerHTML =
+          '<div class="msg-label">You</div><div class="msg-content">' +
+          renderContent(m.content) +
+          '</div>';
         container.appendChild(div);
       } else if (m.role === 'assistant') {
         const div = document.createElement('div');
         div.className = 'msg msg-assistant';
-        div.innerHTML = '<div class="msg-label">Claw</div><div class="msg-content">' + renderContent(m.content) + '</div>';
+        div.innerHTML =
+          '<div class="msg-label">Claw</div><div class="msg-content">' +
+          renderContent(m.content) +
+          '</div>';
         container.appendChild(div);
       }
     }
@@ -145,7 +159,7 @@ export async function loadSessionMessages() {
 }
 
 function highlightActiveSession() {
-  document.querySelectorAll('.session-item').forEach(el => {
+  document.querySelectorAll('.session-item').forEach((el) => {
     el.classList.toggle('active', parseInt(el.dataset.sessionId) === activeSessionId);
   });
 }
@@ -186,7 +200,7 @@ export async function createSession() {
     const resp = await fetch('/api/sessions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ course_id: courseId, topic: topic })
+      body: JSON.stringify({ course_id: courseId, topic: topic }),
     });
     if (!resp.ok) throw new Error('HTTP ' + resp.status);
     const session = await resp.json();
@@ -220,7 +234,60 @@ export async function deleteSession(id) {
   }
 }
 
+function startRenameSession(id) {
+  const session = allSessions.find((s) => s.id === id);
+  if (!session) return;
+  const wrap = document.querySelector(
+    `.session-topic-wrap [data-session-id="${id}"].session-topic`,
+  );
+  if (!wrap) return;
+  const parent = wrap.closest('.session-topic-wrap');
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'session-topic-input';
+  input.value = session.topic || '';
+  input.maxLength = 200;
+  parent.replaceWith(input);
+  input.focus();
+  input.select();
+
+  async function commit() {
+    const newTopic = input.value.trim();
+    if (newTopic && newTopic !== session.topic) {
+      try {
+        await fetch('/api/sessions?id=' + id, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ topic: newTopic }),
+        });
+        session.topic = newTopic;
+        if (id === activeSessionId) updateSessionPill(session);
+      } catch (err) {
+        console.error('Failed to rename session', err);
+      }
+    }
+    renderSessionList();
+  }
+
+  input.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      commit();
+    }
+    if (e.key === 'Escape') {
+      renderSessionList();
+    }
+  });
+  input.addEventListener('blur', commit);
+}
+
 export function initSessionsUI() {
+  document.getElementById('session-list').addEventListener('click', function (e) {
+    const el = e.target.closest('[data-action="start-rename"]');
+    if (!el) return;
+    e.stopPropagation();
+    startRenameSession(parseInt(el.dataset.sessionId, 10));
+  });
   document.getElementById('session-modal-cancel').addEventListener('click', closeSessionModal);
   document.getElementById('session-modal-create').addEventListener('click', createSession);
   document.getElementById('new-session-btn').addEventListener('click', openSessionModal);
@@ -235,6 +302,9 @@ export function initSessionsUI() {
     if (e.target === this) closeSessionModal();
   });
   document.getElementById('session-topic').addEventListener('keydown', function (e) {
-    if (e.key === 'Enter') { e.preventDefault(); createSession(); }
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      createSession();
+    }
   });
 }

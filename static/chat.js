@@ -40,16 +40,26 @@ export function initChat(chatEndpoint) {
 
     const assistantDiv = document.createElement('div');
     assistantDiv.className = 'msg msg-assistant';
-    assistantDiv.innerHTML =
-      '<div class="msg-label">Claw</div><div class="msg-content"><div class="thinking-block" style="display:none;"><details><summary>Thinking</summary><div class="thinking-content"></div></details></div><div class="answer-content"></div></div>';
+    assistantDiv.innerHTML = '<div class="msg-label">Claw</div><div class="msg-content"></div>';
     messagesContainer.appendChild(assistantDiv);
     let currentAssistantMsg = assistantDiv.querySelector('.msg-content');
-    const thinkingBlock = currentAssistantMsg.querySelector('.thinking-block');
-    const thinkingContent = currentAssistantMsg.querySelector('.thinking-content');
-    const answerContent = currentAssistantMsg.querySelector('.answer-content');
     currentAssistantMsg.classList.add('token-cursor');
-    let thinkingActive = false;
+    let currentSegmentType = null;
+    let currentSegmentEl = null;
+    let rawAnswer = '';
+    let rawThinking = '';
     const activeToolPanels = new Map();
+
+    function ensureAnswerSegment() {
+      if (currentSegmentType !== 'answer') {
+        const seg = document.createElement('div');
+        seg.className = 'answer-segment';
+        currentAssistantMsg.appendChild(seg);
+        currentSegmentEl = seg;
+        currentSegmentType = 'answer';
+        rawAnswer = '';
+      }
+    }
 
     try {
       const resp = await fetch(chatEndpoint, {
@@ -64,8 +74,6 @@ export function initChat(chatEndpoint) {
       const decoder = new TextDecoder();
       let buffer = '';
       let eventType = '';
-      let rawAnswer = '';
-      let rawThinking = '';
 
       while (true) {
         const { done, value } = await reader.read();
@@ -83,25 +91,38 @@ export function initChat(chatEndpoint) {
             const data = line.slice(6);
             const payload = JSON.parse(data);
             if (eventType === 'reasoning') {
-              if (!thinkingActive) {
-                thinkingActive = true;
-                thinkingBlock.style.display = 'block';
+              if (currentSegmentType !== 'reasoning') {
+                const details = document.createElement('details');
+                details.className = 'thinking-inline';
+                details.innerHTML =
+                  '<summary>Thinking</summary><div class="thinking-content"></div>';
+                currentAssistantMsg.appendChild(details);
+                currentSegmentEl = details.querySelector('.thinking-content');
+                currentSegmentType = 'reasoning';
+                rawThinking = '';
               }
-              const delta = payload.delta ?? '';
-              rawThinking += delta;
-              thinkingContent.innerHTML = renderMarkdown(rawThinking);
+              rawThinking += payload.delta ?? '';
+              currentSegmentEl.innerHTML = renderMarkdown(rawThinking);
               scrollToBottom();
-            } else if (eventType === 'token' && answerContent) {
+            } else if (eventType === 'token') {
+              if (currentSegmentType !== 'answer') {
+                const seg = document.createElement('div');
+                seg.className = 'answer-segment';
+                currentAssistantMsg.appendChild(seg);
+                currentSegmentEl = seg;
+                currentSegmentType = 'answer';
+                rawAnswer = '';
+              }
               currentAssistantMsg.classList.remove('token-cursor');
-              const delta = payload.delta ?? '';
-              rawAnswer += delta;
-              answerContent.innerHTML = renderMarkdown(rawAnswer);
+              rawAnswer += payload.delta ?? '';
+              currentSegmentEl.innerHTML = renderMarkdown(rawAnswer);
               currentAssistantMsg.classList.add('token-cursor');
               scrollToBottom();
             } else if (eventType === 'tool_start') {
+              ensureAnswerSegment();
               const panel = createToolPanel(payload.name, payload.input_summary);
               activeToolPanels.set(payload.name, panel);
-              answerContent.appendChild(panel.el);
+              currentSegmentEl.appendChild(panel.el);
               scrollToBottom();
             } else if (eventType === 'tool_end') {
               const panel = activeToolPanels.get(payload.name);
@@ -115,7 +136,7 @@ export function initChat(chatEndpoint) {
               currentAssistantMsg.insertBefore(chip, currentAssistantMsg.firstChild);
               scrollToBottom();
             } else if (eventType === 'compaction') {
-              appendCompactionNotice(answerContent, payload.reason);
+              appendCompactionNotice(currentAssistantMsg, payload.reason);
               scrollToBottom();
             } else if (eventType === 'model_change') {
               updateModelFooter(payload.to);
@@ -125,7 +146,14 @@ export function initChat(chatEndpoint) {
               scrollToBottom();
             } else if (eventType === 'error') {
               if (currentAssistantMsg) currentAssistantMsg.classList.remove('token-cursor');
-              answerContent.innerHTML = 'Error: ' + escapeHtml(payload.message);
+              if (currentSegmentType === 'answer' && currentSegmentEl) {
+                currentSegmentEl.innerHTML = 'Error: ' + escapeHtml(payload.message);
+              } else {
+                const seg = document.createElement('div');
+                seg.className = 'answer-segment';
+                seg.innerHTML = 'Error: ' + escapeHtml(payload.message);
+                currentAssistantMsg.appendChild(seg);
+              }
               currentAssistantMsg = null;
               scrollToBottom();
             }
@@ -135,7 +163,14 @@ export function initChat(chatEndpoint) {
     } catch (err) {
       if (currentAssistantMsg) {
         currentAssistantMsg.classList.remove('token-cursor');
-        answerContent.innerHTML = 'Error: ' + escapeHtml(err.message);
+        if (currentSegmentType === 'answer' && currentSegmentEl) {
+          currentSegmentEl.innerHTML = 'Error: ' + escapeHtml(err.message);
+        } else {
+          const seg = document.createElement('div');
+          seg.className = 'answer-segment';
+          seg.innerHTML = 'Error: ' + escapeHtml(err.message);
+          currentAssistantMsg.appendChild(seg);
+        }
       }
     } finally {
       document.getElementById('send-btn').disabled = false;

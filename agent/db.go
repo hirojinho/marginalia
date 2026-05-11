@@ -249,6 +249,23 @@ func (a *App) LoadActiveSessionID() {
 	a.SetActiveSessionIDInMemory(id)
 }
 
+// UpdateSessionTopic sets a new topic on session id and bumps updated_at.
+func (a *App) UpdateSessionTopic(id int64, topic string) error {
+	now := time.Now().Format(time.RFC3339)
+	res, err := a.DB.Exec("UPDATE sessions SET topic = ?, updated_at = ? WHERE id = ?", topic, now, id)
+	if err != nil {
+		return fmt.Errorf("update topic: %w", err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("rows affected: %w", err)
+	}
+	if n == 0 {
+		return fmt.Errorf("session not found: %d", id)
+	}
+	return nil
+}
+
 func (a *App) UpdateSessionSummary(id int64, summary string, summaryAt int) error {
 	if _, err := a.DB.Exec("UPDATE sessions SET summary = ?, summary_at = ? WHERE id = ?", summary, summaryAt, id); err != nil {
 		return fmt.Errorf("update summary: %w", err)

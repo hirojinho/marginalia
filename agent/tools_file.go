@@ -13,7 +13,11 @@ func (a *App) toolReadFile(args json.RawMessage) string {
 	if err := json.Unmarshal(args, &p); err != nil {
 		return "error: " + err.Error()
 	}
-	data, err := os.ReadFile(p.Path)
+	path := p.Path
+	if !filepath.IsAbs(path) {
+		path = filepath.Join(a.Config.VaultRoot, path)
+	}
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return "error: " + err.Error()
 	}
@@ -48,10 +52,13 @@ func (a *App) toolListFiles(args json.RawMessage) string {
 	if err := json.Unmarshal(args, &p); err != nil {
 		return "error: " + err.Error()
 	}
-	if p.Path == "" {
-		p.Path = a.Config.VaultRoot
+	dir := p.Path
+	if dir == "" {
+		dir = a.Config.VaultRoot
+	} else if !filepath.IsAbs(dir) {
+		dir = filepath.Join(a.Config.VaultRoot, dir)
 	}
-	entries, err := os.ReadDir(p.Path)
+	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return "error: " + err.Error()
 	}
