@@ -16,7 +16,7 @@ func TestChatV2CreatesSandboxOnFirstCall(t *testing.T) {
 		t.Fatalf("CreateSession: %v", err)
 	}
 
-	body, _ := json.Marshal(map[string]any{"session_id": sess.ID, "message": "hi"})
+	body, _ := json.Marshal(chatV2Request{SessionID: sess.ID, Message: "hi"})
 	req := httptest.NewRequest(http.MethodPost, "/chat-v2", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
@@ -37,10 +37,13 @@ func TestChatV2CreatesSandboxOnFirstCall(t *testing.T) {
 func TestChatV2ReusesExistingSandbox(t *testing.T) {
 	h := newTestHandler(t)
 
-	sess, _ := h.App.CreateSession("ddia", "reuse test")
+	sess, err := h.App.CreateSession("ddia", "reuse test")
+	if err != nil {
+		t.Fatalf("CreateSession: %v", err)
+	}
 
 	call := func() string {
-		body, _ := json.Marshal(map[string]any{"session_id": sess.ID, "message": "ping"})
+		body, _ := json.Marshal(chatV2Request{SessionID: sess.ID, Message: "ping"})
 		req := httptest.NewRequest(http.MethodPost, "/chat-v2", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
