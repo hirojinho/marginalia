@@ -294,7 +294,9 @@ const (
 
 const memoryInstructions = `When Eduardo shares a felt-data observation, learning signal, study insight, or thesis interest during the conversation, save it immediately using:
   bash claw-cli memory save --kind project --title "<brief title>" --body "<observation>"
-Do this proactively without being asked. Use concise titles (≤60 chars). Omit --course for thesis/global observations.`
+Do this proactively without being asked. Use concise titles (≤60 chars). Omit --course for thesis/global observations.
+When Eduardo asks about past observations, prior conclusions, or anything that might be in memory, search first:
+  bash claw-cli memory search --query "<relevant terms>"`
 
 func AssembleAgentsMD(scope Scope, recent []SessionDigest, skills []SkillMeta, courseID string) string {
 	type section struct{ title, body string }
