@@ -147,3 +147,14 @@ rag search --query "STAMP" --course ce297 --top-k 3
 ### Status
 
 DONE.
+
+## Phase 4 — Sandbox manager (2026-05-10)
+
+Deployed commits from Phase 4 to VPS.
+
+Smoke results:
+- POST /chat-v2 creates sandbox at data/agent-sessions/<id>/ ✅
+- Second POST /chat-v2 reuses same path ✅
+- DELETE /api/sessions removes sandbox ✅
+- Sandbox contains AGENTS.md, notes/, out -> agent-out ✅
+- /debug/health 200 ✅
