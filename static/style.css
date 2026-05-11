@@ -859,4 +859,59 @@ header small {
   font-family: inherit;
 }
 #error-banner button:hover { background: rgba(255,255,255,0.25); }
+
+/* === PI EVENT TYPES === */
+
+.tool-panel {
+  font-size: 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 6px 8px;
+  margin: 4px 0;
+  background: rgba(0,0,0,0.04);
+}
+
+.tool-panel summary {
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.tool-panel summary::-webkit-details-marker { display: none; }
+
+.tool-panel--error {
+  border-color: #EF4444;
+  color: #EF4444;
+}
+
+.tool-panel .tool-input,
+.tool-panel .tool-output {
+  white-space: pre-wrap;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+.skill-chip {
+  display: inline-block;
+  background: var(--accent);
+  color: #FFFFFF;
+  border-radius: 12px;
+  padding: 2px 10px;
+  font-size: 0.75rem;
+  margin-bottom: 4px;
+}
+
+.compaction-notice {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  text-align: center;
+  padding: 4px 0;
+}
+
+#model-footer {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+}
 #error-banner .error-banner-close { padding: 2px 8px; font-size: 16px; line-height: 1; }
