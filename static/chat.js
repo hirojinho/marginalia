@@ -7,7 +7,7 @@ const MAX_MESSAGE_LEN = 4000;
 
 let currentAssistantMsg = null;
 
-export function initChat() {
+export function initChat(chatEndpoint) {
   document.getElementById('chat-form').addEventListener('submit', async function (e) {
     e.preventDefault();
     const activeSessionId = getActiveSessionId();
@@ -46,7 +46,7 @@ export function initChat() {
     let thinkingActive = false;
 
     try {
-      const resp = await fetch('/chat', { method: 'POST', body: formData });
+      const resp = await fetch(chatEndpoint, { method: 'POST', body: formData });
       if (!resp.ok) throw new Error('HTTP ' + resp.status);
 
       const reader = resp.body.getReader();
