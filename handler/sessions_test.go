@@ -83,7 +83,7 @@ func TestHandleSessionsDeleteRequiresID(t *testing.T) {
 
 func TestHandleSessionsMethodNotAllowed(t *testing.T) {
 	h := newTestHandler(t)
-	req := httptest.NewRequest(http.MethodPatch, "/api/sessions", nil)
+	req := httptest.NewRequest(http.MethodPut, "/api/sessions", nil)
 	rr := httptest.NewRecorder()
 	h.handleSessions(rr, req)
 	if rr.Code != http.StatusMethodNotAllowed {

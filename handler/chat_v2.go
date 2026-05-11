@@ -83,12 +83,26 @@ func (h *Handler) handleChatV2(w http.ResponseWriter, r *http.Request) {
 	}
 	defer h.App.ReleasePiLock(req.SessionID)
 
+	msgCount, _ := h.App.GetMessageCount(req.SessionID)
+	isFirstTurn := msgCount == 0
+
 	h.App.LockChat()
 	err = h.App.SaveMessage(req.SessionID, "user", req.Message)
 	h.App.UnlockChat()
 	if err != nil {
 		writeServerError(w, "save user message", err)
 		return
+	}
+
+	var autoSetTopic string
+	if isFirstTurn && sess.Topic == "General" {
+		if t := autoTopic(req.Message); t != "" {
+			if err := h.App.UpdateSessionTopic(req.SessionID, t); err != nil {
+				slog.Warn("auto-set session topic", "session_id", req.SessionID, "err", err)
+			} else {
+				autoSetTopic = t
+			}
+		}
 	}
 
 	model := h.App.Config.AgentModel
@@ -114,6 +128,11 @@ func (h *Handler) handleChatV2(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
+
+	if autoSetTopic != "" {
+		data, _ := json.Marshal(map[string]string{"topic": autoSetTopic})
+		writeSSEEvent(w, flusher, "session_topic", string(data))
+	}
 
 	assistantText := streamPiTurn(events, w, flusher)
 
@@ -173,4 +192,23 @@ func streamPiTurn(events <-chan agent.PiEvent, w http.ResponseWriter, flusher ht
 func writeSSEEvent(w http.ResponseWriter, flusher http.Flusher, eventType, data string) {
 	_, _ = fmt.Fprintf(w, "event: %s\ndata: %s\n\n", eventType, data)
 	flusher.Flush()
+}
+
+// autoTopic derives a short session title from the first user message.
+// Returns "" if msg is empty. Truncates to 60 runes at a word boundary.
+func autoTopic(msg string) string {
+	msg = strings.TrimSpace(msg)
+	if msg == "" {
+		return ""
+	}
+	const maxRunes = 60
+	runes := []rune(msg)
+	if len(runes) <= maxRunes {
+		return msg
+	}
+	s := string(runes[:maxRunes])
+	if idx := strings.LastIndex(s, " "); idx > 20 {
+		s = s[:idx]
+	}
+	return s + "…"
 }

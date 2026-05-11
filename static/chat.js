@@ -1,7 +1,12 @@
 // Chat input, streaming response handler, message rendering.
 import { showErrorBanner } from './errorBanner.js';
 import { escapeHtml, renderMarkdown, scrollToBottom } from './dom.js';
-import { getActiveSessionId, openSessionModal } from './sessions.js';
+import {
+  getActiveSessionId,
+  openSessionModal,
+  loadSessions,
+  loadActiveSession,
+} from './sessions.js';
 import {
   createToolPanel,
   createSkillChip,
@@ -140,6 +145,9 @@ export function initChat(chatEndpoint) {
               scrollToBottom();
             } else if (eventType === 'model_change') {
               updateModelFooter(payload.to);
+            } else if (eventType === 'session_topic') {
+              loadSessions();
+              loadActiveSession();
             } else if (eventType === 'done') {
               if (currentAssistantMsg) currentAssistantMsg.classList.remove('token-cursor');
               currentAssistantMsg = null;
