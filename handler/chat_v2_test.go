@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 )
 
@@ -82,5 +83,31 @@ func TestChatV2RejectsMethodNotPost(t *testing.T) {
 	h.handleChatV2(w, req)
 	if w.Code != http.StatusMethodNotAllowed {
 		t.Errorf("status = %d, want 405", w.Code)
+	}
+}
+
+func TestDeleteSessionRemovesSandbox(t *testing.T) {
+	h := newTestHandler(t)
+
+	sess, err := h.App.CreateSession("ce297", "deletion test")
+	if err != nil {
+		t.Fatalf("CreateSession: %v", err)
+	}
+
+	sandboxPath := h.App.Sandbox.Path(sess.ID)
+	if _, err := h.App.Sandbox.Create(sess.ID, "", "", ""); err != nil {
+		t.Fatalf("Create sandbox: %v", err)
+	}
+
+	if _, err := os.Stat(sandboxPath); err != nil {
+		t.Fatalf("sandbox not created: %v", err)
+	}
+
+	if err := h.App.DeleteSession(sess.ID); err != nil {
+		t.Fatalf("DeleteSession: %v", err)
+	}
+
+	if _, err := os.Stat(sandboxPath); !os.IsNotExist(err) {
+		t.Errorf("sandbox dir still exists after session deletion")
 	}
 }

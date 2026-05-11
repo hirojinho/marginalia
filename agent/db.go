@@ -201,6 +201,11 @@ func (a *App) DeleteSession(id int64) error {
 			return fmt.Errorf("clear last_session: %w", err)
 		}
 	}
+	if a.Sandbox != nil {
+		if sandboxErr := a.Sandbox.Delete(id); sandboxErr != nil {
+			return fmt.Errorf("delete sandbox: %w", sandboxErr)
+		}
+	}
 	return nil
 }
 
