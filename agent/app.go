@@ -36,12 +36,19 @@ type App struct {
 	// activeSessionID is the currently selected session. Stored as
 	// atomic so cross-handler reads don't need a mutex.
 	activeSessionID atomic.Int64
+
+	// Sandbox manages per-session ephemeral Pi working directories.
+	Sandbox *SandboxManager
 }
 
-// NewApp constructs an App. Caller is responsible for invoking Close
-// on shutdown.
+// NewApp constructs an App with all subsystems initialised. Caller is
+// responsible for invoking Close on shutdown.
 func NewApp(cfg Config, db *sql.DB) *App {
-	return &App{DB: db, Config: cfg}
+	return &App{
+		DB:      db,
+		Config:  cfg,
+		Sandbox: NewSandboxManager(cfg.VaultRoot),
+	}
 }
 
 func (a *App) Close() error {
