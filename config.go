@@ -36,6 +36,7 @@ func loadConfig() (agent.Config, error) {
 		PiPath:         os.Getenv("PI_PATH"),
 		SkillsDir:      os.Getenv("SKILLS_DIR"),
 		AgentModel:     os.Getenv("AGENT_MODEL"),
+		AgentRuntime:   os.Getenv("AGENT_RUNTIME"),
 	}, nil
 }
 
