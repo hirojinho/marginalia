@@ -83,7 +83,10 @@ func (h *Handler) handleChatV2(w http.ResponseWriter, r *http.Request) {
 	}
 	defer h.App.ReleasePiLock(req.SessionID)
 
-	if err := h.App.SaveMessage(req.SessionID, "user", req.Message); err != nil {
+	h.App.LockChat()
+	err = h.App.SaveMessage(req.SessionID, "user", req.Message)
+	h.App.UnlockChat()
+	if err != nil {
 		writeServerError(w, "save user message", err)
 		return
 	}
@@ -115,7 +118,10 @@ func (h *Handler) handleChatV2(w http.ResponseWriter, r *http.Request) {
 	assistantText := streamPiTurn(events, w, flusher)
 
 	if assistantText != "" {
-		if err := h.App.SaveMessage(req.SessionID, "assistant", assistantText); err != nil {
+		h.App.LockChat()
+		err := h.App.SaveMessage(req.SessionID, "assistant", assistantText)
+		h.App.UnlockChat()
+		if err != nil {
 			slog.Error("save assistant message", "session_id", req.SessionID, "err", err)
 		}
 	}

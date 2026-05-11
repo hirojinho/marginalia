@@ -76,6 +76,7 @@ func NewApp(cfg Config, db *sql.DB) *App {
 	}
 }
 
+// Close releases resources held by App, including the database connection.
 func (a *App) Close() error {
 	if a.DB != nil {
 		return a.DB.Close()
