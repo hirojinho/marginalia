@@ -101,15 +101,13 @@ func (sm *SandboxManager) Sweep(maxIdleDays int) (int, error) {
 		info, err := os.Stat(agentsMD)
 		if err != nil {
 			// Missing or unreadable AGENTS.md — treat as stale.
-			if removeErr := os.RemoveAll(filepath.Join(sm.baseDir, entry.Name())); removeErr == nil {
-				removed++
-			}
+			_ = os.RemoveAll(filepath.Join(sm.baseDir, entry.Name()))
+			removed++
 			continue
 		}
 		if info.ModTime().Before(threshold) {
-			if removeErr := os.RemoveAll(filepath.Join(sm.baseDir, entry.Name())); removeErr == nil {
-				removed++
-			}
+			_ = os.RemoveAll(filepath.Join(sm.baseDir, entry.Name()))
+			removed++
 		}
 	}
 	return removed, nil
@@ -122,13 +120,13 @@ func (sm *SandboxManager) writeAgentsMD(path, clawCLIPath string, sessionID int6
 	var content []byte
 
 	if clawCLIPath != "" && course != "" && userID != "" {
-		out, err := exec.Command(
+		out, _ := exec.Command(
 			clawCLIPath, "memory", "load",
 			"--session", strconv.FormatInt(sessionID, 10),
 			"--course", course,
 			"--user", userID,
 		).Output()
-		if err == nil {
+		if len(out) > 0 {
 			content = out
 		}
 		// On error fall through to placeholder — don't fail sandbox creation.

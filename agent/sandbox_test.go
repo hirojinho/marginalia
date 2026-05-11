@@ -52,7 +52,10 @@ func TestSandboxManagerCreateIsIdempotent(t *testing.T) {
 
 func TestSandboxManagerPathMatchesCreate(t *testing.T) {
 	sm := NewSandboxManager(t.TempDir())
-	path, _ := sm.Create(99, "", "", "")
+	path, err := sm.Create(99, "", "", "")
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
 	if sm.Path(99) != path {
 		t.Errorf("Path(99) = %q, Create returned %q", sm.Path(99), path)
 	}
