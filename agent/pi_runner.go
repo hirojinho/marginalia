@@ -9,7 +9,6 @@ package agent
 
 import (
 	"bufio"
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -93,12 +92,10 @@ const piSummaryMaxBytes = 80
 
 // parsePiLine converts one JSONL line from Pi's stdout into a PiEvent.
 // Returns (PiEvent{}, false) for lines that should be ignored.
-// When strict JSON parsing fails, a best-effort byte scan is attempted for
-// toolcall_end lines whose arguments field may contain non-JSON-safe bytes.
 func parsePiLine(line []byte) (PiEvent, bool) {
 	var raw piRaw
 	if err := json.Unmarshal(line, &raw); err != nil {
-		return parsePiLineLenient(line)
+		return PiEvent{}, false
 	}
 	switch raw.Type {
 	case "message_update":
@@ -140,31 +137,6 @@ func parsePiLine(line []byte) (PiEvent, bool) {
 		return PiEvent{Kind: "done", Usage: usage}, true
 	}
 	return PiEvent{}, false
-}
-
-// parsePiLineLenient handles lines that fail strict JSON parsing. It detects
-// toolcall_end events whose arguments blob contains non-JSON-safe bytes (e.g.
-// null bytes in test fixtures) and extracts the tool name via byte scanning.
-// All other malformed lines return (PiEvent{}, false).
-func parsePiLineLenient(line []byte) (PiEvent, bool) {
-	if !bytes.Contains(line, []byte(`"toolcall_end"`)) {
-		return PiEvent{}, false
-	}
-	// Extract tool name: find "name":" … " within the toolCall object.
-	nameKey := []byte(`"name":"`)
-	nameIdx := bytes.Index(line, nameKey)
-	if nameIdx < 0 {
-		return PiEvent{}, false
-	}
-	rest := line[nameIdx+len(nameKey):]
-	end := bytes.IndexByte(rest, '"')
-	if end < 0 {
-		return PiEvent{}, false
-	}
-	toolName := string(rest[:end])
-	// Use the raw line as the input summary blob (truncated).
-	summary := truncatePiSummary(string(line))
-	return PiEvent{Kind: "tool_start", ToolName: toolName, InputSummary: summary}, true
 }
 
 // truncatePiSummary truncates s to piSummaryMaxBytes bytes, appending "…" if cut.

@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -135,7 +136,7 @@ func TestParsePiLineInvalidJSON(t *testing.T) {
 }
 
 func TestParsePiLineTruncatesLongInputSummary(t *testing.T) {
-	long := `{"command":"` + string(make([]byte, 200)) + `"}`
+	long := `{"command":"` + strings.Repeat("x", 200) + `"}`
 	line := []byte(`{"type":"message_update","assistantMessageEvent":{"type":"toolcall_end","toolCall":{"name":"bash","arguments":` + long + `}}}`)
 	ev, ok := parsePiLine(line)
 	if !ok {
