@@ -16,7 +16,30 @@ import {
 
 const MAX_MESSAGE_LEN = 4000;
 
+function autoResizeTextarea(el) {
+  el.style.height = 'auto';
+  const maxH = 160;
+  if (el.scrollHeight > maxH) {
+    el.style.height = maxH + 'px';
+    el.style.overflowY = 'auto';
+  } else {
+    el.style.height = el.scrollHeight + 'px';
+    el.style.overflowY = 'hidden';
+  }
+}
+
 export function initChat(chatEndpoint) {
+  const input = document.getElementById('message-input');
+
+  input.addEventListener('input', () => autoResizeTextarea(input));
+
+  input.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      document.getElementById('chat-form').dispatchEvent(new Event('submit'));
+    }
+  });
+
   document.getElementById('chat-form').addEventListener('submit', async function (e) {
     e.preventDefault();
     const activeSessionId = getActiveSessionId();
@@ -24,7 +47,6 @@ export function initChat(chatEndpoint) {
       openSessionModal();
       return;
     }
-    const input = document.getElementById('message-input');
     const msg = input.value.trim();
     if (!msg) return;
     if (msg.length > MAX_MESSAGE_LEN) {
@@ -34,6 +56,8 @@ export function initChat(chatEndpoint) {
       return;
     }
     input.value = '';
+    input.style.height = 'auto';
+    input.style.overflowY = 'hidden';
     const messagesContainer = document.getElementById('messages');
     document.getElementById('send-btn').disabled = true;
 
