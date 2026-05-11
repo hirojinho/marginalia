@@ -42,27 +42,20 @@ func (sm *SandboxManager) Create(sessionID int64, clawCLIPath, course, userID st
 	sandboxDir := sm.Path(sessionID)
 
 	agentsMD := filepath.Join(sandboxDir, "AGENTS.md")
-	if _, err := os.Stat(agentsMD); err == nil {
-		// Sandbox exists — touch AGENTS.md to reset the idle clock.
-		now := time.Now()
-		if touchErr := os.Chtimes(agentsMD, now, now); touchErr != nil {
-			return "", fmt.Errorf("touch agents.md: %w", touchErr)
+
+	// Always (re)write AGENTS.md so stale placeholders get refreshed.
+	// Build the directory structure only on first creation.
+	if _, err := os.Stat(sandboxDir); os.IsNotExist(err) {
+		if err := os.MkdirAll(filepath.Join(sandboxDir, "notes"), 0755); err != nil {
+			return "", fmt.Errorf("create sandbox notes dir: %w", err)
 		}
-		return sandboxDir, nil
-	}
-
-	// New sandbox — build the full structure.
-	if err := os.MkdirAll(filepath.Join(sandboxDir, "notes"), 0755); err != nil {
-		return "", fmt.Errorf("create sandbox notes dir: %w", err)
-	}
-
-	// Ensure agent-out exists before symlinking.
-	if err := os.MkdirAll(sm.outDir, 0755); err != nil {
-		return "", fmt.Errorf("create agent-out dir: %w", err)
-	}
-	outLink := filepath.Join(sandboxDir, "out")
-	if err := os.Symlink(sm.outDir, outLink); err != nil {
-		return "", fmt.Errorf("create out symlink: %w", err)
+		if err := os.MkdirAll(sm.outDir, 0755); err != nil {
+			return "", fmt.Errorf("create agent-out dir: %w", err)
+		}
+		outLink := filepath.Join(sandboxDir, "out")
+		if err := os.Symlink(sm.outDir, outLink); err != nil && !os.IsExist(err) {
+			return "", fmt.Errorf("create out symlink: %w", err)
+		}
 	}
 
 	if err := sm.writeAgentsMD(agentsMD, clawCLIPath, sessionID, course, userID); err != nil {
