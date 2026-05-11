@@ -33,10 +33,11 @@ export function initChat(chatEndpoint) {
 
   input.addEventListener('input', () => autoResizeTextarea(input));
 
+  const form = document.getElementById('chat-form');
   input.addEventListener('keydown', function (e) {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      document.getElementById('chat-form').dispatchEvent(new Event('submit'));
+      form.requestSubmit();
     }
   });
 
