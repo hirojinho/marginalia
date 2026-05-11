@@ -6,6 +6,26 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Dates are comm
 
 Nothing pending.
 
+## [2026-05-11]
+
+### Added
+- **Pi agent runtime.** Each chat session now runs through `@earendil-works/pi-coding-agent` (Pi), a subprocess-based agent with a bash tool surface. `/chat-v2` endpoint replaces `/chat` for sessions in Pi mode. Pi is spawned per-turn via `agent.RunPi`; SSE events (`token`, `reasoning`, `tool_start`, `tool_end`, `skill_start`, `compaction`, `model_change`, `done`, `error`) stream directly to the browser.
+- **Per-session Pi sandbox.** `SandboxManager` creates `data/agent-sessions/<id>/` with a generated `AGENTS.md` (via `claw-cli memory load --session --course`), a `notes/` scratch dir, and a symlink to `data/agent-out/`. Sandboxes are swept after 7 days of inactivity.
+- **`claw-cli session topic` subcommand.** Sets a descriptive topic on any session by ID. Accepts `--session-id` and `--topic` flags; reads/writes study.db via `App.UpdateSessionTopic`.
+- **Session topic auto-rename on first turn.** `handleChatV2` detects the first message in any "General" session and immediately derives a title by truncating the user message (≤60 runes, word-boundary). Sends a `session_topic` SSE event so the sidebar and header pill update without a page reload. Pi can still override the topic during its run.
+- **Inline reasoning stream.** Thinking tokens now render inline between the answer segments that surround them rather than in a single pre-allocated block at the top. Each reasoning span is a `<details class="thinking-inline">` collapsed by default; answer tokens go into `<div class="answer-segment">` divs. Frontend tracks `currentSegmentType` across both event types.
+- **Tool calls visible in chat UI.** `tool_start` and `tool_end` SSE events render as collapsible tool panels inside the answer timeline, showing the tool name, input summary, output summary, and success/failure indicator.
+- **Session topic inline rename.** Pencil icon next to each session name in the sidebar; click converts the label to an `<input>`, `Enter` or blur commits via `PATCH /api/sessions?id=`. Topic is updated in-memory and the header pill refreshes.
+- **Pomodoro timer in header.** `#pomodoro-btn` in the header actions area shows a 25:00 countdown. Click starts/pauses, double-click resets. Switches to 5-min break after each focus block. `font-variant-numeric: tabular-nums` prevents width jitter.
+
+### Changed
+- `Cache-Control: no-store` set on all JS, CSS, and HTML static asset responses to prevent Cloudflare edge caching stale embedded files.
+- File tools (`read_file`, `list_files`) now accept vault-relative paths (joined to `VaultRoot`) in addition to absolute paths. Tool descriptions updated to document relative-path support.
+
+### Fixed
+- DDIA `agent_memory` project rows on VPS had stale laptop-only paths; updated to use `claw-cli plan show/toggle --course ddia` and correct vault-relative interests path.
+- `TestHandleSessionsMethodNotAllowed` used `PATCH` which is now a valid method; updated to use `PUT`.
+
 ## [2026-05-10]
 
 ### Added
