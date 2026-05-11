@@ -13,12 +13,15 @@ let totalPages = 0;
 let scale = 1.0;
 let currentScale = 1.0;
 let viewMode = 'scroll';
-let pdfjsReady = false;
 let renderedPages = null;
 let pageObserver = null;
 
-export function setCurrentPdfId(id) { currentPdfId = id; }
-export function getCurrentView() { return currentView; }
+export function setCurrentPdfId(id) {
+  currentPdfId = id;
+}
+export function getCurrentView() {
+  return currentView;
+}
 
 const knownPdfCourses = [
   { id: 'ce297', name: 'Safety Models and Techniques (CE-297)' },
@@ -67,7 +70,7 @@ async function uploadPdf(file) {
   }
   if (file.size > MAX_PDF_BYTES) {
     const mb = (file.size / 1024 / 1024).toFixed(1);
-    showErrorBanner('PDF too large: ' + mb + ' MB (max ' + (MAX_PDF_BYTES / 1024 / 1024) + ' MB).');
+    showErrorBanner('PDF too large: ' + mb + ' MB (max ' + MAX_PDF_BYTES / 1024 / 1024 + ' MB).');
     return;
   }
   const courseSelect = document.getElementById('pdf-course-select');
@@ -93,12 +96,13 @@ async function uploadPdf(file) {
 
 async function loadPdfEmptyState() {
   const container = document.getElementById('pdf-list-container');
-  container.innerHTML = '<div style="text-align:center;color:var(--text-tertiary);">Loading...</div>';
+  container.innerHTML =
+    '<div style="text-align:center;color:var(--text-tertiary);">Loading...</div>';
   try {
     const resp = await apiFetch('/pdf/list');
     const pdfs = await resp.json();
     renderPdfEmptyList(pdfs);
-  } catch (err) {
+  } catch {
     container.innerHTML = '<div style="text-align:center;color:#DC2626;">Failed to load PDFs</div>';
   }
 }
@@ -106,7 +110,8 @@ async function loadPdfEmptyState() {
 function renderPdfEmptyList(pdfs) {
   const container = document.getElementById('pdf-list-container');
   if (!pdfs || pdfs.length === 0) {
-    container.innerHTML = '<div style="text-align:center;color:var(--text-tertiary);font-size:13px;">No PDFs uploaded yet</div>';
+    container.innerHTML =
+      '<div style="text-align:center;color:var(--text-tertiary);font-size:13px;">No PDFs uploaded yet</div>';
     return;
   }
 
@@ -119,14 +124,21 @@ function renderPdfEmptyList(pdfs) {
 
   let html = '';
   for (const [key, group] of Object.entries(groups)) {
-    const courseInfo = knownPdfCourses.find(c => c.id === key);
+    const courseInfo = knownPdfCourses.find((c) => c.id === key);
     const groupName = courseInfo ? courseInfo.name : 'Library';
     html += '<div class="pdf-list-section"><h4>' + escapeHtml(groupName) + '</h4>';
     for (const pdf of group.pdfs) {
       const progress = pdf.last_page > 1 ? 'p.' + pdf.last_page + ' / ' + pdf.pages : 'Not started';
-      html += '<div class="pdf-list-item" data-action="open-pdf" data-pdf-id="' + pdf.id + '">' +
-        '<span class="pdf-name">' + escapeHtml(pdf.original_name.replace(/\.pdf$/i, '')) + '</span>' +
-        '<span class="pdf-progress">' + escapeHtml(progress) + '</span></div>';
+      html +=
+        '<div class="pdf-list-item" data-action="open-pdf" data-pdf-id="' +
+        pdf.id +
+        '">' +
+        '<span class="pdf-name">' +
+        escapeHtml(pdf.original_name.replace(/\.pdf$/i, '')) +
+        '</span>' +
+        '<span class="pdf-progress">' +
+        escapeHtml(progress) +
+        '</span></div>';
     }
     html += '</div>';
   }
@@ -142,7 +154,7 @@ export async function openPdf(id) {
   try {
     const resp = await apiFetch('/pdf/list');
     const pdfs = await resp.json();
-    const pdf = pdfs.find(p => p.id === id);
+    const pdf = pdfs.find((p) => p.id === id);
     if (!pdf) throw new Error('PDF not found');
 
     currentPdfId = id;
@@ -152,7 +164,11 @@ export async function openPdf(id) {
     document.getElementById('pdf-zoom-level').textContent = '100%';
     document.getElementById('pdf-viewer').style.transform = 'none';
 
-    fetch('/pdf/progress/' + id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ page: currentPage }) });
+    fetch('/pdf/progress/' + id, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ page: currentPage }),
+    });
 
     const loadingTask = window.pdfjsLib.getDocument('/pdf/file/' + id);
     pdfDoc = await loadingTask.promise;
@@ -183,7 +199,10 @@ export async function openPdf(id) {
 function renderAllPages() {
   const viewer = document.getElementById('pdf-viewer');
   const counter = document.getElementById('pdf-page-counter');
-  if (pageObserver) { pageObserver.disconnect(); pageObserver = null; }
+  if (pageObserver) {
+    pageObserver.disconnect();
+    pageObserver = null;
+  }
   viewer.innerHTML = '';
   viewer.appendChild(counter);
   renderedPages = new Set();
@@ -199,40 +218,43 @@ function renderAllPages() {
   let pdfSaveTimer = null;
   let mostVisiblePage = currentPage;
 
-  pageObserver = new IntersectionObserver((entries) => {
-    let bestRatio = 0;
-    let bestPage = 0;
-    for (const entry of entries) {
-      if (entry.isIntersecting) {
-        const pageNum = parseInt(entry.target.dataset.pageNum);
-        if (!renderedPages.has(pageNum)) {
-          renderedPages.add(pageNum);
-          renderPageToCanvas(pageNum, entry.target);
-        }
-        if (entry.intersectionRatio > bestRatio) {
-          bestRatio = entry.intersectionRatio;
-          bestPage = pageNum;
+  pageObserver = new IntersectionObserver(
+    (entries) => {
+      let bestRatio = 0;
+      let bestPage = 0;
+      for (const entry of entries) {
+        if (entry.isIntersecting) {
+          const pageNum = parseInt(entry.target.dataset.pageNum);
+          if (!renderedPages.has(pageNum)) {
+            renderedPages.add(pageNum);
+            renderPageToCanvas(pageNum, entry.target);
+          }
+          if (entry.intersectionRatio > bestRatio) {
+            bestRatio = entry.intersectionRatio;
+            bestPage = pageNum;
+          }
         }
       }
-    }
-    if (bestPage > 0 && bestPage !== mostVisiblePage) {
-      mostVisiblePage = bestPage;
-      clearTimeout(pdfSaveTimer);
-      pdfSaveTimer = setTimeout(() => {
-        if (currentPdfId) {
-          currentPage = mostVisiblePage;
-          updatePageCounter();
-          fetch('/pdf/progress/' + currentPdfId, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ page: mostVisiblePage })
-          }).catch(() => {});
-        }
-      }, 2000);
-    }
-  }, { root: viewer, rootMargin: '200px', threshold: [0, 0.1, 0.3, 0.6, 0.9] });
+      if (bestPage > 0 && bestPage !== mostVisiblePage) {
+        mostVisiblePage = bestPage;
+        clearTimeout(pdfSaveTimer);
+        pdfSaveTimer = setTimeout(() => {
+          if (currentPdfId) {
+            currentPage = mostVisiblePage;
+            updatePageCounter();
+            fetch('/pdf/progress/' + currentPdfId, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ page: mostVisiblePage }),
+            }).catch(() => {});
+          }
+        }, 2000);
+      }
+    },
+    { root: viewer, rootMargin: '200px', threshold: [0, 0.1, 0.3, 0.6, 0.9] },
+  );
 
-  viewer.querySelectorAll('.pdf-page-canvas').forEach(canvas => {
+  viewer.querySelectorAll('.pdf-page-canvas').forEach((canvas) => {
     pageObserver.observe(canvas);
   });
 
@@ -260,7 +282,10 @@ async function renderPageToCanvas(pageNum, canvas) {
 function renderPage(pageNum) {
   const viewer = document.getElementById('pdf-viewer');
   const counter = document.getElementById('pdf-page-counter');
-  if (pageObserver) { pageObserver.disconnect(); pageObserver = null; }
+  if (pageObserver) {
+    pageObserver.disconnect();
+    pageObserver = null;
+  }
   renderedPages = null;
   viewer.innerHTML = '';
   viewer.appendChild(counter);
@@ -275,7 +300,9 @@ function renderPage(pageNum) {
 
 function updatePageCounter() {
   const counter = document.getElementById('pdf-page-counter');
-  if (counter) { counter.textContent = currentPage + ' / ' + totalPages; }
+  if (counter) {
+    counter.textContent = currentPage + ' / ' + totalPages;
+  }
 }
 
 function saveProgress() {
@@ -283,8 +310,8 @@ function saveProgress() {
   fetch('/pdf/progress/' + currentPdfId, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ page: currentPage })
-  }).catch(err => console.error('Save progress failed:', err));
+    body: JSON.stringify({ page: currentPage }),
+  }).catch((err) => console.error('Save progress failed:', err));
 }
 
 let saveProgressTimer = null;
@@ -295,7 +322,7 @@ function savePdfProgress(pageNum) {
     fetch('/pdf/progress/' + currentPdfId, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ page: pageNum })
+      body: JSON.stringify({ page: pageNum }),
     }).catch(() => {});
   }, 2000);
 }
@@ -326,15 +353,27 @@ function renderPdfDropdown(pdfs) {
     groups[key].pdfs.push(pdf);
   }
 
-  let html = '<div class="dropdown-item" style="font-weight:600;" data-action="trigger-upload">↑ Upload PDF</div>';
+  let html =
+    '<div class="dropdown-item" style="font-weight:600;" data-action="trigger-upload">↑ Upload PDF</div>';
   html += '<div style="height:1px;background:var(--border);margin:4px 0;"></div>';
-  for (const [key, group] of Object.entries(groups)) {
-    html += '<div class="dropdown-section"><div class="dropdown-section-title">' + escapeHtml(group.name) + '</div>';
+  for (const [, group] of Object.entries(groups)) {
+    html +=
+      '<div class="dropdown-section"><div class="dropdown-section-title">' +
+      escapeHtml(group.name) +
+      '</div>';
     for (const pdf of group.pdfs) {
-      const progress = pdf.last_page > 1 ? 'p.' + pdf.last_page + '/' + pdf.pages : pdf.pages + ' pages';
-      html += '<div class="dropdown-item" data-action="switch-pdf" data-pdf-id="' + pdf.id + '">' +
-        '<span class="item-name">' + escapeHtml(pdf.original_name.replace(/\.pdf$/i, '')) + '</span>' +
-        '<span class="item-progress">' + escapeHtml(progress) + '</span></div>';
+      const progress =
+        pdf.last_page > 1 ? 'p.' + pdf.last_page + '/' + pdf.pages : pdf.pages + ' pages';
+      html +=
+        '<div class="dropdown-item" data-action="switch-pdf" data-pdf-id="' +
+        pdf.id +
+        '">' +
+        '<span class="item-name">' +
+        escapeHtml(pdf.original_name.replace(/\.pdf$/i, '')) +
+        '</span>' +
+        '<span class="item-progress">' +
+        escapeHtml(progress) +
+        '</span></div>';
     }
     html += '</div>';
   }
@@ -432,7 +471,7 @@ function initSplitter() {
 }
 
 export function initPdf() {
-  window.addEventListener('pdfjs-ready', () => { pdfjsReady = true; });
+  window.addEventListener('pdfjs-ready', () => {});
 
   document.getElementById('pdf-btn').addEventListener('click', function () {
     if (currentView === 'chat') {
@@ -458,16 +497,25 @@ export function initPdf() {
   document.getElementById('pdf-upload-zone').addEventListener('click', function () {
     document.getElementById('pdf-file-input').click();
   });
-  uploadZone.addEventListener('dragover', function (e) { e.preventDefault(); uploadZone.classList.add('dragover'); });
-  uploadZone.addEventListener('dragleave', function () { uploadZone.classList.remove('dragover'); });
+  uploadZone.addEventListener('dragover', function (e) {
+    e.preventDefault();
+    uploadZone.classList.add('dragover');
+  });
+  uploadZone.addEventListener('dragleave', function () {
+    uploadZone.classList.remove('dragover');
+  });
   uploadZone.addEventListener('drop', function (e) {
     e.preventDefault();
     uploadZone.classList.remove('dragover');
     const files = e.dataTransfer.files;
-    if (files.length > 0 && files[0].type === 'application/pdf') { uploadPdf(files[0]); }
+    if (files.length > 0 && files[0].type === 'application/pdf') {
+      uploadPdf(files[0]);
+    }
   });
   fileInput.addEventListener('change', function () {
-    if (fileInput.files.length > 0) { uploadPdf(fileInput.files[0]); }
+    if (fileInput.files.length > 0) {
+      uploadPdf(fileInput.files[0]);
+    }
   });
 
   // Scroll-position page tracking
@@ -517,8 +565,12 @@ export function initPdf() {
     }
   });
 
-  document.getElementById('pdf-zoom-in')?.addEventListener('click', function () { applyZoom(currentScale + 0.25); });
-  document.getElementById('pdf-zoom-out')?.addEventListener('click', function () { applyZoom(currentScale - 0.25); });
+  document.getElementById('pdf-zoom-in')?.addEventListener('click', function () {
+    applyZoom(currentScale + 0.25);
+  });
+  document.getElementById('pdf-zoom-out')?.addEventListener('click', function () {
+    applyZoom(currentScale - 0.25);
+  });
 
   // Keyboard shortcuts
   document.addEventListener('keydown', function (e) {
@@ -579,7 +631,13 @@ export function initPdf() {
     const selection = window.getSelection();
     const text = selection.toString().trim();
     if (!text) return;
-    const prefix = '[p.' + currentPage + '] "' + text.substring(0, 120) + (text.length > 120 ? '...' : '') + '" ';
+    const prefix =
+      '[p.' +
+      currentPage +
+      '] "' +
+      text.substring(0, 120) +
+      (text.length > 120 ? '...' : '') +
+      '" ';
     const input = document.getElementById('message-input');
     if (input && !input.value.includes(prefix)) {
       input.value = input.value ? prefix + input.value : prefix;
@@ -615,7 +673,7 @@ export function initPdf() {
         currentPage = data.pdf.last_page || 1;
         await openPdf(currentPdfId);
       }
-    } catch (err) {
+    } catch {
       // No last opened PDF, that's fine
     }
   });

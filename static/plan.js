@@ -36,13 +36,15 @@ export function closeDrawer() {
 }
 
 function showBackButton() {
-  drawerHeader.innerHTML = '<button id="drawer-back" style="font-size:11px;font-weight:600;cursor:pointer;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.8px;padding:5px 10px;border-radius:var(--radius-sm);border:none;background:none;font-family:inherit;transition:color 0.15s,background 0.15s;">&larr; Courses</button><button id="drawer-close" style="font-size:13px;cursor:pointer;padding:4px 10px;border-radius:var(--radius-sm);color:var(--text-secondary);border:none;background:none;font-family:inherit;transition:color 0.15s,background 0.15s;">Close</button>';
+  drawerHeader.innerHTML =
+    '<button id="drawer-back" style="font-size:11px;font-weight:600;cursor:pointer;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.8px;padding:5px 10px;border-radius:var(--radius-sm);border:none;background:none;font-family:inherit;transition:color 0.15s,background 0.15s;">&larr; Courses</button><button id="drawer-close" style="font-size:13px;cursor:pointer;padding:4px 10px;border-radius:var(--radius-sm);color:var(--text-secondary);border:none;background:none;font-family:inherit;transition:color 0.15s,background 0.15s;">Close</button>';
   document.getElementById('drawer-back').addEventListener('click', showPlanList);
   document.getElementById('drawer-close').addEventListener('click', closeDrawer);
 }
 
 function showPlanHeader() {
-  drawerHeader.innerHTML = '<h2>Study Plan</h2><button id="drawer-close" style="font-size:13px;cursor:pointer;padding:4px 10px;border-radius:var(--radius-sm);color:var(--text-secondary);border:none;background:none;font-family:inherit;transition:color 0.15s,background 0.15s;">Close</button>';
+  drawerHeader.innerHTML =
+    '<h2>Study Plan</h2><button id="drawer-close" style="font-size:13px;cursor:pointer;padding:4px 10px;border-radius:var(--radius-sm);color:var(--text-secondary);border:none;background:none;font-family:inherit;transition:color 0.15s,background 0.15s;">Close</button>';
   document.getElementById('drawer-close').addEventListener('click', closeDrawer);
 }
 
@@ -50,13 +52,15 @@ async function fetchPlanList() {
   drawerState = 'list';
   currentCourseId = null;
   showPlanHeader();
-  drawerBody.innerHTML = '<div style="text-align:center;color:var(--text-tertiary);padding:48px 0;">Loading...</div>';
+  drawerBody.innerHTML =
+    '<div style="text-align:center;color:var(--text-tertiary);padding:48px 0;">Loading...</div>';
   try {
     const resp = await apiFetch('/api/plan');
     const data = await resp.json();
     renderCourseList(data);
-  } catch (err) {
-    drawerBody.innerHTML = '<div style="text-align:center;color:#DC2626;padding:48px 0;">Failed to load plans</div>';
+  } catch {
+    drawerBody.innerHTML =
+      '<div style="text-align:center;color:#DC2626;padding:48px 0;">Failed to load plans</div>';
   }
 }
 
@@ -67,7 +71,11 @@ function renderCourseList(courses) {
   }
   let html = '';
   for (const c of courses) {
-    const status = c.hasPlan ? (c.total === c.done ? 'All done' : c.done + '/' + c.total + ' done') : 'No plan';
+    const status = c.hasPlan
+      ? c.total === c.done
+        ? 'All done'
+        : c.done + '/' + c.total + ' done'
+      : 'No plan';
     html += `
       <div class="course-card" style="cursor:pointer;" data-action="open-full-plan" data-course-id="${escapeHtmlAttr(c.id)}">
         <div class="course-card-header" style="cursor:pointer;">
@@ -86,7 +94,8 @@ export function openFullPlan(courseId) {
   drawerState = 'plan';
   currentCourseId = courseId;
   showBackButton();
-  drawerBody.innerHTML = '<div style="text-align:center;color:var(--text-tertiary);padding:48px 0;">Loading...</div>';
+  drawerBody.innerHTML =
+    '<div style="text-align:center;color:var(--text-tertiary);padding:48px 0;">Loading...</div>';
   fetchFullPlan(courseId);
 }
 
@@ -101,14 +110,15 @@ async function fetchFullPlan(courseId) {
   try {
     const [planResp, pdfResp] = await Promise.all([
       apiFetch('/api/plan?view=full&id=' + encodeURIComponent(courseId)),
-      apiFetch('/pdf/list')
+      apiFetch('/pdf/list'),
     ]);
     const plan = await planResp.json();
     const allPdfs = await pdfResp.json();
-    const coursePdfs = allPdfs.filter(p => p.course_id === courseId);
+    const coursePdfs = allPdfs.filter((p) => p.course_id === courseId);
     renderFullPlan(plan, coursePdfs);
-  } catch (err) {
-    drawerBody.innerHTML = '<div style="text-align:center;color:#DC2626;padding:48px 0;">Failed to load plan</div>';
+  } catch {
+    drawerBody.innerHTML =
+      '<div style="text-align:center;color:#DC2626;padding:48px 0;">Failed to load plan</div>';
   }
 }
 
@@ -161,7 +171,8 @@ function renderFullPlan(plan, coursePdfs) {
   if (coursePdfs && coursePdfs.length > 0) {
     html += `<h2 style="font-size:13px;font-weight:700;margin:24px 0 8px;text-transform:uppercase;letter-spacing:0.3px;color:var(--text-secondary);">PDFs</h2>`;
     for (const pdf of coursePdfs) {
-      const progress = pdf.last_page > 1 ? 'p.' + pdf.last_page + '/' + pdf.pages : pdf.pages + ' pages';
+      const progress =
+        pdf.last_page > 1 ? 'p.' + pdf.last_page + '/' + pdf.pages : pdf.pages + ' pages';
       html += `<div class="drawer-pdf-item" data-action="open-pdf-from-drawer" data-pdf-id="${pdf.id}">
         <span class="dpf-name">${escapeHtml(pdf.original_name.replace(/\.pdf$/i, ''))}</span>
         <span class="dpf-progress">${escapeHtml(progress)}</span>
@@ -189,7 +200,9 @@ function renderFullPlan(plan, coursePdfs) {
 function renderTaskRow(task, idx, courseId) {
   const priority = task.priority ? { high: '!', medium: '·', low: '∼' }[task.priority] || '' : '';
   const renderedTitle = marked.parseInline(task.title) || escapeHtml(task.title);
-  const notes = task.notes ? `<div style="font-size:11px;color:var(--text-secondary);margin:2px 0 6px 26px;line-height:1.4;">${marked.parse(task.notes)}</div>` : '';
+  const notes = task.notes
+    ? `<div style="font-size:11px;color:var(--text-secondary);margin:2px 0 6px 26px;line-height:1.4;">${marked.parse(task.notes)}</div>`
+    : '';
   return `<div class="topic-row" data-action="toggle-topic" data-course-id="${escapeHtmlAttr(courseId)}" data-idx="${idx}">
     <div class="topic-checkbox ${task.done ? 'done' : ''}">${task.done ? '&#x2713;' : ''}</div>
     <div class="topic-title ${task.done ? 'done' : ''}">

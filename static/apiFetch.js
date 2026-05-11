@@ -21,7 +21,9 @@ export async function apiFetch(url, opts) {
       if (attempt >= maxAttempts) throw err;
     }
     const delay = 200 * Math.pow(2, attempt - 1) + Math.random() * 100;
-    await new Promise(function (r) { setTimeout(r, delay); });
+    await new Promise(function (r) {
+      setTimeout(r, delay);
+    });
   }
   throw lastErr;
 }

@@ -17,9 +17,17 @@ export function scrollToBottom() {
 }
 
 export function renderContent(content) {
-  try { return marked.parse(content || ''); } catch (e) { return escapeHtml(content || ''); }
+  try {
+    return marked.parse(content || '');
+  } catch {
+    return escapeHtml(content || '');
+  }
 }
 
 export function renderMarkdown(text) {
-  try { return marked.parse(text || ''); } catch (e) { return escapeHtml(text || ''); }
+  try {
+    return marked.parse(text || '');
+  } catch {
+    return escapeHtml(text || '');
+  }
 }
