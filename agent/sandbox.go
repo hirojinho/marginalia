@@ -119,13 +119,16 @@ func (sm *SandboxManager) Sweep(maxIdleDays int) (int, error) {
 func (sm *SandboxManager) writeAgentsMD(path, clawCLIPath string, sessionID int64, course, userID string) error {
 	var content []byte
 
-	if clawCLIPath != "" && course != "" && userID != "" {
-		out, _ := exec.Command(
-			clawCLIPath, "memory", "load",
+	if clawCLIPath != "" && userID != "" {
+		args := []string{
+			"memory", "load",
 			"--session", strconv.FormatInt(sessionID, 10),
-			"--course", course,
 			"--user", userID,
-		).Output()
+		}
+		if course != "" {
+			args = append(args, "--course", course)
+		}
+		out, _ := exec.Command(clawCLIPath, args...).Output()
 		if len(out) > 0 {
 			content = out
 		}
