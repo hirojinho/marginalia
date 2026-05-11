@@ -9,6 +9,7 @@ package agent
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -172,6 +173,9 @@ func RunPi(ctx context.Context, sandboxDir, message, model, piPath, skillsDir, a
 	cmd.Dir = sandboxDir
 	cmd.Env = append(os.Environ(), "OPENCODE_API_KEY="+apiKey)
 
+	var stderrBuf bytes.Buffer
+	cmd.Stderr = &stderrBuf
+
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		return nil, fmt.Errorf("create stdin pipe: %w", err)
@@ -223,8 +227,12 @@ func RunPi(ctx context.Context, sandboxDir, message, model, piPath, skillsDir, a
 			}
 			return
 		}
+		msg := "pi exited without completing"
+		if errText := TruncateRunes(stderrBuf.String(), 300); errText != "" {
+			msg += ": " + errText
+		}
 		select {
-		case events <- PiEvent{Kind: "error", Message: "pi exited without completing"}:
+		case events <- PiEvent{Kind: "error", Message: msg}:
 		default:
 		}
 	}()
