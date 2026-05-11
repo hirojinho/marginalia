@@ -16,7 +16,7 @@ import (
 	"study-app/agent"
 )
 
-const piTurnTimeout = 60 * time.Second
+const piTurnTimeout = 5 * time.Minute
 
 type chatV2Request struct {
 	SessionID int64  `json:"session_id"`
