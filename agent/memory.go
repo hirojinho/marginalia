@@ -25,6 +25,7 @@ type Memory struct {
 
 type Scope struct {
 	Profile        *Memory
+	GlobalProjects []Memory // kind='project' AND course_id IS NULL
 	CourseProjects []Memory // kind='project' AND course_id=?
 	Feedback       []Memory // kind='feedback' AND (course_id=? OR course_id IS NULL)
 }
@@ -118,6 +119,27 @@ func (s *MemoryStore) LoadByScope(userID, courseID string) (Scope, error) {
 		scope.Profile = &p
 	} else if err != sql.ErrNoRows {
 		return scope, fmt.Errorf("scope profile: %w", err)
+	}
+
+	{
+		gpRows, err := s.db.Query(
+			`SELECT id, user_id, IFNULL(course_id,''), kind, IFNULL(title,''), body, created_at, updated_at
+			 FROM agent_memory
+			 WHERE user_id = ? AND kind = 'project' AND course_id IS NULL
+			 ORDER BY updated_at DESC`,
+			userID,
+		)
+		if err != nil {
+			return scope, fmt.Errorf("scope global projects: %w", err)
+		}
+		defer func() { _ = gpRows.Close() }()
+		for gpRows.Next() {
+			var m Memory
+			if err := gpRows.Scan(&m.ID, &m.UserID, &m.CourseID, &m.Kind, &m.Title, &m.Body, &m.CreatedAt, &m.UpdatedAt); err != nil {
+				return scope, fmt.Errorf("scope global projects scan: %w", err)
+			}
+			scope.GlobalProjects = append(scope.GlobalProjects, m)
+		}
 	}
 
 	if courseID != "" {
@@ -261,13 +283,18 @@ func parseFrontmatter(path string) (map[string]string, error) {
 }
 
 const (
-	agentsMDTotalCap = 3072
-	capProfile       = 500
-	capCourse        = 800
-	capFeedback      = 1200
-	capRecent        = 500
-	capSkills        = 500
+	agentsMDTotalCap = 4096
+	capProfile       = 400
+	capGlobalProj    = 600
+	capCourse        = 700
+	capFeedback      = 1000
+	capRecent        = 400
+	capSkills        = 400
 )
+
+const memoryInstructions = `When Eduardo shares a felt-data observation, learning signal, study insight, or thesis interest during the conversation, save it immediately using:
+  bash claw-cli memory save --kind project --title "<brief title>" --body "<observation>"
+Do this proactively without being asked. Use concise titles (≤60 chars). Omit --course for thesis/global observations.`
 
 func AssembleAgentsMD(scope Scope, recent []SessionDigest, skills []SkillMeta, courseID string) string {
 	type section struct{ title, body string }
@@ -277,6 +304,28 @@ func AssembleAgentsMD(scope Scope, recent []SessionDigest, skills []SkillMeta, c
 		sections = append(sections, section{"## User profile", TruncateRunes(scope.Profile.Body, capProfile)})
 	} else {
 		sections = append(sections, section{"## User profile", "_(none)_"})
+	}
+
+	sections = append(sections, section{"## Memory instructions", memoryInstructions})
+
+	{
+		var b strings.Builder
+		for _, m := range scope.GlobalProjects {
+			if m.Title != "" {
+				b.WriteString("- **")
+				b.WriteString(m.Title)
+				b.WriteString("**: ")
+			} else {
+				b.WriteString("- ")
+			}
+			b.WriteString(m.Body)
+			b.WriteString("\n")
+		}
+		body := TruncateRunes(b.String(), capGlobalProj)
+		if body == "" {
+			body = "_(none)_"
+		}
+		sections = append(sections, section{"## Observations & interests", body})
 	}
 
 	if courseID != "" {
