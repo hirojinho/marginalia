@@ -93,6 +93,13 @@ header small {
   color: var(--accent);
   background: var(--accent-subtle);
 }
+#pomodoro-btn {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+  min-width: 46px;
+  text-align: center;
+  margin-left: 8px;
+}
 
 /* === LAYOUT === */
 #main-content {
