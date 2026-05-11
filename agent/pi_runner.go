@@ -150,7 +150,20 @@ func truncatePiSummary(s string) string {
 // the process exits. The context controls the per-turn timeout; cancelling it
 // kills Pi and drains the channel.
 func RunPi(ctx context.Context, sandboxDir, message, model, piPath, skillsDir, apiKey string) (<-chan PiEvent, error) {
-	args := []string{"--mode", "rpc", "--provider", "opencode-go", "--model", model}
+	// Pi stores conversation history in this subdir so --continue resumes
+	// the session across per-turn subprocess spawns.
+	sessionDir := sandboxDir + "/pi-session"
+	if err := os.MkdirAll(sessionDir, 0o755); err != nil {
+		return nil, fmt.Errorf("create pi session dir: %w", err)
+	}
+
+	args := []string{
+		"--mode", "rpc",
+		"--provider", "opencode-go",
+		"--model", model,
+		"--session-dir", sessionDir,
+		"--continue",
+	}
 	if skillsDir != "" {
 		args = append(args, "--skill", skillsDir)
 	}
