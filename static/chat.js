@@ -2,6 +2,7 @@
 import { showErrorBanner } from './errorBanner.js';
 import { escapeHtml, renderMarkdown, scrollToBottom } from './dom.js';
 import { getActiveSessionId, openSessionModal } from './sessions.js';
+import { createToolPanel, createSkillChip, appendCompactionNotice, updateModelFooter } from './chat-events.js';
 
 const MAX_MESSAGE_LEN = 4000;
 
@@ -25,10 +26,6 @@ export function initChat() {
     input.value = '';
     document.getElementById('send-btn').disabled = true;
 
-    const formData = new FormData();
-    formData.append('message', msg);
-    formData.append('session_id', activeSessionId.toString());
-
     const userDiv = document.createElement('div');
     userDiv.className = 'msg msg-user';
     userDiv.innerHTML = '<div class="msg-label">You</div><div class="msg-content">' + escapeHtml(msg) + '</div>';
@@ -44,9 +41,14 @@ export function initChat() {
     const answerContent = currentAssistantMsg.querySelector('.answer-content');
     currentAssistantMsg.classList.add('token-cursor');
     let thinkingActive = false;
+    const activeToolPanels = new Map();
 
     try {
-      const resp = await fetch('/chat', { method: 'POST', body: formData });
+      const resp = await fetch('/chat-v2', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session_id: activeSessionId, message: msg }),
+      });
       if (!resp.ok) throw new Error('HTTP ' + resp.status);
 
       const reader = resp.body.getReader();
@@ -70,23 +72,51 @@ export function initChat() {
           }
           if (line.startsWith('data: ')) {
             const data = line.slice(6);
-            const token = JSON.parse(data);
+            const payload = JSON.parse(data);
             if (eventType === 'reasoning') {
               if (!thinkingActive) {
                 thinkingActive = true;
                 thinkingBlock.style.display = 'block';
               }
-              rawThinking += token;
+              const delta = payload.delta ?? '';
+              rawThinking += delta;
               thinkingContent.innerHTML = renderMarkdown(rawThinking);
               scrollToBottom();
             } else if (eventType === 'token' && answerContent) {
               currentAssistantMsg.classList.remove('token-cursor');
-              rawAnswer += token;
+              const delta = payload.delta ?? '';
+              rawAnswer += delta;
               answerContent.innerHTML = renderMarkdown(rawAnswer);
               currentAssistantMsg.classList.add('token-cursor');
               scrollToBottom();
+            } else if (eventType === 'tool_start') {
+              const panel = createToolPanel(payload.name, payload.input_summary);
+              activeToolPanels.set(payload.name, panel);
+              answerContent.appendChild(panel.el);
+              scrollToBottom();
+            } else if (eventType === 'tool_end') {
+              const panel = activeToolPanels.get(payload.name);
+              if (panel) {
+                panel.complete(payload.output_summary, payload.ok);
+                activeToolPanels.delete(payload.name);
+              }
+              scrollToBottom();
+            } else if (eventType === 'skill_start') {
+              const chip = createSkillChip(payload.name);
+              currentAssistantMsg.insertBefore(chip, currentAssistantMsg.firstChild);
+              scrollToBottom();
+            } else if (eventType === 'compaction') {
+              appendCompactionNotice(answerContent, payload.reason);
+              scrollToBottom();
+            } else if (eventType === 'model_change') {
+              updateModelFooter(payload.to);
             } else if (eventType === 'done') {
               if (currentAssistantMsg) currentAssistantMsg.classList.remove('token-cursor');
+              currentAssistantMsg = null;
+              scrollToBottom();
+            } else if (eventType === 'error') {
+              if (currentAssistantMsg) currentAssistantMsg.classList.remove('token-cursor');
+              answerContent.innerHTML = 'Error: ' + escapeHtml(payload.message);
               currentAssistantMsg = null;
               scrollToBottom();
             }
