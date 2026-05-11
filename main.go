@@ -28,6 +28,7 @@ const (
 	httpWriteTimeout    = 5 * time.Minute // accommodates streaming chat responses
 	httpIdleTimeout     = 120 * time.Second
 	shutdownGracePeriod = 15 * time.Second
+	sandboxIdleDays     = 7
 )
 
 // dataSubdirs are the working subdirectories under <vault>/data the
@@ -36,6 +37,8 @@ var dataSubdirs = []string{
 	"pdf-files",
 	"plans",
 	"pdf-texts",
+	"agent-sessions",
+	"agent-out",
 	filepath.Join("corpus", "study-methods"),
 	filepath.Join("corpus", "courses"),
 	filepath.Join("corpus", "meta"),
@@ -77,6 +80,19 @@ func main() {
 			}
 		}()
 	}
+
+	go func() {
+		ticker := time.NewTicker(24 * time.Hour)
+		defer ticker.Stop()
+		for range ticker.C {
+			n, err := app.Sandbox.Sweep(sandboxIdleDays)
+			if err != nil {
+				slog.Error("sandbox sweep", "err", err)
+			} else if n > 0 {
+				slog.Info("sandbox sweep removed stale dirs", "count", n)
+			}
+		}
+	}()
 
 	app.LoadActiveSessionID()
 

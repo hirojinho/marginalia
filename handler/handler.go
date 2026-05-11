@@ -44,6 +44,7 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("/static/", h.handleStatic)
 	mux.HandleFunc("/login", h.handleLogin)
 	mux.HandleFunc("/chat", h.handleChat)
+	mux.HandleFunc("/chat-v2", h.handleChatV2)
 	mux.HandleFunc("/api/sessions", h.handleSessions)
 	mux.HandleFunc("/api/sessions/active", h.handleSessionActive)
 	mux.HandleFunc("/api/sessions/messages", h.handleSessionMessages)

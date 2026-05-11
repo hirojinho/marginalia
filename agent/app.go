@@ -20,6 +20,15 @@ type Config struct {
 	// the auth middleware logs a warning and lets all requests through —
 	// intended only for local development.
 	AuthToken string
+
+	// ClawCLIPath is the absolute path to the claw-cli binary. When set,
+	// sandbox creation calls claw-cli memory load to generate AGENTS.md.
+	// When empty, a placeholder AGENTS.md is written instead.
+	ClawCLIPath string
+
+	// UserID identifies the single tenant. Used when generating AGENTS.md.
+	// Defaults to "eduardo" when empty in the sandbox write path.
+	UserID string
 }
 
 // App owns all shared mutable state for the study app: the database

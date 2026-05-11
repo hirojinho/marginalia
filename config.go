@@ -31,6 +31,8 @@ func loadConfig() (agent.Config, error) {
 		EmbeddingModel: firstNonEmpty(os.Getenv("EMBEDDING_MODEL"), defaultEmbeddingModel),
 		ListenAddr:     firstNonEmpty(os.Getenv("LISTEN_ADDR"), defaultListenAddr),
 		AuthToken:      os.Getenv("AUTH_TOKEN"),
+		ClawCLIPath:    os.Getenv("CLAW_CLI_PATH"),
+		UserID:         firstNonEmpty(os.Getenv("USER_ID"), "eduardo"),
 	}, nil
 }
 
