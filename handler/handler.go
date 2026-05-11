@@ -57,6 +57,7 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("/pdf/progress/", h.handlePDFProgress)
 	mux.HandleFunc("/pdf/last", h.handlePDFLastOpened)
 	mux.HandleFunc("/pdf/annotations/", h.handlePDFAnnotations)
+	mux.HandleFunc("/api/runtime", h.handleRuntime)
 	mux.HandleFunc("/debug/health", h.handleDebugHealth)
 }
 

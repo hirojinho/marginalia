@@ -2,11 +2,16 @@
 import { showErrorBanner } from './errorBanner.js';
 import { escapeHtml, renderMarkdown, scrollToBottom } from './dom.js';
 import { getActiveSessionId, openSessionModal } from './sessions.js';
-import { createToolPanel, createSkillChip, appendCompactionNotice, updateModelFooter } from './chat-events.js';
+import {
+  createToolPanel,
+  createSkillChip,
+  appendCompactionNotice,
+  updateModelFooter,
+} from './chat-events.js';
 
 const MAX_MESSAGE_LEN = 4000;
 
-export function initChat() {
+export function initChat(chatEndpoint) {
   document.getElementById('chat-form').addEventListener('submit', async function (e) {
     e.preventDefault();
     const activeSessionId = getActiveSessionId();
@@ -18,7 +23,9 @@ export function initChat() {
     const msg = input.value.trim();
     if (!msg) return;
     if (msg.length > MAX_MESSAGE_LEN) {
-      showErrorBanner('Message is too long (' + msg.length + '/' + MAX_MESSAGE_LEN + ' characters).');
+      showErrorBanner(
+        'Message is too long (' + msg.length + '/' + MAX_MESSAGE_LEN + ' characters).',
+      );
       return;
     }
     input.value = '';
@@ -27,12 +34,14 @@ export function initChat() {
 
     const userDiv = document.createElement('div');
     userDiv.className = 'msg msg-user';
-    userDiv.innerHTML = '<div class="msg-label">You</div><div class="msg-content">' + escapeHtml(msg) + '</div>';
+    userDiv.innerHTML =
+      '<div class="msg-label">You</div><div class="msg-content">' + escapeHtml(msg) + '</div>';
     messagesContainer.appendChild(userDiv);
 
     const assistantDiv = document.createElement('div');
     assistantDiv.className = 'msg msg-assistant';
-    assistantDiv.innerHTML = '<div class="msg-label">Claw</div><div class="msg-content"><div class="thinking-block" style="display:none;"><details><summary>Thinking</summary><div class="thinking-content"></div></details></div><div class="answer-content"></div></div>';
+    assistantDiv.innerHTML =
+      '<div class="msg-label">Claw</div><div class="msg-content"><div class="thinking-block" style="display:none;"><details><summary>Thinking</summary><div class="thinking-content"></div></details></div><div class="answer-content"></div></div>';
     messagesContainer.appendChild(assistantDiv);
     let currentAssistantMsg = assistantDiv.querySelector('.msg-content');
     const thinkingBlock = currentAssistantMsg.querySelector('.thinking-block');
@@ -43,11 +52,12 @@ export function initChat() {
     const activeToolPanels = new Map();
 
     try {
-      const resp = await fetch('/chat-v2', {
+      const resp = await fetch(chatEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ session_id: activeSessionId, message: msg }),
       });
+
       if (!resp.ok) throw new Error('HTTP ' + resp.status);
 
       const reader = resp.body.getReader();

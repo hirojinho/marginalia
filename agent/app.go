@@ -41,6 +41,30 @@ type Config struct {
 	// AgentModel is the model ID passed to pi --model. Falls back to
 	// Config.Model when empty.
 	AgentModel string
+
+	// AgentRuntime selects the active agent backend. "pi" routes chat
+	// through /chat-v2 (Pi subprocess); "legacy" uses the direct LLM
+	// call at /chat. Defaults to "legacy" when empty or unrecognised.
+	AgentRuntime string
+}
+
+// AgentRuntime is the typed selector for the active agent backend.
+type AgentRuntime string
+
+const (
+	// AgentRuntimePi routes chat through /chat-v2 (Pi subprocess).
+	AgentRuntimePi AgentRuntime = "pi"
+	// AgentRuntimeLegacy routes chat through the direct LLM call at /chat.
+	AgentRuntimeLegacy AgentRuntime = "legacy"
+)
+
+// ActiveRuntime returns the normalised AgentRuntime for this config.
+// Returns AgentRuntimeLegacy for empty or unrecognised values.
+func (c Config) ActiveRuntime() AgentRuntime {
+	if AgentRuntime(c.AgentRuntime) == AgentRuntimePi {
+		return AgentRuntimePi
+	}
+	return AgentRuntimeLegacy
 }
 
 // App owns all shared mutable state for the study app: the database

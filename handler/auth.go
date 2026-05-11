@@ -34,7 +34,7 @@ func (h *Handler) AuthMiddleware(next http.Handler) http.Handler {
 	}
 	tokenBytes := []byte(token)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/login" {
+		if r.URL.Path == "/login" || r.URL.Path == "/api/runtime" {
 			next.ServeHTTP(w, r)
 			return
 		}

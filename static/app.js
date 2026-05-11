@@ -2,8 +2,13 @@
 // importing handler functions from each feature module — no event bus.
 import { installErrorBanner } from './errorBanner.js';
 import {
-  loadSessions, loadActiveSession, loadSessionMessages,
-  switchSession, deleteSession, getActiveSessionId, initSessionsUI,
+  loadSessions,
+  loadActiveSession,
+  loadSessionMessages,
+  switchSession,
+  deleteSession,
+  getActiveSessionId,
+  initSessionsUI,
 } from './sessions.js';
 import { initChat } from './chat.js';
 import { initPlan, openFullPlan, toggleTopic, openPdfFromDrawer } from './plan.js';
@@ -17,14 +22,31 @@ document.addEventListener('click', function (e) {
   if (!el) return;
   const action = el.dataset.action;
   switch (action) {
-    case 'switch-session': switchSession(parseInt(el.dataset.sessionId, 10)); break;
-    case 'delete-session': e.stopPropagation(); deleteSession(parseInt(el.dataset.sessionId, 10)); break;
-    case 'open-full-plan': openFullPlan(el.dataset.courseId); break;
-    case 'open-pdf-from-drawer': openPdfFromDrawer(parseInt(el.dataset.pdfId, 10)); break;
-    case 'toggle-topic': toggleTopic(el.dataset.courseId, parseInt(el.dataset.idx, 10)); break;
-    case 'open-pdf': openPdf(parseInt(el.dataset.pdfId, 10)); break;
-    case 'trigger-upload': triggerUpload(); break;
-    case 'switch-pdf': switchPdf(parseInt(el.dataset.pdfId, 10)); break;
+    case 'switch-session':
+      switchSession(parseInt(el.dataset.sessionId, 10));
+      break;
+    case 'delete-session':
+      e.stopPropagation();
+      deleteSession(parseInt(el.dataset.sessionId, 10));
+      break;
+    case 'open-full-plan':
+      openFullPlan(el.dataset.courseId);
+      break;
+    case 'open-pdf-from-drawer':
+      openPdfFromDrawer(parseInt(el.dataset.pdfId, 10));
+      break;
+    case 'toggle-topic':
+      toggleTopic(el.dataset.courseId, parseInt(el.dataset.idx, 10));
+      break;
+    case 'open-pdf':
+      openPdf(parseInt(el.dataset.pdfId, 10));
+      break;
+    case 'trigger-upload':
+      triggerUpload();
+      break;
+    case 'switch-pdf':
+      switchPdf(parseInt(el.dataset.pdfId, 10));
+      break;
   }
 });
 
@@ -33,13 +55,27 @@ document.getElementById('sidebar-toggle').addEventListener('click', function () 
   document.getElementById('session-sidebar').classList.toggle('collapsed');
 });
 
+async function loadRuntimeEndpoint() {
+  try {
+    const resp = await fetch('/api/runtime');
+    const data = await resp.json();
+    if (data.mode === 'pi') {
+      return '/chat-v2';
+    }
+    return '/chat';
+  } catch {
+    return '/chat';
+  }
+}
+
 initSessionsUI();
-initChat();
 initPlan();
 initPdf();
 
 // Sessions startup
 (async function initApp() {
+  const chatEndpoint = await loadRuntimeEndpoint();
+  initChat(chatEndpoint);
   await loadSessions();
   await loadActiveSession();
   if (getActiveSessionId()) {
