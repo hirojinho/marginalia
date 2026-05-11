@@ -35,15 +35,15 @@ func (h *Handler) handleStatic(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case strings.HasSuffix(r.URL.Path, ".css"):
 		w.Header().Set("Content-Type", "text/css; charset=utf-8")
-		w.Header().Set("Cache-Control", "no-cache")
+		w.Header().Set("Cache-Control", "no-store")
 	case strings.HasSuffix(r.URL.Path, ".js"), strings.HasSuffix(r.URL.Path, ".mjs"):
 		w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
-		w.Header().Set("Cache-Control", "no-cache")
+		w.Header().Set("Cache-Control", "no-store")
 	case strings.HasSuffix(r.URL.Path, ".wasm"):
 		w.Header().Set("Content-Type", "application/wasm")
 	case strings.HasSuffix(r.URL.Path, ".html"):
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.Header().Set("Cache-Control", "no-cache")
+		w.Header().Set("Cache-Control", "no-store")
 	}
 	if _, err := w.Write(data); err != nil {
 		slog.Error("write static asset", "path", filePath, "err", err)
