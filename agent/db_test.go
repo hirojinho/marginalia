@@ -247,3 +247,30 @@ func TestInitSchemaCreatesAgentMemoryTable(t *testing.T) {
 		t.Fatalf("agent_memory_scope index missing: %v", err)
 	}
 }
+
+func TestPruneOldEventsRemovesOldRows(t *testing.T) {
+	a := newMemoryApp(t)
+	now := time.Now()
+	old := now.Add(-100 * 24 * time.Hour).UnixMilli()
+	recent := now.UnixMilli()
+
+	for i := 0; i < 3; i++ {
+		_ = a.RecordEvent(Event{Kind: "session_create", CreatedAt: old})
+	}
+	for i := 0; i < 2; i++ {
+		_ = a.RecordEvent(Event{Kind: "session_create", CreatedAt: recent})
+	}
+
+	cutoff := now.Add(-90 * 24 * time.Hour)
+	deleted, err := a.PruneOldEvents(cutoff)
+	if err != nil {
+		t.Fatalf("prune: %v", err)
+	}
+	if deleted != 3 {
+		t.Errorf("deleted = %d, want 3", deleted)
+	}
+	evs, _ := a.ListRecentEvents(100)
+	if len(evs) != 2 {
+		t.Errorf("remaining = %d, want 2", len(evs))
+	}
+}

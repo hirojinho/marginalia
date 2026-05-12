@@ -472,6 +472,16 @@ func (a *App) ListRecentEvents(limit int) ([]Event, error) {
 	return evs, rows.Err()
 }
 
+// PruneOldEvents deletes events older than before. Returns the number of rows deleted.
+func (a *App) PruneOldEvents(before time.Time) (int64, error) {
+	res, err := a.DB.Exec("DELETE FROM events WHERE created_at < ?", before.UnixMilli())
+	if err != nil {
+		return 0, fmt.Errorf("prune events: %w", err)
+	}
+	n, _ := res.RowsAffected()
+	return n, nil
+}
+
 // ---------- Meta ----------
 
 func (a *App) setMetaInt(key string, value int64) error {
