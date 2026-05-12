@@ -180,6 +180,35 @@ func TestHandleSessionMessagesIncludesReasoning(t *testing.T) {
 	}
 }
 
+func TestHandleSessionsCreateRecordsSessionCreateEvent(t *testing.T) {
+	h := newTestHandler(t)
+	body := strings.NewReader(`{"course_id":"ce297","topic":"STPA"}`)
+	req := httptest.NewRequest(http.MethodPost, "/api/sessions", body)
+	rr := httptest.NewRecorder()
+	h.handleSessions(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d", rr.Code)
+	}
+	var created agent.Session
+	_ = json.NewDecoder(rr.Body).Decode(&created)
+
+	evs, err := h.App.ListRecentEvents(10)
+	if err != nil {
+		t.Fatalf("list events: %v", err)
+	}
+	var found bool
+	for _, e := range evs {
+		if e.Kind == "session_create" && e.CourseID == "ce297" &&
+			e.SessionID != nil && *e.SessionID == created.ID {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("no session_create event found for session %d; events: %+v", created.ID, evs)
+	}
+}
+
 func jsonInt(n int64) string {
 	b, _ := json.Marshal(n)
 	return string(b)

@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"time"
 
 	"study-app/agent"
 )
@@ -55,6 +56,15 @@ func (h *Handler) createSession(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		writeServerError(w, "create session", err)
 		return
+	}
+	sid := s.ID
+	if err := h.App.RecordEvent(agent.Event{
+		Kind:      "session_create",
+		SessionID: &sid,
+		CourseID:  s.CourseID,
+		CreatedAt: time.Now().UnixMilli(),
+	}); err != nil {
+		slog.Warn("record session_create event", "err", err)
 	}
 	writeJSON(w, http.StatusOK, s)
 }
