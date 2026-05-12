@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"sync"
 	"sync/atomic"
+	"time"
 )
 
 // Config holds all runtime configuration. Constructed once at startup
@@ -86,7 +87,7 @@ type App struct {
 	Sandbox *SandboxManager
 
 	// piActive tracks sessions with an in-flight Pi turn. sync.Map key is
-	// int64 session ID; value is struct{}.
+	// int64 session ID; value is time.Time (lock acquisition time).
 	piActive sync.Map
 }
 
@@ -128,11 +129,30 @@ func (a *App) SetActiveSessionIDInMemory(id int64) {
 func (a *App) LockChat()   { a.chatMu.Lock() }
 func (a *App) UnlockChat() { a.chatMu.Unlock() }
 
-// AcquirePiLock marks sessionID as having an active Pi turn. Returns
-// false if a turn is already active for that session.
+// piLockTTL is the maximum age of a Pi lock before it is considered stale.
+// Set slightly above the per-turn context timeout so normal turns always
+// release via defer; only crashed or cancelled turns trigger expiry.
+const piLockTTL = 5*time.Minute + 30*time.Second
+
+// AcquirePiLock marks sessionID as having an active Pi turn. Returns false if
+// a turn is already active and its lock has not yet expired.
 func (a *App) AcquirePiLock(sessionID int64) bool {
-	_, loaded := a.piActive.LoadOrStore(sessionID, struct{}{})
-	return !loaded
+	now := time.Now()
+	for {
+		actual, loaded := a.piActive.LoadOrStore(sessionID, now)
+		if !loaded {
+			return true
+		}
+		// Lock exists — check for staleness.
+		if now.Sub(actual.(time.Time)) <= piLockTTL {
+			return false
+		}
+		// Stale lock: attempt a CAS-style replace.
+		if a.piActive.CompareAndSwap(sessionID, actual, now) {
+			return true
+		}
+		// Another goroutine beat us; re-evaluate.
+	}
 }
 
 // ReleasePiLock clears the active Pi turn marker for sessionID.

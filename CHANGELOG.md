@@ -6,6 +6,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Dates are comm
 
 Nothing pending.
 
+## [2026-05-12]
+
+### Added
+- **Pi lock TTL.** `AcquirePiLock` now stores a `time.Time` acquisition timestamp instead of `struct{}`. Locks older than `piTurnTimeout + 30s` (5m30s) are treated as stale and replaced via a CAS loop. Prevents sessions from staying stuck at 409 after a Pi crash or mid-turn context cancellation.
+
+### Ops
+- **Restic restore drill.** Restored snapshot `56e2e5dd` (2026-05-12 03:00 UTC) to a scratch dir and diffed against live `~/stack/study-app/`. Diff was clean: new agent sessions, one new PDF, in-flight WAL files, and a skill update from this session. Backup chain verified.
+
 ## [2026-05-11]
 
 ### Added

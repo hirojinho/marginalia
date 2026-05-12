@@ -2,17 +2,16 @@
 
 What's worth building next, in three buckets. Items move down the file as they ship — when something ships it leaves this file and lands in [`CHANGELOG.md`](CHANGELOG.md). Things that won't be done at all live in the "Won't do" section so the reasoning isn't lost.
 
-Last reviewed: 2026-05-11 (post-Pi-runtime pass).
+Last reviewed: 2026-05-12 (restic drill + Pi lock TTL).
 
 ## Now
 
-- **Restic restore drill.** Backups taken nightly but never restored. 15-min drill: pull the latest snapshot to a scratch dir on the VPS, diff against live `~/stack/study-app/`. Untested backups aren't backups. Operational task, not code.
+Nothing urgent.
 
 ## Next
 
 Cheap, small, ready when there's an excuse to pull them in.
 
-- **Pi lock TTL.** `AcquirePiLock` stores an in-memory marker that is cleared only by `ReleasePiLock` (called via `defer`) or a process restart. If Pi crashes mid-turn or the context is cancelled before the defer runs, the session is stuck with a 409 until the next restart. Fix: store a `time.Time` alongside the lock and treat it as stale after e.g. `piTurnTimeout + 30s`; check staleness on `AcquirePiLock`.
 - **Persist reasoning across reloads.** Thinking tokens (SSE `reasoning` events) are rendered during a live turn but not saved — `/chat-v2` only persists the answer text. On page reload, thinking blocks disappear. Fix: store the reasoning content alongside the assistant message (separate DB column or a `messages.reasoning` field); populate the thinking block when loading message history in `static/sessions.js`.
 - **Session topic: Pi-quality rename.** Auto-rename currently truncates the first user message (≤60 chars). The Pi agent's AGENTS.md still instructs it to call `claw-cli session topic` with a smarter title; the server-side truncation is the guaranteed fallback. Consider whether to drop the AGENTS.md instruction (simplify) or let Pi override (keep quality upside).
 - **Observability & user metrics.** Add structured event logging (chat-turn started/ended, tool invoked, plan toggled, PDF opened, session created, latency, model + token usage). Storage: SQLite table with 90-day retention. Surface as a `/debug/metrics` view (auth-gated). Goal: make per-user behavior observable so the app can be tailored — which courses are hot, where users get stuck, which tools are rarely useful.
