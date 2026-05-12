@@ -144,10 +144,16 @@ export async function loadSessionMessages() {
       } else if (m.role === 'assistant') {
         const div = document.createElement('div');
         div.className = 'msg msg-assistant';
-        div.innerHTML =
-          '<div class="msg-label">Claw</div><div class="msg-content">' +
-          renderContent(m.content) +
-          '</div>';
+        let inner = '<div class="msg-label">Claw</div><div class="msg-content">';
+        if (m.reasoning) {
+          inner +=
+            '<details class="thinking-inline"><summary>Thinking</summary>' +
+            '<div class="thinking-content">' +
+            renderContent(m.reasoning) +
+            '</div></details>';
+        }
+        inner += renderContent(m.content) + '</div>';
+        div.innerHTML = inner;
         container.appendChild(div);
       }
     }

@@ -150,6 +150,36 @@ func TestHandleSessionMessagesEmptyForNewSession(t *testing.T) {
 	}
 }
 
+func TestHandleSessionMessagesIncludesReasoning(t *testing.T) {
+	h := newTestHandler(t)
+	s, err := h.App.CreateSession("ce297", "STPA")
+	if err != nil {
+		t.Fatalf("create session: %v", err)
+	}
+	if err := h.App.SaveAssistantMessage(s.ID, "here is my answer", "step by step thinking"); err != nil {
+		t.Fatalf("save: %v", err)
+	}
+
+	url := "/api/sessions/messages?session_id=" + jsonInt(s.ID)
+	req := httptest.NewRequest(http.MethodGet, url, nil)
+	rr := httptest.NewRecorder()
+	h.handleSessionMessages(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d, body=%s", rr.Code, rr.Body.String())
+	}
+	var msgs []agent.Message
+	if err := json.NewDecoder(rr.Body).Decode(&msgs); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(msgs) != 1 {
+		t.Fatalf("expected 1 message, got %d", len(msgs))
+	}
+	if msgs[0].Reasoning != "step by step thinking" {
+		t.Errorf("reasoning = %q, want %q", msgs[0].Reasoning, "step by step thinking")
+	}
+}
+
 func jsonInt(n int64) string {
 	b, _ := json.Marshal(n)
 	return string(b)

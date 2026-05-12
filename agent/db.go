@@ -100,6 +100,7 @@ func InitSchema(db *sql.DB) error {
 	migrations := []string{
 		"ALTER TABLE sessions ADD COLUMN summary TEXT DEFAULT ''",
 		"ALTER TABLE sessions ADD COLUMN summary_at INTEGER DEFAULT 0",
+		"ALTER TABLE messages ADD COLUMN reasoning TEXT NOT NULL DEFAULT ''",
 	}
 	for _, m := range migrations {
 		if _, err := db.Exec(m); err != nil && !strings.Contains(err.Error(), "duplicate column") {
@@ -306,7 +307,7 @@ func (a *App) SaveMessage(sessionID int64, role, content string) error {
 }
 
 func (a *App) GetSessionHistory(sessionID int64) ([]Message, error) {
-	rows, err := a.DB.Query("SELECT role, content FROM messages WHERE session_id = ? ORDER BY id", sessionID)
+	rows, err := a.DB.Query("SELECT role, content, reasoning FROM messages WHERE session_id = ? ORDER BY id", sessionID)
 	if err != nil {
 		return nil, fmt.Errorf("query messages: %w", err)
 	}
@@ -314,12 +315,27 @@ func (a *App) GetSessionHistory(sessionID int64) ([]Message, error) {
 	var msgs []Message
 	for rows.Next() {
 		var m Message
-		if err := rows.Scan(&m.Role, &m.Content); err != nil {
+		if err := rows.Scan(&m.Role, &m.Content, &m.Reasoning); err != nil {
 			return nil, fmt.Errorf("scan message: %w", err)
 		}
 		msgs = append(msgs, m)
 	}
 	return msgs, rows.Err()
+}
+
+// SaveAssistantMessage persists an assistant turn with its optional reasoning text.
+func (a *App) SaveAssistantMessage(sessionID int64, content, reasoning string) error {
+	now := time.Now().Format(time.RFC3339)
+	if _, err := a.DB.Exec(
+		"INSERT INTO messages (session_id, role, content, reasoning, created_at) VALUES (?, 'assistant', ?, ?, ?)",
+		sessionID, content, reasoning, now,
+	); err != nil {
+		return fmt.Errorf("insert assistant message: %w", err)
+	}
+	if _, err := a.DB.Exec("UPDATE sessions SET updated_at = ? WHERE id = ?", now, sessionID); err != nil {
+		return fmt.Errorf("touch session: %w", err)
+	}
+	return nil
 }
 
 // GetSessionHistoryWithSummary returns the conversation history,

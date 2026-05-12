@@ -118,6 +118,52 @@ func TestDeleteSessionClearsActive(t *testing.T) {
 	}
 }
 
+func TestSaveAssistantMessagePersistsReasoning(t *testing.T) {
+	a := newMemoryApp(t)
+	s, err := a.CreateSession("ce297", "STPA")
+	if err != nil {
+		t.Fatalf("create session: %v", err)
+	}
+
+	if err := a.SaveAssistantMessage(s.ID, "hello", "I thought about this"); err != nil {
+		t.Fatalf("save: %v", err)
+	}
+
+	msgs, err := a.GetSessionHistory(s.ID)
+	if err != nil {
+		t.Fatalf("history: %v", err)
+	}
+	if len(msgs) != 1 {
+		t.Fatalf("expected 1 message, got %d", len(msgs))
+	}
+	if msgs[0].Content != "hello" {
+		t.Errorf("content = %q, want %q", msgs[0].Content, "hello")
+	}
+	if msgs[0].Reasoning != "I thought about this" {
+		t.Errorf("reasoning = %q, want %q", msgs[0].Reasoning, "I thought about this")
+	}
+}
+
+func TestSaveMessageDoesNotSetReasoning(t *testing.T) {
+	a := newMemoryApp(t)
+	s, err := a.CreateSession("ce297", "STPA")
+	if err != nil {
+		t.Fatalf("create session: %v", err)
+	}
+
+	if err := a.SaveMessage(s.ID, "user", "what is STPA?"); err != nil {
+		t.Fatalf("save: %v", err)
+	}
+
+	msgs, err := a.GetSessionHistory(s.ID)
+	if err != nil {
+		t.Fatalf("history: %v", err)
+	}
+	if msgs[0].Reasoning != "" {
+		t.Errorf("expected empty reasoning for user message, got %q", msgs[0].Reasoning)
+	}
+}
+
 func TestInitSchemaCreatesAgentMemoryTable(t *testing.T) {
 	db, err := OpenDB(":memory:")
 	if err != nil {

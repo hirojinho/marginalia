@@ -134,11 +134,11 @@ func (h *Handler) handleChatV2(w http.ResponseWriter, r *http.Request) {
 		writeSSEEvent(w, flusher, "session_topic", string(data))
 	}
 
-	assistantText := streamPiTurn(events, w, flusher)
+	assistantText, assistantReasoning := streamPiTurn(events, w, flusher)
 
 	if assistantText != "" {
 		h.App.LockChat()
-		err := h.App.SaveMessage(req.SessionID, "assistant", assistantText)
+		err := h.App.SaveAssistantMessage(req.SessionID, assistantText, assistantReasoning)
 		h.App.UnlockChat()
 		if err != nil {
 			slog.Error("save assistant message", "session_id", req.SessionID, "err", err)
@@ -147,17 +147,18 @@ func (h *Handler) handleChatV2(w http.ResponseWriter, r *http.Request) {
 }
 
 // streamPiTurn reads PiEvents from events, writes each as an SSE frame to w,
-// and returns the concatenated text from all token events. It flushes after
-// every event so the browser receives data incrementally.
-func streamPiTurn(events <-chan agent.PiEvent, w http.ResponseWriter, flusher http.Flusher) string {
-	var sb strings.Builder
+// and returns the concatenated text and reasoning from all token/reasoning events.
+// It flushes after every event so the browser receives data incrementally.
+func streamPiTurn(events <-chan agent.PiEvent, w http.ResponseWriter, flusher http.Flusher) (text, reasoning string) {
+	var textBuf, reasoningBuf strings.Builder
 	for ev := range events {
 		switch ev.Kind {
 		case "token":
-			sb.WriteString(ev.Delta)
+			textBuf.WriteString(ev.Delta)
 			data, _ := json.Marshal(map[string]string{"delta": ev.Delta})
 			writeSSEEvent(w, flusher, "token", string(data))
 		case "reasoning":
+			reasoningBuf.WriteString(ev.Delta)
 			data, _ := json.Marshal(map[string]string{"delta": ev.Delta})
 			writeSSEEvent(w, flusher, "reasoning", string(data))
 		case "tool_start":
@@ -185,7 +186,7 @@ func streamPiTurn(events <-chan agent.PiEvent, w http.ResponseWriter, flusher ht
 			writeSSEEvent(w, flusher, "error", string(data))
 		}
 	}
-	return sb.String()
+	return textBuf.String(), reasoningBuf.String()
 }
 
 // writeSSEEvent writes one SSE frame and flushes.
