@@ -1,6 +1,9 @@
 package agent
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
 
 func newMemoryApp(t *testing.T) *App {
 	t.Helper()
@@ -161,6 +164,64 @@ func TestSaveMessageDoesNotSetReasoning(t *testing.T) {
 	}
 	if msgs[0].Reasoning != "" {
 		t.Errorf("expected empty reasoning for user message, got %q", msgs[0].Reasoning)
+	}
+}
+
+func TestRecordEventRoundtrip(t *testing.T) {
+	a := newMemoryApp(t)
+	sid := int64(42)
+	e := Event{
+		Kind:         "chat_turn",
+		SessionID:    &sid,
+		CourseID:     "ce297",
+		Model:        "claude-opus-4-7",
+		InputTokens:  100,
+		OutputTokens: 50,
+		DurationMs:   3200,
+		CreatedAt:    time.Now().UnixMilli(),
+	}
+	if err := a.RecordEvent(e); err != nil {
+		t.Fatalf("RecordEvent: %v", err)
+	}
+	evs, err := a.ListRecentEvents(10)
+	if err != nil {
+		t.Fatalf("ListRecentEvents: %v", err)
+	}
+	if len(evs) != 1 {
+		t.Fatalf("expected 1 event, got %d", len(evs))
+	}
+	got := evs[0]
+	if got.Kind != "chat_turn" {
+		t.Errorf("kind = %q, want chat_turn", got.Kind)
+	}
+	if got.CourseID != "ce297" {
+		t.Errorf("course_id = %q, want ce297", got.CourseID)
+	}
+	if got.DurationMs != 3200 {
+		t.Errorf("duration_ms = %d, want 3200", got.DurationMs)
+	}
+	if got.SessionID == nil || *got.SessionID != 42 {
+		t.Errorf("session_id = %v, want 42", got.SessionID)
+	}
+}
+
+func TestRecordEventToolUse(t *testing.T) {
+	a := newMemoryApp(t)
+	okTrue := true
+	if err := a.RecordEvent(Event{
+		Kind:      "tool_use",
+		ToolName:  "rag_search",
+		OK:        &okTrue,
+		CreatedAt: time.Now().UnixMilli(),
+	}); err != nil {
+		t.Fatalf("RecordEvent: %v", err)
+	}
+	evs, _ := a.ListRecentEvents(10)
+	if len(evs) != 1 || evs[0].ToolName != "rag_search" {
+		t.Fatalf("unexpected events: %+v", evs)
+	}
+	if evs[0].OK == nil || !*evs[0].OK {
+		t.Errorf("ok should be true")
 	}
 }
 

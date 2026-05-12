@@ -11,6 +11,23 @@ import (
 	_ "modernc.org/sqlite"
 )
 
+// Event is a single observability record. Fields not relevant to a given
+// kind are left at their zero value (SessionID and OK use pointers so
+// NULL is distinguishable from false/0).
+type Event struct {
+	ID           int64
+	Kind         string
+	SessionID    *int64
+	CourseID     string
+	ToolName     string
+	Model        string
+	InputTokens  int
+	OutputTokens int
+	DurationMs   int64
+	OK           *bool
+	CreatedAt    int64 // unix milliseconds
+}
+
 // OpenDB opens the SQLite database at path and applies pragmas
 // required for safe concurrent operation (WAL mode, busy timeout,
 // foreign keys, balanced sync). Returns the *sql.DB ready to use.
@@ -89,6 +106,21 @@ func InitSchema(db *sql.DB) error {
 		updated_at  INTEGER NOT NULL
 	);
 	CREATE INDEX IF NOT EXISTS agent_memory_scope ON agent_memory (user_id, course_id, kind);
+	CREATE TABLE IF NOT EXISTS events (
+		id            INTEGER PRIMARY KEY AUTOINCREMENT,
+		kind          TEXT    NOT NULL,
+		session_id    INTEGER,
+		course_id     TEXT,
+		tool_name     TEXT,
+		model         TEXT,
+		input_tokens  INTEGER,
+		output_tokens INTEGER,
+		duration_ms   INTEGER,
+		ok            INTEGER,
+		created_at    INTEGER NOT NULL
+	);
+	CREATE INDEX IF NOT EXISTS events_created ON events(created_at);
+	CREATE INDEX IF NOT EXISTS events_kind_created ON events(kind, created_at);
 	`
 	if _, err := db.Exec(schema); err != nil {
 		return fmt.Errorf("create schema: %w", err)
@@ -373,6 +405,71 @@ func (a *App) GetMessageCount(sessionID int64) (int, error) {
 	var count int
 	err := a.DB.QueryRow("SELECT COUNT(*) FROM messages WHERE session_id = ?", sessionID).Scan(&count)
 	return count, err
+}
+
+// ---------- Events ----------
+
+// RecordEvent inserts one observability event. SessionID and OK are stored
+// as NULL when their pointer is nil.
+func (a *App) RecordEvent(e Event) error {
+	var sessionID interface{}
+	if e.SessionID != nil {
+		sessionID = *e.SessionID
+	}
+	var ok interface{}
+	if e.OK != nil {
+		if *e.OK {
+			ok = 1
+		} else {
+			ok = 0
+		}
+	}
+	_, err := a.DB.Exec(
+		`INSERT INTO events
+		 (kind, session_id, course_id, tool_name, model,
+		  input_tokens, output_tokens, duration_ms, ok, created_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		e.Kind, sessionID, e.CourseID, e.ToolName, e.Model,
+		e.InputTokens, e.OutputTokens, e.DurationMs, ok, e.CreatedAt,
+	)
+	if err != nil {
+		return fmt.Errorf("insert event: %w", err)
+	}
+	return nil
+}
+
+// ListRecentEvents returns up to limit events ordered newest-first.
+func (a *App) ListRecentEvents(limit int) ([]Event, error) {
+	rows, err := a.DB.Query(
+		`SELECT id, kind, session_id, course_id, tool_name, model,
+		        input_tokens, output_tokens, duration_ms, ok, created_at
+		 FROM events ORDER BY created_at DESC LIMIT ?`, limit)
+	if err != nil {
+		return nil, fmt.Errorf("query events: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	var evs []Event
+	for rows.Next() {
+		var e Event
+		var sid sql.NullInt64
+		var okVal sql.NullInt64
+		if err := rows.Scan(
+			&e.ID, &e.Kind, &sid, &e.CourseID, &e.ToolName, &e.Model,
+			&e.InputTokens, &e.OutputTokens, &e.DurationMs, &okVal, &e.CreatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("scan event: %w", err)
+		}
+		if sid.Valid {
+			v := sid.Int64
+			e.SessionID = &v
+		}
+		if okVal.Valid {
+			b := okVal.Int64 == 1
+			e.OK = &b
+		}
+		evs = append(evs, e)
+	}
+	return evs, rows.Err()
 }
 
 // ---------- Meta ----------
