@@ -22,26 +22,31 @@ Before the user engages with a resource, provide a structured orientation: how t
 digraph orientation {
     "Resource named" [shape=doublecircle];
     "Research resource structure" [shape=box];
+    "Fetch section content" [shape=box];
     "Load course profile" [shape=box];
     "Structure found?" [shape=diamond];
-    "Use sections" [shape=box];
-    "Use concepts" [shape=box];
+    "Content accessible?" [shape=diamond];
+    "Use sections + content" [shape=box];
+    "Use concepts only" [shape=box];
     "Build orientation" [shape=box];
     "Output to user" [shape=doublecircle];
 
     "Resource named" -> "Research resource structure";
     "Resource named" -> "Load course profile";
     "Research resource structure" -> "Structure found?";
-    "Structure found?" -> "Use sections" [label="yes"];
-    "Structure found?" -> "Use concepts" [label="no"];
-    "Use sections" -> "Build orientation";
-    "Use concepts" -> "Build orientation";
+    "Structure found?" -> "Fetch section content" [label="yes"];
+    "Structure found?" -> "Use concepts only" [label="no"];
+    "Fetch section content" -> "Content accessible?";
+    "Content accessible?" -> "Use sections + content" [label="yes"];
+    "Content accessible?" -> "Use concepts only" [label="no"];
+    "Use sections + content" -> "Build orientation";
+    "Use concepts only" -> "Build orientation";
     "Load course profile" -> "Build orientation";
     "Build orientation" -> "Output to user";
 }
 ```
 
-### Step 1 — Research the resource
+### Step 1 — Research the resource structure
 
 Use `claw-cli web fetch <url>` or `bash curl <url>` to find:
 - Abstract, table of contents, or section headers
@@ -49,6 +54,17 @@ Use `claw-cli web fetch <url>` or `bash curl <url>` to find:
 - How the community uses this resource (survey vs. deep read vs. reference)
 
 If the resource is a book chapter, search for the chapter name + author + "summary" or "overview". If it's a paper, fetch the abstract and section headings from the PDF or a freely available source.
+
+### Step 1b — Fetch the specific section content
+
+Once you know the structure, fetch the actual content of the section the user is about to engage with:
+- If it's a paper: fetch the specific section (Introduction, Methodology, etc.) from the PDF or an open-access version
+- If it's a book chapter: search for the chapter content directly — try `claw-cli rag search <key terms>` against the corpus first, then fall back to `claw-cli web fetch`
+- If it's a lecture/video: search for a transcript, slides, or summary of that specific lecture
+
+Use the fetched content to identify concrete claims, definitions, or arguments in that section — not just what the section is about, but what it actually says. This is what makes the orientation specific rather than generic.
+
+If the content is behind a paywall or otherwise inaccessible, proceed with structure only and note the limitation.
 
 ### Step 2 — Load course objectives
 
@@ -69,9 +85,10 @@ Match the reading strategy to the resource type:
 - **Lecture/video**: pause after each claim and restate it formally before continuing
 
 #### Most important sections / concepts
-Be as specific as the research allows:
-- If sections are known: name them, say what to focus on and what to skim
-- If not: name the 3–5 core concepts, explain what precision matters and why
+Ground this in the actual content fetched in Step 1b:
+- Quote or paraphrase the key claims, definitions, or arguments from the section
+- Say what to focus on and what to skim, with reference to specific content (not just section names)
+- If section content was inaccessible, fall back to naming 3–5 core concepts and explaining what precision matters and why
 - Filter all of this through the course lens from Step 2
 
 #### Things to hold in mind
@@ -91,4 +108,5 @@ Use clear section headers. Keep the whole output under ~400 words — dense but 
 - **Too generic:** "read carefully and take notes" is useless. Name sections, name concepts, name the exercise.
 - **Ignoring the lens:** always filter through the user's theoretical framing, not the author's intended audience.
 - **Adding exercises:** exercises belong in the study plan, not in orientation. Don't include focus exercises or "how to use Claude" sections.
-- **Skipping research:** if you don't look up the resource, you'll miss section names and produce vague guidance. Always search first.
+- **Skipping research:** if you don't look up the resource, you'll miss section names and produce vague guidance. Always fetch structure first, then fetch section content.
+- **Stopping at the TOC:** knowing that Section 3 exists is not enough. Fetch the actual content of the section the user is starting — the orientation should reference what the section says, not just what it's called.
