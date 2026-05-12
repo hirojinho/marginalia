@@ -94,6 +94,25 @@ func main() {
 		}
 	}()
 
+	go func() {
+		cutoff := time.Now().Add(-90 * 24 * time.Hour)
+		if n, err := app.PruneOldEvents(cutoff); err != nil {
+			slog.Warn("prune old events", "err", err)
+		} else if n > 0 {
+			slog.Info("pruned old events", "count", n)
+		}
+		ticker := time.NewTicker(24 * time.Hour)
+		defer ticker.Stop()
+		for range ticker.C {
+			cutoff := time.Now().Add(-90 * 24 * time.Hour)
+			if n, err := app.PruneOldEvents(cutoff); err != nil {
+				slog.Warn("prune old events", "err", err)
+			} else if n > 0 {
+				slog.Info("pruned old events", "count", n)
+			}
+		}
+	}()
+
 	app.LoadActiveSessionID()
 
 	llm := agent.NewLLMClient(cfg.APIKey, cfg.APIURL, cfg.Model)
