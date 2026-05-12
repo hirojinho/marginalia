@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"time"
 
 	"study-app/agent"
 )
@@ -77,6 +78,20 @@ func (h *Handler) handlePDFUpload(w http.ResponseWriter, r *http.Request) {
 		// Non-fatal: file is saved, row is good — only the "last
 		// opened" hint is missing. Carry on.
 		slog.Warn("set last_opened_pdf", "err", err)
+	}
+
+	activeSess := h.App.ActiveSessionID()
+	var sessPtr *int64
+	if activeSess != 0 {
+		sessPtr = &activeSess
+	}
+	if err := h.App.RecordEvent(agent.Event{
+		Kind:      "pdf_open",
+		SessionID: sessPtr,
+		CourseID:  courseID,
+		CreatedAt: time.Now().UnixMilli(),
+	}); err != nil {
+		slog.Warn("record pdf_open event", "err", err)
 	}
 
 	go h.App.ExtractAndCachePDFText(id, filePath)
