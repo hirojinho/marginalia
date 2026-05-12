@@ -69,3 +69,6 @@ linters:
       # dataSubdirs is a compile-time read-only slice of directory names for initialization.
       - path: '^main\.go'
         linters: [gochecknoglobals]
+      # metricsTempl is a compile-time read-only HTML template parsed once at startup.
+      - path: 'handler/metrics\.go'
+        linters: [gochecknoglobals]
