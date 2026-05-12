@@ -33,6 +33,12 @@ type sseDonePayload struct {
 	Usage agent.PiUsage `json:"usage"`
 }
 
+// toolUseRecord captures a single tool invocation outcome for event logging.
+type toolUseRecord struct {
+	Name string
+	OK   bool
+}
+
 // handleChatV2 handles POST /chat-v2. It creates or reuses the per-session
 // Pi sandbox, spawns a Pi RPC subprocess, translates events to SSE, and
 // persists the assistant reply. Returns 503 when PI_PATH is not configured.
@@ -134,7 +140,7 @@ func (h *Handler) handleChatV2(w http.ResponseWriter, r *http.Request) {
 		writeSSEEvent(w, flusher, "session_topic", string(data))
 	}
 
-	assistantText, assistantReasoning := streamPiTurn(events, w, flusher)
+	assistantText, assistantReasoning, _, _ := streamPiTurn(events, w, flusher)
 
 	if assistantText != "" {
 		h.App.LockChat()
@@ -147,9 +153,10 @@ func (h *Handler) handleChatV2(w http.ResponseWriter, r *http.Request) {
 }
 
 // streamPiTurn reads PiEvents from events, writes each as an SSE frame to w,
-// and returns the concatenated text and reasoning from all token/reasoning events.
+// and returns the concatenated text and reasoning from all token/reasoning events,
+// the token usage from the done event, and a record of every tool invocation.
 // It flushes after every event so the browser receives data incrementally.
-func streamPiTurn(events <-chan agent.PiEvent, w http.ResponseWriter, flusher http.Flusher) (text, reasoning string) {
+func streamPiTurn(events <-chan agent.PiEvent, w http.ResponseWriter, flusher http.Flusher) (text, reasoning string, usage agent.PiUsage, tools []toolUseRecord) {
 	var textBuf, reasoningBuf strings.Builder
 	for ev := range events {
 		switch ev.Kind {
@@ -165,6 +172,7 @@ func streamPiTurn(events <-chan agent.PiEvent, w http.ResponseWriter, flusher ht
 			data, _ := json.Marshal(map[string]string{"name": ev.ToolName, "input_summary": ev.InputSummary})
 			writeSSEEvent(w, flusher, "tool_start", string(data))
 		case "tool_end":
+			tools = append(tools, toolUseRecord{Name: ev.ToolName, OK: ev.OK})
 			payload := sseToolEndPayload{Name: ev.ToolName, OutputSummary: ev.OutputSummary, OK: ev.OK}
 			data, _ := json.Marshal(payload)
 			writeSSEEvent(w, flusher, "tool_end", string(data))
@@ -178,6 +186,7 @@ func streamPiTurn(events <-chan agent.PiEvent, w http.ResponseWriter, flusher ht
 			data, _ := json.Marshal(map[string]string{"from": ev.From, "to": ev.To})
 			writeSSEEvent(w, flusher, "model_change", string(data))
 		case "done":
+			usage = ev.Usage
 			payload := sseDonePayload{Usage: ev.Usage}
 			data, _ := json.Marshal(payload)
 			writeSSEEvent(w, flusher, "done", string(data))
@@ -186,7 +195,7 @@ func streamPiTurn(events <-chan agent.PiEvent, w http.ResponseWriter, flusher ht
 			writeSSEEvent(w, flusher, "error", string(data))
 		}
 	}
-	return textBuf.String(), reasoningBuf.String()
+	return textBuf.String(), reasoningBuf.String(), usage, tools
 }
 
 // writeSSEEvent writes one SSE frame and flushes.

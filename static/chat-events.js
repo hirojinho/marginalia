@@ -42,7 +42,7 @@ export function createSkillChip(name) {
   return el;
 }
 
-export function appendCompactionNotice(container, reason) {
+export function appendCompactionNotice(container, _reason) {
   const el = document.createElement('div');
   el.className = 'compaction-notice';
   el.textContent = '↩ context compacted';

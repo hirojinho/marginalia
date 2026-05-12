@@ -127,7 +127,7 @@ func TestStreamPiTurnEmitsTokenSSE(t *testing.T) {
 	close(events)
 
 	w := httptest.NewRecorder()
-	text, _ := streamPiTurn(events, w, w)
+	text, _, _, _ := streamPiTurn(events, w, w)
 
 	body := w.Body.String()
 	if !strings.Contains(body, "event: token") {
@@ -147,7 +147,7 @@ func TestStreamPiTurnEmitsDoneSSE(t *testing.T) {
 	close(events)
 
 	w := httptest.NewRecorder()
-	_, _ = streamPiTurn(events, w, w)
+	_, _, _, _ = streamPiTurn(events, w, w)
 
 	body := w.Body.String()
 	if !strings.Contains(body, "event: done") {
@@ -163,7 +163,7 @@ func TestStreamPiTurnEmitsToolStartAndEnd(t *testing.T) {
 	close(events)
 
 	w := httptest.NewRecorder()
-	_, _ = streamPiTurn(events, w, w)
+	_, _, _, _ = streamPiTurn(events, w, w)
 
 	body := w.Body.String()
 	if !strings.Contains(body, "event: tool_start") {
@@ -180,7 +180,7 @@ func TestStreamPiTurnEmitsErrorSSE(t *testing.T) {
 	close(events)
 
 	w := httptest.NewRecorder()
-	_, _ = streamPiTurn(events, w, w)
+	_, _, _, _ = streamPiTurn(events, w, w)
 
 	body := w.Body.String()
 	if !strings.Contains(body, "event: error") {
@@ -197,7 +197,7 @@ func TestStreamPiTurnAccumulatesTokenDeltas(t *testing.T) {
 	close(events)
 
 	w := httptest.NewRecorder()
-	text, _ := streamPiTurn(events, w, w)
+	text, _, _, _ := streamPiTurn(events, w, w)
 
 	if text != "foo bar baz" {
 		t.Errorf("accumulated text = %q, want %q", text, "foo bar baz")
@@ -213,13 +213,48 @@ func TestStreamPiTurnAccumulatesReasoningDeltas(t *testing.T) {
 	close(events)
 
 	w := httptest.NewRecorder()
-	text, reasoning := streamPiTurn(events, w, w)
+	text, reasoning, _, _ := streamPiTurn(events, w, w)
 
 	if text != "answer" {
 		t.Errorf("text = %q, want %q", text, "answer")
 	}
 	if reasoning != "first second" {
 		t.Errorf("reasoning = %q, want %q", reasoning, "first second")
+	}
+}
+
+func TestStreamPiTurnReturnsDoneUsage(t *testing.T) {
+	events := make(chan agent.PiEvent, 2)
+	events <- agent.PiEvent{Kind: "done", Usage: agent.PiUsage{Input: 100, Output: 40}}
+	close(events)
+
+	w := httptest.NewRecorder()
+	_, _, usage, _ := streamPiTurn(events, w, w)
+
+	if usage.Input != 100 || usage.Output != 40 {
+		t.Errorf("usage = %+v, want Input=100 Output=40", usage)
+	}
+}
+
+func TestStreamPiTurnAccumulatesToolRecords(t *testing.T) {
+	events := make(chan agent.PiEvent, 4)
+	events <- agent.PiEvent{Kind: "tool_start", ToolName: "rag_search"}
+	events <- agent.PiEvent{Kind: "tool_end", ToolName: "rag_search", OK: true}
+	events <- agent.PiEvent{Kind: "tool_end", ToolName: "read_file", OK: false}
+	events <- agent.PiEvent{Kind: "done"}
+	close(events)
+
+	w := httptest.NewRecorder()
+	_, _, _, tools := streamPiTurn(events, w, w)
+
+	if len(tools) != 2 {
+		t.Fatalf("expected 2 tool records, got %d", len(tools))
+	}
+	if tools[0].Name != "rag_search" || !tools[0].OK {
+		t.Errorf("tools[0] = %+v", tools[0])
+	}
+	if tools[1].Name != "read_file" || tools[1].OK {
+		t.Errorf("tools[1] = %+v", tools[1])
 	}
 }
 
@@ -230,7 +265,7 @@ func TestStreamPiTurnSSELineFormat(t *testing.T) {
 	close(events)
 
 	w := httptest.NewRecorder()
-	_, _ = streamPiTurn(events, w, w)
+	_, _, _, _ = streamPiTurn(events, w, w)
 
 	// Each SSE event must be "event: <type>\ndata: <json>\n\n"
 	scanner := bufio.NewScanner(strings.NewReader(w.Body.String()))
