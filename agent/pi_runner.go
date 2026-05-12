@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"syscall"
 )
 
 // PiEvent is a parsed Pi JSONL event translated into the SSE vocabulary.
@@ -172,6 +173,12 @@ func RunPi(ctx context.Context, sandboxDir, message, model, piPath, skillsDir, a
 	cmd := exec.CommandContext(ctx, piPath, args...)
 	cmd.Dir = sandboxDir
 	cmd.Env = append(os.Environ(), "OPENCODE_API_KEY="+apiKey)
+	// Put Pi in its own process group so cancellation kills the whole tree
+	// (Pi spawns bun/opencode children that would otherwise keep stdout open).
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	cmd.Cancel = func() error {
+		return syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+	}
 
 	var stderrBuf bytes.Buffer
 	cmd.Stderr = &stderrBuf
