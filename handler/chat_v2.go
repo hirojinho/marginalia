@@ -140,7 +140,9 @@ func (h *Handler) handleChatV2(w http.ResponseWriter, r *http.Request) {
 		writeSSEEvent(w, flusher, "session_topic", string(data))
 	}
 
-	assistantText, assistantReasoning, _, _ := streamPiTurn(events, w, flusher)
+	turnStart := time.Now()
+	assistantText, assistantReasoning, piUsage, piTools := streamPiTurn(events, w, flusher)
+	durationMs := time.Since(turnStart).Milliseconds()
 
 	if assistantText != "" {
 		h.App.LockChat()
@@ -150,6 +152,34 @@ func (h *Handler) handleChatV2(w http.ResponseWriter, r *http.Request) {
 			slog.Error("save assistant message", "session_id", req.SessionID, "err", err)
 		}
 	}
+
+	sessID := req.SessionID
+	go func() {
+		if err := h.App.RecordEvent(agent.Event{
+			Kind:         "chat_turn",
+			SessionID:    &sessID,
+			CourseID:     sess.CourseID,
+			Model:        model,
+			InputTokens:  piUsage.Input,
+			OutputTokens: piUsage.Output,
+			DurationMs:   durationMs,
+			CreatedAt:    time.Now().UnixMilli(),
+		}); err != nil {
+			slog.Warn("record chat_turn event", "err", err)
+		}
+		for _, tr := range piTools {
+			ok := tr.OK
+			if err := h.App.RecordEvent(agent.Event{
+				Kind:      "tool_use",
+				SessionID: &sessID,
+				ToolName:  tr.Name,
+				OK:        &ok,
+				CreatedAt: time.Now().UnixMilli(),
+			}); err != nil {
+				slog.Warn("record tool_use event", "err", err)
+			}
+		}
+	}()
 }
 
 // streamPiTurn reads PiEvents from events, writes each as an SSE frame to w,
