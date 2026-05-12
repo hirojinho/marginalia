@@ -1,8 +1,10 @@
 package handler
 
 import (
+	"log/slog"
 	"net/http"
 	"strconv"
+	"time"
 
 	"study-app/agent"
 )
@@ -74,6 +76,15 @@ func (h *Handler) handlePlanToggle(w http.ResponseWriter, r *http.Request) {
 		writeServerError(w, "save plan", err)
 		return
 	}
+
+	if err := h.App.RecordEvent(agent.Event{
+		Kind:      "plan_toggle",
+		CourseID:  course,
+		CreatedAt: time.Now().UnixMilli(),
+	}); err != nil {
+		slog.Warn("record plan_toggle event", "err", err)
+	}
+
 	writeJSON(w, http.StatusOK, p)
 }
 

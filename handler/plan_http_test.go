@@ -132,3 +132,38 @@ func TestHandlePlanToggleSuccess(t *testing.T) {
 		t.Fatalf("expected toggle persisted to disk; got %+v", persisted)
 	}
 }
+
+func TestHandlePlanToggleRecordsPlanToggleEvent(t *testing.T) {
+	h := newTestHandler(t)
+	writePlan(t, h, &agent.JSONPlan{
+		ID:   "ce297",
+		Name: "CE-297",
+		Phases: []agent.Phase{{
+			Title: "Phase 1",
+			Tasks: []agent.Task{{Title: "Read chapter 1", Done: false}},
+		}},
+	})
+
+	body := strings.NewReader("course=ce297&index=0")
+	req := httptest.NewRequest(http.MethodPost, "/api/plan/toggle", body)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr := httptest.NewRecorder()
+	h.handlePlanToggle(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d, body=%s", rr.Code, rr.Body.String())
+	}
+	evs, err := h.App.ListRecentEvents(10)
+	if err != nil {
+		t.Fatalf("list events: %v", err)
+	}
+	var found bool
+	for _, e := range evs {
+		if e.Kind == "plan_toggle" && e.CourseID == "ce297" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("no plan_toggle event found; events: %+v", evs)
+	}
+}
