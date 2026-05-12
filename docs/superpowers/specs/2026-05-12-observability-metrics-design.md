@@ -41,6 +41,23 @@ Added via the existing idempotent migrations slice in `InitSchema`.
 | `pdf_open` | `handlePDFUpload` after `SetLastOpenedPDF` | session_id (active session), course_id (pdf's course_id) |
 | `session_create` | `handleSessions` POST after successful create | session_id, course_id |
 
+### How each event drives product decisions
+
+**`chat_turn` (latency + token usage)**
+High p95 latency (>10s) is a signal that Pi is doing too much in a single turn — either the system prompt is too long, the tool loop is running many iterations, or compaction is kicking in. If avg tokens/turn is growing week-over-week, the context window is bloating and needs active management. If turns cluster in a specific course, that course's corpus or system prompt is a candidate for tuning.
+
+**`tool_use` (frequency + failure rate)**
+Tools with high call counts but low `ok` rates are broken or misused by the model — candidates for prompt fixes or removal. Tools with near-zero call counts over 30d are dead weight in the tool schema; removing them shrinks the context and may improve model focus. Tools that cluster in certain courses reveal what Pi actually does during study (RAG-heavy vs file-heavy vs plan-heavy).
+
+**`plan_toggle` (done vs undone rate)**
+A high undone rate (toggling tasks back to incomplete) signals that the study plan structure is too coarse — tasks are being split mid-execution. If a course has zero toggles over 30d, either the plan is finished or the plan view is unused and can be deprioritized in the UI.
+
+**`pdf_open` (frequency + course)**
+Low PDF open counts relative to chat turns means users rely on chat over primary sources — either the PDF viewer UX is poor or the corpus is good enough that opening PDFs feels redundant. If a course has many sessions but few PDF opens, the course may not have useful PDFs loaded.
+
+**`session_create` (course distribution)**
+Which courses generate the most sessions is the primary signal for where to invest in corpus quality, tool tuning, and UI polish. Courses with no new sessions over 30d are dormant and can be deprioritized. A spike in session creation for a course that wasn't previously active signals a study period that may need better onboarding or orientation support.
+
 **`chat_turn` details:**
 - `duration_ms` = wall time from start of `handleChatV2` to `streamPiTurn` return
 - `input_tokens` / `output_tokens` from the `done` PiEvent's `Usage` field (already in `sseDonePayload`)
