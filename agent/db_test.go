@@ -248,6 +248,59 @@ func TestInitSchemaCreatesAgentMemoryTable(t *testing.T) {
 	}
 }
 
+func TestQueryEventSummaryCountsAndAggregates(t *testing.T) {
+	a := newMemoryApp(t)
+	now := time.Now().UnixMilli()
+
+	okTrue, okFalse := true, false
+	sid := int64(1)
+
+	// 2 chat turns
+	_ = a.RecordEvent(Event{Kind: "chat_turn", SessionID: &sid, CourseID: "ce297", DurationMs: 2000, InputTokens: 100, OutputTokens: 50, CreatedAt: now})
+	_ = a.RecordEvent(Event{Kind: "chat_turn", SessionID: &sid, CourseID: "ce297", DurationMs: 4000, InputTokens: 200, OutputTokens: 80, CreatedAt: now})
+	// 1 tool_use ok, 1 tool_use failed
+	_ = a.RecordEvent(Event{Kind: "tool_use", ToolName: "rag_search", OK: &okTrue, CreatedAt: now})
+	_ = a.RecordEvent(Event{Kind: "tool_use", ToolName: "rag_search", OK: &okFalse, CreatedAt: now})
+	// 1 plan_toggle done, 1 undone
+	_ = a.RecordEvent(Event{Kind: "plan_toggle", CourseID: "ce297", OK: &okTrue, CreatedAt: now})
+	_ = a.RecordEvent(Event{Kind: "plan_toggle", CourseID: "ce297", OK: &okFalse, CreatedAt: now})
+	// 1 pdf_open
+	_ = a.RecordEvent(Event{Kind: "pdf_open", CourseID: "ce297", CreatedAt: now})
+	// 1 session_create
+	_ = a.RecordEvent(Event{Kind: "session_create", CourseID: "ddia", CreatedAt: now})
+
+	since := time.UnixMilli(now - 1000)
+	s, err := a.QueryEventSummary(since)
+	if err != nil {
+		t.Fatalf("QueryEventSummary: %v", err)
+	}
+
+	if s.TurnCount != 2 {
+		t.Errorf("TurnCount = %d, want 2", s.TurnCount)
+	}
+	if s.AvgLatencyMs != 3000 {
+		t.Errorf("AvgLatencyMs = %d, want 3000", s.AvgLatencyMs)
+	}
+	if s.InputTokens != 300 {
+		t.Errorf("InputTokens = %d, want 300", s.InputTokens)
+	}
+	if s.OutputTokens != 130 {
+		t.Errorf("OutputTokens = %d, want 130", s.OutputTokens)
+	}
+	if s.ToolCounts["rag_search"] != 2 {
+		t.Errorf("ToolCounts[rag_search] = %d, want 2", s.ToolCounts["rag_search"])
+	}
+	if s.CourseCounts["ddia"] != 1 {
+		t.Errorf("CourseCounts[ddia] = %d, want 1", s.CourseCounts["ddia"])
+	}
+	if s.PlanDone != 1 || s.PlanUndone != 1 {
+		t.Errorf("PlanDone=%d PlanUndone=%d, want 1 1", s.PlanDone, s.PlanUndone)
+	}
+	if s.PDFOpens != 1 {
+		t.Errorf("PDFOpens = %d, want 1", s.PDFOpens)
+	}
+}
+
 func TestPruneOldEventsRemovesOldRows(t *testing.T) {
 	a := newMemoryApp(t)
 	now := time.Now()

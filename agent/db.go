@@ -28,6 +28,20 @@ type Event struct {
 	CreatedAt    int64 // unix milliseconds
 }
 
+// EventSummary holds pre-aggregated metrics over a time window.
+type EventSummary struct {
+	TurnCount    int
+	AvgLatencyMs int64
+	P95LatencyMs int64
+	InputTokens  int64
+	OutputTokens int64
+	ToolCounts   map[string]int
+	CourseCounts map[string]int
+	PlanDone     int
+	PlanUndone   int
+	PDFOpens     int
+}
+
 // OpenDB opens the SQLite database at path and applies pragmas
 // required for safe concurrent operation (WAL mode, busy timeout,
 // foreign keys, balanced sync). Returns the *sql.DB ready to use.
@@ -480,6 +494,98 @@ func (a *App) PruneOldEvents(before time.Time) (int64, error) {
 	}
 	n, _ := res.RowsAffected()
 	return n, nil
+}
+
+// QueryEventSummary returns aggregated metrics for events recorded after since.
+func (a *App) QueryEventSummary(since time.Time) (EventSummary, error) {
+	sinceMs := since.UnixMilli()
+	s := EventSummary{
+		ToolCounts:   make(map[string]int),
+		CourseCounts: make(map[string]int),
+	}
+
+	// chat_turn aggregates
+	row := a.DB.QueryRow(
+		`SELECT COUNT(*), COALESCE(AVG(duration_ms),0),
+		        COALESCE(SUM(input_tokens),0), COALESCE(SUM(output_tokens),0)
+		 FROM events WHERE kind='chat_turn' AND created_at >= ?`, sinceMs)
+	if err := row.Scan(&s.TurnCount, &s.AvgLatencyMs, &s.InputTokens, &s.OutputTokens); err != nil {
+		return s, fmt.Errorf("chat_turn aggregates: %w", err)
+	}
+
+	// p95 latency: row at 95th percentile position
+	if s.TurnCount > 0 {
+		offset := int(float64(s.TurnCount)*0.95) - 1
+		if offset < 0 {
+			offset = 0
+		}
+		p95Row := a.DB.QueryRow(
+			`SELECT duration_ms FROM events
+			 WHERE kind='chat_turn' AND created_at >= ?
+			 ORDER BY duration_ms ASC LIMIT 1 OFFSET ?`, sinceMs, offset)
+		_ = p95Row.Scan(&s.P95LatencyMs)
+	}
+
+	// tool counts
+	rows, err := a.DB.Query(
+		`SELECT tool_name, COUNT(*) FROM events
+		 WHERE kind='tool_use' AND created_at >= ? AND tool_name != ''
+		 GROUP BY tool_name ORDER BY COUNT(*) DESC`, sinceMs)
+	if err != nil {
+		return s, fmt.Errorf("tool counts: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	for rows.Next() {
+		var name string
+		var count int
+		if err := rows.Scan(&name, &count); err != nil {
+			return s, err
+		}
+		s.ToolCounts[name] = count
+	}
+	if err := rows.Err(); err != nil {
+		return s, err
+	}
+
+	// course counts (by session_create)
+	crows, err := a.DB.Query(
+		`SELECT course_id, COUNT(*) FROM events
+		 WHERE kind='session_create' AND created_at >= ? AND course_id != ''
+		 GROUP BY course_id ORDER BY COUNT(*) DESC`, sinceMs)
+	if err != nil {
+		return s, fmt.Errorf("course counts: %w", err)
+	}
+	defer func() { _ = crows.Close() }()
+	for crows.Next() {
+		var cid string
+		var count int
+		if err := crows.Scan(&cid, &count); err != nil {
+			return s, err
+		}
+		s.CourseCounts[cid] = count
+	}
+	if err := crows.Err(); err != nil {
+		return s, err
+	}
+
+	// plan toggles
+	row = a.DB.QueryRow(
+		`SELECT
+		   COALESCE(SUM(CASE WHEN ok=1 THEN 1 ELSE 0 END),0),
+		   COALESCE(SUM(CASE WHEN ok=0 THEN 1 ELSE 0 END),0)
+		 FROM events WHERE kind='plan_toggle' AND created_at >= ?`, sinceMs)
+	if err := row.Scan(&s.PlanDone, &s.PlanUndone); err != nil {
+		return s, fmt.Errorf("plan toggles: %w", err)
+	}
+
+	// pdf opens
+	row = a.DB.QueryRow(
+		`SELECT COUNT(*) FROM events WHERE kind='pdf_open' AND created_at >= ?`, sinceMs)
+	if err := row.Scan(&s.PDFOpens); err != nil {
+		return s, fmt.Errorf("pdf opens: %w", err)
+	}
+
+	return s, nil
 }
 
 // ---------- Meta ----------
