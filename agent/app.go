@@ -132,24 +132,25 @@ func (a *App) UnlockChat() { a.chatMu.Unlock() }
 // piLockTTL is the maximum age of a Pi lock before it is considered stale.
 // Set slightly above the per-turn context timeout so normal turns always
 // release via defer; only crashed or cancelled turns trigger expiry.
-const piLockTTL = 5*time.Minute + 30*time.Second
+const piLockTTL = 10*time.Minute + 30*time.Second
 
-// AcquirePiLock marks sessionID as having an active Pi turn. Returns false if
-// a turn is already active and its lock has not yet expired.
-func (a *App) AcquirePiLock(sessionID int64) bool {
+// AcquirePiLock marks sessionID as having an active Pi turn. Returns
+// (true, 0) on success. Returns (false, age) when an existing lock is
+// still within TTL — age lets callers log diagnostics.
+func (a *App) AcquirePiLock(sessionID int64) (bool, time.Duration) {
 	now := time.Now()
 	for {
 		actual, loaded := a.piActive.LoadOrStore(sessionID, now)
 		if !loaded {
-			return true
+			return true, 0
 		}
-		// Lock exists — check for staleness.
-		if now.Sub(actual.(time.Time)) <= piLockTTL {
-			return false
+		age := now.Sub(actual.(time.Time))
+		if age <= piLockTTL {
+			return false, age
 		}
 		// Stale lock: attempt a CAS-style replace.
 		if a.piActive.CompareAndSwap(sessionID, actual, now) {
-			return true
+			return true, 0
 		}
 		// Another goroutine beat us; re-evaluate.
 	}

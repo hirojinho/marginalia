@@ -3,12 +3,14 @@ package handler
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"study-app/agent"
 )
@@ -120,6 +122,53 @@ func TestDeleteSessionRemovesSandbox(t *testing.T) {
 
 // ---------- streamPiTurn unit tests ----------
 
+func TestBuildPiPromptPassthroughWhenNoCourse(t *testing.T) {
+	got := buildPiPrompt("", "/no/such/binary", "hello")
+	if got != "hello" {
+		t.Errorf("got %q, want passthrough %q", got, "hello")
+	}
+}
+
+func TestBuildPiPromptPassthroughWhenNoClawCLI(t *testing.T) {
+	got := buildPiPrompt("ddia", "", "hello")
+	if got != "hello" {
+		t.Errorf("got %q, want passthrough %q", got, "hello")
+	}
+}
+
+func TestBuildPiPromptPassthroughWhenClawCLIFails(t *testing.T) {
+	got := buildPiPrompt("ddia", "/no/such/binary/path", "hello")
+	if got != "hello" {
+		t.Errorf("got %q, want passthrough on exec failure", got)
+	}
+}
+
+func TestStreamPiTurnEmitsKeepaliveDuringIdleGap(t *testing.T) {
+	// Force a short keepalive so the test stays fast.
+	orig := sseKeepaliveIntervalForTest
+	sseKeepaliveIntervalForTest = 25 * time.Millisecond
+	defer func() { sseKeepaliveIntervalForTest = orig }()
+
+	events := make(chan agent.PiEvent)
+	w := httptest.NewRecorder()
+
+	done := make(chan struct{})
+	go func() {
+		streamPiTurn(context.Background(), events, w, w)
+		close(done)
+	}()
+
+	// Hold the channel open with no events to force keepalive ticks.
+	time.Sleep(90 * time.Millisecond)
+	close(events)
+	<-done
+
+	body := w.Body.String()
+	if !strings.Contains(body, ": keepalive\n\n") {
+		t.Errorf("expected keepalive comment frame, got:\n%q", body)
+	}
+}
+
 func TestStreamPiTurnEmitsTokenSSE(t *testing.T) {
 	events := make(chan agent.PiEvent, 2)
 	events <- agent.PiEvent{Kind: "token", Delta: "hello"}
@@ -127,7 +176,7 @@ func TestStreamPiTurnEmitsTokenSSE(t *testing.T) {
 	close(events)
 
 	w := httptest.NewRecorder()
-	text, _, _, _ := streamPiTurn(events, w, w)
+	text, _, _, _ := streamPiTurn(context.Background(), events, w, w)
 
 	body := w.Body.String()
 	if !strings.Contains(body, "event: token") {
@@ -147,7 +196,7 @@ func TestStreamPiTurnEmitsDoneSSE(t *testing.T) {
 	close(events)
 
 	w := httptest.NewRecorder()
-	_, _, _, _ = streamPiTurn(events, w, w)
+	_, _, _, _ = streamPiTurn(context.Background(), events, w, w)
 
 	body := w.Body.String()
 	if !strings.Contains(body, "event: done") {
@@ -163,7 +212,7 @@ func TestStreamPiTurnEmitsToolStartAndEnd(t *testing.T) {
 	close(events)
 
 	w := httptest.NewRecorder()
-	_, _, _, _ = streamPiTurn(events, w, w)
+	_, _, _, _ = streamPiTurn(context.Background(), events, w, w)
 
 	body := w.Body.String()
 	if !strings.Contains(body, "event: tool_start") {
@@ -180,7 +229,7 @@ func TestStreamPiTurnEmitsErrorSSE(t *testing.T) {
 	close(events)
 
 	w := httptest.NewRecorder()
-	_, _, _, _ = streamPiTurn(events, w, w)
+	_, _, _, _ = streamPiTurn(context.Background(), events, w, w)
 
 	body := w.Body.String()
 	if !strings.Contains(body, "event: error") {
@@ -197,7 +246,7 @@ func TestStreamPiTurnAccumulatesTokenDeltas(t *testing.T) {
 	close(events)
 
 	w := httptest.NewRecorder()
-	text, _, _, _ := streamPiTurn(events, w, w)
+	text, _, _, _ := streamPiTurn(context.Background(), events, w, w)
 
 	if text != "foo bar baz" {
 		t.Errorf("accumulated text = %q, want %q", text, "foo bar baz")
@@ -213,7 +262,7 @@ func TestStreamPiTurnAccumulatesReasoningDeltas(t *testing.T) {
 	close(events)
 
 	w := httptest.NewRecorder()
-	text, reasoning, _, _ := streamPiTurn(events, w, w)
+	text, reasoning, _, _ := streamPiTurn(context.Background(), events, w, w)
 
 	if text != "answer" {
 		t.Errorf("text = %q, want %q", text, "answer")
@@ -229,7 +278,7 @@ func TestStreamPiTurnReturnsDoneUsage(t *testing.T) {
 	close(events)
 
 	w := httptest.NewRecorder()
-	_, _, usage, _ := streamPiTurn(events, w, w)
+	_, _, usage, _ := streamPiTurn(context.Background(), events, w, w)
 
 	if usage.Input != 100 || usage.Output != 40 {
 		t.Errorf("usage = %+v, want Input=100 Output=40", usage)
@@ -245,7 +294,7 @@ func TestStreamPiTurnAccumulatesToolRecords(t *testing.T) {
 	close(events)
 
 	w := httptest.NewRecorder()
-	_, _, _, tools := streamPiTurn(events, w, w)
+	_, _, _, tools := streamPiTurn(context.Background(), events, w, w)
 
 	if len(tools) != 2 {
 		t.Fatalf("expected 2 tool records, got %d", len(tools))
@@ -265,7 +314,7 @@ func TestStreamPiTurnSSELineFormat(t *testing.T) {
 	close(events)
 
 	w := httptest.NewRecorder()
-	_, _, _, _ = streamPiTurn(events, w, w)
+	_, _, _, _ = streamPiTurn(context.Background(), events, w, w)
 
 	// Each SSE event must be "event: <type>\ndata: <json>\n\n"
 	scanner := bufio.NewScanner(strings.NewReader(w.Body.String()))
