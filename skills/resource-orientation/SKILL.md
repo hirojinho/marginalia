@@ -1,6 +1,6 @@
 ---
 name: resource-orientation
-description: Use when the user says they are starting, about to begin, or opening a specific resource — paper, book chapter, lecture, or video. Triggers on phrases like "I'm starting X", "I'm about to read X", "beginning X now".
+description: Use BEFORE the user engages with any specific resource — paper, book chapter, lecture, or video. Default behavior: invoke this skill before opening any new 🔴 Read task in the study plan, even without an explicit "I'm starting X" cue. Still triggers explicitly on phrases like "I'm starting X", "I'm about to read X", "beginning X now".
 ---
 
 # Resource Orientation
@@ -11,10 +11,15 @@ Before the user engages with a resource, provide a structured orientation: how t
 
 ## Trigger Signals
 
+**Default (no phrase needed):** invoke this skill *automatically* before the user opens any new 🔴 Read task in the study plan, when orientation has not already been run for that resource in the current session.
+
+**Explicit triggers:**
 - "I'm starting [resource]"
 - "I'm about to read / watch / go through [resource]"
 - "Beginning [resource] now"
 - User names a specific paper, chapter, or lecture for the first time
+
+If the user simply asks for the next task and the next task is a Read, run this skill *before* presenting the task — produce the orientation, then present the task with the orientation as scaffolding.
 
 ## Process
 
@@ -93,6 +98,9 @@ Ground this in the actual content fetched in Step 1b:
 
 #### Things to hold in mind
 2–4 orienting thoughts tied to course objectives. These are conceptual anchors — the ideas that should stay active while reading.
+
+#### Prediction (MANDATORY — generation effect)
+Before the user opens the resource, ask one closing question: **"What do you predict the key idea of this section will be? One sentence."** Wait for the answer. Note the prediction internally so it can be compared against the actual content during or after reading. Pedagogic basis: Slamecka & Graf (1978) — generation outperforms recognition; producing a prediction surfaces existing schemas and creates a productive gap when the prediction is wrong.
 
 #### What's important for notes
 Identify what from this resource is worth capturing later — don't prescribe how to take notes (that belongs to the note-taking skill). Two lenses:

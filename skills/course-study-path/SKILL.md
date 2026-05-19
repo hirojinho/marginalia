@@ -203,6 +203,25 @@ During any study conversation, watch for signals of genuine curiosity beyond the
 
 ---
 
+## Reflect Task Rules (Plan Mode) — generation effect + Bloom progression
+
+Reflect tasks are the *generative* half of the resource mix. They must be written so the user *produces* the connection, not so the user *recognizes* one already stated.
+
+**Generation rule (MANDATORY):**
+- BAD: `Reflect — X is the algebraic dual of Y; note the duality.`  *(answer already given — generation effect destroyed)*
+- GOOD: `Reflect — What is the relationship between X and Y? What would change if you swapped them?` *(forces production)*
+- Pedagogic basis: Slamecka & Graf (1978). Producing the connection cements it; recognizing it does not.
+
+**Bloom-level tag (MANDATORY):** every Reflect task must carry a Bloom tag in its title, drawn from the revised taxonomy (Anderson & Krathwohl 2001):
+- `[B-A]` Apply — use the concept in a new instance
+- `[B-N]` Analyze — compare, decompose, find weaknesses
+- `[B-E]` Evaluate — judge between alternatives, defend a position
+- `[B-C]` Create — synthesize, design, extend, produce something new
+
+(Lower levels — Remember and Understand — are handled by Read tasks; do not generate Reflect tasks at those levels.)
+
+**Cluster well-formedness:** a cluster is *not* well-formed if all its Reflect tasks are at the same Bloom level. Push at least one task per cluster to Evaluate or Create. If you cannot find a defensible Evaluate or Create prompt for the cluster, the cluster is probably too narrow — merge it with an adjacent one or reshape the topic.
+
 ## Resource Mix Rule (Plan Mode)
 
 Per major topic, always include at least:
