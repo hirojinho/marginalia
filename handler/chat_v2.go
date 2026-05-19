@@ -24,6 +24,8 @@ const piTurnTimeout = 10 * time.Minute
 // (Cloudflare tunnel, browser, proxies) don't reap the connection during long
 // LLM/tool waits. Comment frames (": ...\n\n") are ignored by SSE clients.
 // Var (not const) so tests can shorten it without sleeping.
+//
+//nolint:gochecknoglobals // test override for the keepalive interval; behaves as a const in production
 var sseKeepaliveIntervalForTest = 15 * time.Second
 
 type chatV2Request struct {
@@ -224,52 +226,70 @@ func streamPiTurn(ctx context.Context, events <-chan agent.PiEvent, w http.Respo
 			if !ok {
 				return textBuf.String(), reasoningBuf.String(), usage, tools
 			}
-			switch ev.Kind {
-			case "token":
-				sawContent = true
-				textBuf.WriteString(ev.Delta)
-				data, _ := json.Marshal(map[string]string{"delta": ev.Delta})
-				writeSSEEvent(w, flusher, "token", string(data))
-			case "reasoning":
-				sawContent = true
-				reasoningBuf.WriteString(ev.Delta)
-				data, _ := json.Marshal(map[string]string{"delta": ev.Delta})
-				writeSSEEvent(w, flusher, "reasoning", string(data))
-			case "tool_start":
-				data, _ := json.Marshal(map[string]string{"name": ev.ToolName, "input_summary": ev.InputSummary})
-				writeSSEEvent(w, flusher, "tool_start", string(data))
-			case "tool_end":
-				tools = append(tools, toolUseRecord{Name: ev.ToolName, OK: ev.OK})
-				payload := sseToolEndPayload{Name: ev.ToolName, OutputSummary: ev.OutputSummary, OK: ev.OK}
-				data, _ := json.Marshal(payload)
-				writeSSEEvent(w, flusher, "tool_end", string(data))
-			case "skill_start":
-				data, _ := json.Marshal(map[string]string{"name": ev.SkillName})
-				writeSSEEvent(w, flusher, "skill_start", string(data))
-			case "compaction":
-				data, _ := json.Marshal(map[string]string{"reason": ev.Reason})
-				writeSSEEvent(w, flusher, "compaction", string(data))
-			case "model_change":
-				data, _ := json.Marshal(map[string]string{"from": ev.From, "to": ev.To})
-				writeSSEEvent(w, flusher, "model_change", string(data))
-			case "done":
-				usage = ev.Usage
-				if !sawContent {
-					// Pi finished cleanly but emitted no token/reasoning content.
-					// Surface this to the client *before* done — the frontend
-					// clears its current message on done and would drop a later
-					// error event.
-					writeSSEEvent(w, flusher, "error", `{"message":"Agent returned no response. The model bailed without producing text — common when tool calls fail. Try rephrasing or starting a fresh session."}`)
-				}
-				payload := sseDonePayload{Usage: ev.Usage}
-				data, _ := json.Marshal(payload)
-				writeSSEEvent(w, flusher, "done", string(data))
-			case "error":
-				data, _ := json.Marshal(map[string]string{"message": ev.Message})
-				writeSSEEvent(w, flusher, "error", string(data))
-			}
+			sawContent = handlePiEvent(ev, w, flusher, &textBuf, &reasoningBuf, &tools, &usage, sawContent)
 		}
 	}
+}
+
+// handlePiEvent translates one PiEvent to SSE output, accumulates text /
+// reasoning / tool records / usage via the supplied pointers, and returns
+// the updated sawContent flag (true once any token or reasoning has flowed).
+// Extracted from streamPiTurn to keep that function under the cyclomatic
+// complexity bound.
+func handlePiEvent(
+	ev agent.PiEvent,
+	w http.ResponseWriter,
+	flusher http.Flusher,
+	textBuf, reasoningBuf *strings.Builder,
+	tools *[]toolUseRecord,
+	usage *agent.PiUsage,
+	sawContent bool,
+) bool {
+	switch ev.Kind {
+	case "token":
+		textBuf.WriteString(ev.Delta)
+		data, _ := json.Marshal(map[string]string{"delta": ev.Delta})
+		writeSSEEvent(w, flusher, "token", string(data))
+		return true
+	case "reasoning":
+		reasoningBuf.WriteString(ev.Delta)
+		data, _ := json.Marshal(map[string]string{"delta": ev.Delta})
+		writeSSEEvent(w, flusher, "reasoning", string(data))
+		return true
+	case "tool_start":
+		data, _ := json.Marshal(map[string]string{"name": ev.ToolName, "input_summary": ev.InputSummary})
+		writeSSEEvent(w, flusher, "tool_start", string(data))
+	case "tool_end":
+		*tools = append(*tools, toolUseRecord{Name: ev.ToolName, OK: ev.OK})
+		payload := sseToolEndPayload{Name: ev.ToolName, OutputSummary: ev.OutputSummary, OK: ev.OK}
+		data, _ := json.Marshal(payload)
+		writeSSEEvent(w, flusher, "tool_end", string(data))
+	case "skill_start":
+		data, _ := json.Marshal(map[string]string{"name": ev.SkillName})
+		writeSSEEvent(w, flusher, "skill_start", string(data))
+	case "compaction":
+		data, _ := json.Marshal(map[string]string{"reason": ev.Reason})
+		writeSSEEvent(w, flusher, "compaction", string(data))
+	case "model_change":
+		data, _ := json.Marshal(map[string]string{"from": ev.From, "to": ev.To})
+		writeSSEEvent(w, flusher, "model_change", string(data))
+	case "done":
+		*usage = ev.Usage
+		if !sawContent {
+			// Pi finished cleanly but emitted no token/reasoning content.
+			// Surface this to the client *before* done — the frontend
+			// clears its current message on done and would drop a later
+			// error event.
+			writeSSEEvent(w, flusher, "error", `{"message":"Agent returned no response. The model bailed without producing text — common when tool calls fail. Try rephrasing or starting a fresh session."}`)
+		}
+		payload := sseDonePayload{Usage: ev.Usage}
+		data, _ := json.Marshal(payload)
+		writeSSEEvent(w, flusher, "done", string(data))
+	case "error":
+		data, _ := json.Marshal(map[string]string{"message": ev.Message})
+		writeSSEEvent(w, flusher, "error", string(data))
+	}
+	return sawContent
 }
 
 // writeSSEEvent writes one SSE frame and flushes.
