@@ -11,6 +11,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"study-app/agent"
@@ -376,18 +377,93 @@ func runRag(args []string, stdout, stderr io.Writer, dbPath string) int {
 
 func runPlan(args []string, stdout, stderr io.Writer, dbPath string) int {
 	if len(args) < 1 {
-		_, _ = fmt.Fprintln(stderr, "usage: claw-cli plan <show|toggle> [args]")
+		_, _ = fmt.Fprintln(stderr, "usage: claw-cli plan <show|status|toggle> [args]")
 		return 2
 	}
 	switch args[0] {
 	case "show":
 		return planShow(args[1:], stdout, stderr, dbPath)
+	case "status":
+		return planStatus(args[1:], stdout, stderr, dbPath)
 	case "toggle":
 		return planToggle(args[1:], stdout, stderr, dbPath)
 	default:
 		_, _ = fmt.Fprintf(stderr, "unknown plan subcommand: %q\n", args[0])
 		return 2
 	}
+}
+
+// planStatus prints a compact, agent-friendly view of plan task status.
+// Output: header with done/total, then per-phase lines like "  [x] #3 1.4 Read: ...".
+// The "#N" index is the linear position used by update_plan toggle.
+func planStatus(args []string, stdout, stderr io.Writer, dbPath string) int {
+	fs := flag.NewFlagSet("plan status", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	course := fs.String("course", "", "course id (required)")
+	dbOverride := fs.String("db", "", "path to study.db")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	if *course == "" {
+		_, _ = fmt.Fprintln(stderr, "plan status: --course is required")
+		return 2
+	}
+	resolvedDB, err := resolveDBPath(*dbOverride, dbPath)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return 1
+	}
+	app, err := newAppFromEnv(resolvedDB, false)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return 1
+	}
+	defer func() { _ = app.Close() }()
+	plan := app.LoadPlan(*course)
+	if plan == nil {
+		_, _ = fmt.Fprintf(stderr, "plan not found for course %q\n", *course)
+		return 1
+	}
+	done, total := agent.CountTasks(plan)
+	_, _ = fmt.Fprintf(stdout, "Plan: %s — %s  (%d/%d done)\n\n", plan.ID, plan.Name, done, total)
+	idx := 0
+	for _, phase := range plan.Phases {
+		_, _ = fmt.Fprintf(stdout, "%s\n", phase.Title)
+		for _, t := range phase.Tasks {
+			_, _ = fmt.Fprintf(stdout, "  %s #%d %s\n", checkbox(t.Done), idx, summarizePlanTitle(t.Title))
+			idx++
+		}
+		for _, c := range phase.Clusters {
+			for _, t := range c.Tasks {
+				_, _ = fmt.Fprintf(stdout, "  %s #%d %s\n", checkbox(t.Done), idx, summarizePlanTitle(t.Title))
+				idx++
+			}
+		}
+	}
+	return 0
+}
+
+func checkbox(done bool) string {
+	if done {
+		return "[x]"
+	}
+	return "[ ]"
+}
+
+// summarizePlanTitle strips long "_Completed … Notes: …_" trailers from task
+// titles and truncates to 120 runes. Keeps the leading **X.Y** ID intact.
+func summarizePlanTitle(title string) string {
+	if i := strings.Index(title, "_Completed"); i >= 0 {
+		title = strings.TrimSpace(title[:i])
+	}
+	if i := strings.Index(title, "_Notes"); i >= 0 {
+		title = strings.TrimSpace(title[:i])
+	}
+	r := []rune(title)
+	if len(r) > 120 {
+		return string(r[:120]) + "…"
+	}
+	return title
 }
 
 func planShow(args []string, stdout, stderr io.Writer, dbPath string) int {
