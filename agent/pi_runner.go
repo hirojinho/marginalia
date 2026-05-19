@@ -205,9 +205,19 @@ func RunPi(ctx context.Context, sandboxDir, message, model, piPath, skillsDir, a
 
 	events := make(chan PiEvent, 64)
 	go func() {
+		// Defers fire LIFO. We need them to run in this order on goroutine exit:
+		//   1. stdin.Close()  → Pi reads EOF and exits cleanly (it stays alive
+		//                       between prompts in --mode rpc, so without this
+		//                       cmd.Wait below would block until the ctx timeout
+		//                       kills Pi — which is what was causing the per-
+		//                       session Pi lock to stay held for minutes after
+		//                       the user's turn visually completed.)
+		//   2. cmd.Wait()     → reaps Pi now that it has exited; returns fast.
+		//   3. close(events)  → signals streamPiTurn that the turn is over.
+		// So declare them in reverse order:
 		defer close(events)
-		defer func() { _ = stdin.Close() }()
 		defer func() { _ = cmd.Wait() }()
+		defer func() { _ = stdin.Close() }()
 
 		scanner := bufio.NewScanner(stdout)
 		const maxLine = 1 * 1024 * 1024 // 1 MB per line
