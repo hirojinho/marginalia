@@ -16,3 +16,6 @@
 /memory/thesis/
 /memory/courses-agent
 node_modules/
+
+# Build artifacts for VPS deploy
+/bin/
