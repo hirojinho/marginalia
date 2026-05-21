@@ -33,6 +33,25 @@ allow_web_search: false                  # if true, Pi may use claw-cli web sear
 ---
 ```
 
+### Optional frontmatter (cost / capability tuning)
+
+```yaml
+model: mimo-v2.5            # OpenCode-go model slug; default: mimo-v2.5 (medium-tier)
+thinking: minimal           # off | minimal | low | medium | high | xhigh; default: minimal
+```
+
+**When to override `model:`**
+- Trivial mechanical work (endpoint addition, doc fix, schema cleanup) → `deepseek-v4-flash` (lowest cost)
+- Default ticket → leave absent (`mimo-v2.5`)
+- Tricky cross-cutting refactor → `glm-5.1` or `mimo-v2.5-pro`
+
+**When to override `thinking:`**
+- Default `minimal` is enough for "follow the plan" execution
+- Bump to `low` if the plan involves subtle Go type-system juggling or algorithmic logic
+- Never `xhigh` on the overnight pipeline — that's for interactive exploration, not unattended runs
+
+Both fields are optional. Absent = orchestrator falls back to `PI_MODEL` / `PI_THINKING` env vars (set in `overnight-run.sh`). The orchestrator does not validate the model slug; an invalid slug means Pi errors at startup and the run records `failed-impl`.
+
 ### Mandatory body sections
 
 - `## Goal` — one paragraph: what + why.

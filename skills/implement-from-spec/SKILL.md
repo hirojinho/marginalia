@@ -52,6 +52,16 @@ Follow `## Implementation plan` step by step, in the listed order. **Do not rede
 
 When the spec includes a `## References` block, prefer `claw-cli web fetch <url>` over freelance browsing. The URLs are the deterministic research surface.
 
+**Stay narrow — exploration is expensive.** This contract is structured to minimize turn count, and the orchestrator measures you on it. Follow these rules:
+
+- **Only read files the spec's Implementation plan names by path.** Do not browse the repo to "see what's there." If the plan says "modify `handler/debug.go`", read that file. Do not also read `handler/handler.go` to "understand the pattern" unless the plan tells you to.
+- **Grep before reading.** When you need to find a symbol or a registration site, `grep` is one turn; reading three files to find it is three turns plus context bloat. Use `grep -n <symbol> <dir>` first.
+- **Read each file at most once.** Pi's tool-result truncation can clip large files; if you need a specific section, `grep -n` to find the line range, then read that range with `sed -n 'X,Yp'` (one turn, focused) rather than reading the whole file repeatedly.
+- **Make complete edits.** Don't write a stub then come back to fill it in three turns later. Plan the edit, write it once, move on.
+- **No "let me verify" reads after editing.** The gate will verify. You will not.
+
+If the spec's plan is genuinely ambiguous and following it strictly would produce wrong code, **exit 3** with the ambiguity stated. Do not improvise.
+
 ### 5. Check diff size
 
 After implementation, run `git diff --stat origin/main..HEAD` (counting only `+` lines from the per-file summary, summed). If the total exceeds `max_diff_lines`, **exit 4** — the implementation overran the budget. Do not attempt to shrink it; that's a spec-author decision.
