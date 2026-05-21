@@ -23,11 +23,6 @@ import (
 //go:embed static/*
 var staticFiles embed.FS
 
-var (
-	buildCommit    = "unknown" //nolint:gochecknoglobals // populated via -ldflags at build time
-	buildTimestamp = "unknown" //nolint:gochecknoglobals // populated via -ldflags at build time
-)
-
 const (
 	httpReadTimeout     = 30 * time.Second
 	httpWriteTimeout    = 5 * time.Minute // accommodates streaming chat responses
@@ -123,7 +118,7 @@ func main() {
 	llm := agent.NewLLMClient(cfg.APIKey, cfg.APIURL, cfg.Model)
 
 	mux := http.NewServeMux()
-	h := handler.New(app, llm, staticFiles, buildCommit, buildTimestamp)
+	h := handler.New(app, llm, staticFiles)
 	h.Register(mux)
 
 	handler.LogStartupHealth(app)

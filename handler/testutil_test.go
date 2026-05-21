@@ -23,5 +23,5 @@ func newTestHandler(t *testing.T) *Handler {
 	}
 
 	app := agent.NewApp(agent.Config{VaultRoot: t.TempDir()}, db)
-	return New(app, nil, embed.FS{}, "", "")
+	return New(app, nil, embed.FS{})
 }
