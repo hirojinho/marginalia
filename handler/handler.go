@@ -59,6 +59,7 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("/pdf/annotations/", h.handlePDFAnnotations)
 	mux.HandleFunc("/api/runtime", h.handleRuntime)
 	mux.HandleFunc("/debug/health", h.handleDebugHealth)
+	mux.HandleFunc("/debug/version", h.versionHandler)
 	mux.HandleFunc("/debug/metrics", h.handleDebugMetrics)
 }
 

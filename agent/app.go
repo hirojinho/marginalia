@@ -47,6 +47,11 @@ type Config struct {
 	// through /chat-v2 (Pi subprocess); "legacy" uses the direct LLM
 	// call at /chat. Defaults to "legacy" when empty or unrecognised.
 	AgentRuntime string
+
+	// BuildCommit is the git SHA injected at build time via -ldflags.
+	BuildCommit string
+	// BuildTimestamp is the ISO 8601 build time injected via -ldflags.
+	BuildTimestamp string
 }
 
 // AgentRuntime is the typed selector for the active agent backend.

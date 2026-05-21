@@ -44,6 +44,11 @@ var dataSubdirs = []string{
 	filepath.Join("corpus", "meta"),
 }
 
+var (
+	buildCommit    = "unknown"
+	buildTimestamp = "unknown"
+)
+
 func main() {
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo})))
 
@@ -51,6 +56,8 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	cfg.BuildCommit = buildCommit
+	cfg.BuildTimestamp = buildTimestamp
 
 	if err := ensureDataDirs(cfg.VaultRoot); err != nil {
 		log.Fatalf("ensure data dirs: %v", err)
