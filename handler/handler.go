@@ -29,13 +29,15 @@ const MaxPDFBytes = 50 * 1024 * 1024 // 50 MB
 
 // Handler is the dependency root for HTTP handlers. Construct via New.
 type Handler struct {
-	App    *agent.App
-	LLM    *agent.LLMClient
-	Static embed.FS
+	App            *agent.App
+	LLM            *agent.LLMClient
+	Static         embed.FS
+	BuildCommit    string
+	BuildTimestamp string
 }
 
-func New(app *agent.App, llm *agent.LLMClient, static embed.FS) *Handler {
-	return &Handler{App: app, LLM: llm, Static: static}
+func New(app *agent.App, llm *agent.LLMClient, static embed.FS, buildCommit, buildTimestamp string) *Handler {
+	return &Handler{App: app, LLM: llm, Static: static, BuildCommit: buildCommit, BuildTimestamp: buildTimestamp}
 }
 
 // Register attaches all study-app HTTP routes to mux.
@@ -60,6 +62,7 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("/api/runtime", h.handleRuntime)
 	mux.HandleFunc("/debug/health", h.handleDebugHealth)
 	mux.HandleFunc("/debug/metrics", h.handleDebugMetrics)
+	mux.HandleFunc("/debug/version", h.handleDebugVersion)
 }
 
 // ---------- helpers ----------

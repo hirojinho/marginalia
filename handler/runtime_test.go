@@ -24,7 +24,7 @@ func TestRuntimeHandlerReturnsLegacyModeByDefault(t *testing.T) {
 	}
 
 	app := agent.NewApp(agent.Config{VaultRoot: t.TempDir()}, db)
-	h := New(app, nil, embed.FS{})
+	h := New(app, nil, embed.FS{}, "", "")
 
 	mux := http.NewServeMux()
 	h.Register(mux)
@@ -65,7 +65,7 @@ func TestRuntimeHandlerReturnsPiModeWhenConfigured(t *testing.T) {
 		AgentRuntime: "pi",
 	}
 	app := agent.NewApp(cfg, db)
-	h := New(app, nil, embed.FS{})
+	h := New(app, nil, embed.FS{}, "", "")
 
 	mux := http.NewServeMux()
 	h.Register(mux)

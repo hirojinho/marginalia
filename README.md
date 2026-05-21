@@ -85,7 +85,9 @@ Coverage focuses on pure functions (`agent/chunker`, `agent/vectorstore`, `agent
 The app is shipped as a single Linux/amd64 binary, scp'd to the VPS, and managed by user systemd. Both the app and its named cloudflared tunnel run as `study-app.service` and `study-app-tunnel.service` under the `eduardo` user.
 
 ```bash
-GOOS=linux GOARCH=amd64 go build -o /tmp/study-app-linux .
+GOOS=linux GOARCH=amd64 go build \
+  -ldflags "-X main.buildCommit=$(git rev-parse HEAD) -X main.buildTimestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+  -o /tmp/study-app-linux .
 scp /tmp/study-app-linux nanoclaw:/home/eduardo/stack/study-app/bin/study-app.new
 ssh nanoclaw 'cd ~/stack/study-app/bin \
   && cp study-app study-app.bak \
