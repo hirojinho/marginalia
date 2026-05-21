@@ -27,6 +27,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Dates are comm
 - **AGENTS.md was always falling back to the placeholder.** `agent/sandbox.go` skipped `claw-cli memory load` whenever `Config.ClawCLIPath == ""`, and `CLAW_CLI_PATH` was unset in `.env`. Setting `CLAW_CLI_PATH=/usr/local/bin/claw-cli` in `.env` plus the `/usr/local/bin/claw-cli` symlink restored the load — Pi now sees real course context (user profile, observations, course memory, active feedback rules) instead of the "No memory loaded for this session" stub.
 - **Pi was reading the wrong plan.** Two plan stores had silently diverged: `data/plans/<course>.json` (UI-canonical) and `~/stack/nanoclaw-v2/groups/dm-with-hiroji/memory/courses/<course>/study-plan.md` (Pi's habit). 2026-05-14: the markdown plans were renamed `.retired-2026-05-14.md`; AGENTS.md template + per-turn `<plan_state>` prepend force Pi to use `claw-cli plan status`/`plan toggle` only.
 
+### Resolved (no code change)
+- **Session topic auto-rename.** Verified `handler/chat_v2.go:autoTopic` already truncates to ≤60 runes at a word boundary and appends "…". Decision: keep status quo — server-side truncation is the guaranteed fallback, Pi's `claw-cli session topic` override stays as the quality upside. Item closed from ROADMAP "Next".
+
 ### Ops
 - `AGENT_MODEL` removed from `.env` so Pi falls back to `LLM_MODEL=glm-5.1`. The previous `AGENT_MODEL=kimi-k2.6` reliably returned `content:[]` (empty response, zero usage tokens) on its second-of-two API calls per turn — confirmed via direct gateway test that kimi-k2.6 works for single calls but breaks on tool-result continuations. glm-5.1 handles tool-use protocol correctly.
 - `/usr/local/bin/claw-cli` symlink added (owned by root) so the bare `claw-cli` command works in Pi's bash environment without depending on PATH inheritance.

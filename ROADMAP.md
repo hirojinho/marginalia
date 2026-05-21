@@ -13,7 +13,6 @@ Nothing urgent.
 Cheap, small, ready when there's an excuse to pull them in.
 
 - **Persist reasoning across reloads.** Thinking tokens (SSE `reasoning` events) are rendered during a live turn but not saved — `/chat-v2` only persists the answer text. On page reload, thinking blocks disappear. Fix: store the reasoning content alongside the assistant message (separate DB column or a `messages.reasoning` field); populate the thinking block when loading message history in `static/sessions.js`.
-- **Session topic: Pi-quality rename.** Auto-rename currently truncates the first user message (≤60 chars). The Pi agent's AGENTS.md still instructs it to call `claw-cli session topic` with a smarter title; the server-side truncation is the guaranteed fallback. Consider whether to drop the AGENTS.md instruction (simplify) or let Pi override (keep quality upside).
 - **Courses-drawer UX review.** Current courses/sessions management feels poor. Brainstorm pass first — list what's clumsy, what's missing, what should disappear — before touching code. Likely splits into 2–3 small follow-up items.
 - **Phase 2.6 — migration system.** Inline migrations in `agent/db.go` cover the current schema. The first time the schema needs a non-trivial change, replace them with a numbered-migration runner (something `golang-migrate`-shaped or a tiny in-tree version).
 - **Cloudflare Access on top of bearer auth.** Optional second auth layer at the CF edge. Belt-and-suspenders — only worth it if you want zero unauthenticated traffic ever reaching the app.
