@@ -23,6 +23,12 @@ import (
 //go:embed static/*
 var staticFiles embed.FS
 
+// Build metadata injected via -ldflags at link time.
+var (
+	buildCommit    = "unknown"
+	buildTimestamp = "unknown"
+)
+
 const (
 	httpReadTimeout     = 30 * time.Second
 	httpWriteTimeout    = 5 * time.Minute // accommodates streaming chat responses
@@ -65,6 +71,9 @@ func main() {
 		log.Fatalf("init schema: %v", err)
 	}
 	slog.Info("sqlite initialized", "path", dbPath)
+
+	cfg.BuildCommit = buildCommit
+	cfg.BuildTimestamp = buildTimestamp
 
 	app := agent.NewApp(cfg, db)
 	defer app.Close()
