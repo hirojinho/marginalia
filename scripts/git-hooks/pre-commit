@@ -9,6 +9,15 @@ cd "$ROOT"
 
 STAGED_GO=$(git diff --cached --name-only --diff-filter=ACMR | grep '\.go$' || true)
 STAGED_JS=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '\.(js|html|css)$' | grep -v '\.min\.' || true)
+STAGED_SPECS=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '^specs/queue/.*\.md$' || true)
+
+if [ -n "$STAGED_SPECS" ]; then
+  echo "==> lint-specs.sh (staged queue specs)"
+  if ! "$ROOT/scripts/lint-specs.sh" $STAGED_SPECS; then
+    echo "FAIL: fix spec schema violations (see specs/README.md for the contract)"
+    exit 1
+  fi
+fi
 
 if [ -n "$STAGED_GO" ]; then
   echo "==> gofmt -s -d (staged Go files)"
