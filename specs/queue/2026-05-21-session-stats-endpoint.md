@@ -94,7 +94,9 @@ Add `GET /api/sessions/stats?id=N` returning per-session aggregate counters as J
 
 ## Verification recipe
 
-### Single canonical verifier (runs against current main → expected FAIL; runs against new binary → expected PASS)
+### Pre-baseline (must FAIL on current main)
+
+This is the **single canonical verifier**; the gate-runner runs it twice with different binaries. Against current main, step 2 (`curl -sf` to `/api/sessions/stats`) returns a 404 so the script exits non-zero — that's the desired pre-baseline state.
 
 ```bash
 set -euo pipefail
@@ -139,6 +141,10 @@ echo "OK"
 ```
 
 On current main this fails at step 2 (the endpoint returns 404 because the route is not registered yet; `curl -sf` exits non-zero). On the new binary it must pass all six steps.
+
+### Post-acceptance (must PASS after Pi's implementation)
+
+**Same script as above.** This is by design — one verifier, two contexts. Pi's gate-runner runs it twice with different binaries; we don't author two scripts that could drift from each other. After Pi's implementation lands and the new binary is deployed to staging, all six steps must complete and the script exits 0.
 
 ### Human-eyeball notes (NOT part of the gate)
 
