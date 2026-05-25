@@ -327,6 +327,25 @@ function savePdfProgress(pageNum) {
   }, 2000);
 }
 
+// Re-render the PDF and keep the user anchored on currentPage instead of
+// pixel-scroll. Pixel-scroll restoration is broken in scroll mode because
+// renderAllPages creates empty 0x0 canvases that get sized asynchronously,
+// so saved pixel offsets no longer point at the same page after re-layout.
+async function rerenderPreservingPage() {
+  const targetPage = currentPage;
+  if (viewMode === 'scroll') {
+    renderAllPages();
+    const canvas = document.getElementById('pdf-canvas-' + targetPage);
+    if (canvas) {
+      await renderPageToCanvas(targetPage, canvas);
+      if (renderedPages) renderedPages.add(targetPage);
+      canvas.scrollIntoView({ block: 'start' });
+    }
+  } else {
+    renderPage(targetPage);
+  }
+}
+
 function applyZoom(newScale) {
   currentScale = Math.max(0.25, Math.min(3, newScale));
   document.getElementById('pdf-zoom-level').textContent = Math.round(currentScale * 100) + '%';
@@ -335,10 +354,7 @@ function applyZoom(newScale) {
   if (currentScale > 2.0 && pdfDoc) {
     scale = currentScale;
     viewer.style.transform = 'none';
-    const saved = viewer.scrollTop;
-    if (viewMode === 'scroll') renderAllPages();
-    else renderPage(currentPage);
-    viewer.scrollTop = saved;
+    rerenderPreservingPage();
   } else {
     viewer.style.transform = `scale(${currentScale})`;
   }
@@ -415,13 +431,7 @@ function initSplitter() {
     document.body.style.userSelect = '';
     document.removeEventListener('mousemove', onSplitterDrag);
     document.removeEventListener('mouseup', onSplitterRelease);
-    if (pdfDoc) {
-      const viewer = document.getElementById('pdf-viewer');
-      const saved = viewer.scrollTop;
-      if (viewMode === 'scroll') renderAllPages();
-      else renderPage(currentPage);
-      viewer.scrollTop = saved;
-    }
+    if (pdfDoc) rerenderPreservingPage();
   }
 
   splitter.addEventListener('mousedown', function (e) {
@@ -452,13 +462,7 @@ function initSplitter() {
     splitter.classList.remove('dragging');
     document.removeEventListener('touchmove', onSplitterTouchDrag);
     document.removeEventListener('touchend', onSplitterTouchRelease);
-    if (pdfDoc) {
-      const viewer = document.getElementById('pdf-viewer');
-      const saved = viewer.scrollTop;
-      if (viewMode === 'scroll') renderAllPages();
-      else renderPage(currentPage);
-      viewer.scrollTop = saved;
-    }
+    if (pdfDoc) rerenderPreservingPage();
   }
 
   splitter.addEventListener('touchstart', function (e) {
@@ -645,7 +649,7 @@ export function initPdf() {
     }
   });
 
-  // Debounced resize with scroll preservation
+  // Debounced resize — preserves currentPage across re-layout.
   let resizeDebounce = null;
   let lastViewerWidth = 0;
   window.addEventListener('resize', () => {
@@ -656,10 +660,7 @@ export function initPdf() {
       const newWidth = viewer.clientWidth;
       if (Math.abs(newWidth - lastViewerWidth) < 5) return;
       lastViewerWidth = newWidth;
-      const savedScroll = viewer.scrollTop;
-      if (viewMode === 'scroll') renderAllPages();
-      else renderPage(currentPage);
-      viewer.scrollTop = savedScroll;
+      rerenderPreservingPage();
     }, 300);
   });
 
