@@ -29,6 +29,7 @@ var KnownCourses = []struct {
 	{"dsa-interview", "DSA Interview Prep"},
 	{"software-arch", "Software Architecture"},
 	{"thesis", "Thesis — Phase 1 Survey"},
+	{"guitar", "🎸 Guitar — Motivation-First Consistency"},
 }
 
 func CourseName(id string) string {
