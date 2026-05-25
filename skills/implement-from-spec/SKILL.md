@@ -22,6 +22,8 @@ The orchestrator sets all of these before invoking you. If any is missing, exit 
 | `TICKET_ID` | The spec's `id` frontmatter field (kebab-case, date-prefixed) |
 | `AGENT_BRANCH` | The branch name you will create: `agent/<TICKET_ID>` |
 | `RESULT_DIR` | Where to write `pi-done.json` on success: `~/stack/claw-build/results/<TICKET_ID>/` |
+| `RETRY_MODE` | (optional) When set to `1`, you are running a fix attempt on top of a prior commit. See "Retry mode" below. |
+| `GATE_LOG_PATH` | (optional, present iff `RETRY_MODE=1`) Path to the previous attempt's `gate.log` — your failure context. |
 
 ## Behavior contract — six steps, in order
 
@@ -37,7 +39,9 @@ From the frontmatter, hold `max_diff_lines` and `max_tokens` as your operating b
 
 ### 3. Create the agent branch
 
-You are already CWD'd into `$WORKTREE_DIR`. Run:
+**If `RETRY_MODE=1`:** SKIP this step. The orchestrator has already checked out `$AGENT_BRANCH` with the previous attempt's commit on it. Verify with `git rev-parse --abbrev-ref HEAD` — it must equal `$AGENT_BRANCH`. If it doesn't, `exit 2`.
+
+**Otherwise** (fresh attempt): you are already CWD'd into `$WORKTREE_DIR`. Run:
 
 ```
 git fetch --prune origin
@@ -48,7 +52,9 @@ Force-recreate is intentional — a stale branch from a prior failed run must no
 
 ### 4. Execute the Implementation plan
 
-Follow `## Implementation plan` step by step, in the listed order. **Do not redecide architecture.** If a step references a file path that doesn't exist, **exit 3** with the offending path in the theory — do not invent a location. If a step needs context the spec didn't provide, read the existing code; do not search the web (unless the spec has `allow_web_search: true`).
+**If `RETRY_MODE=1`:** SKIP plan execution. Do the fix-mode flow instead (see "Retry mode" below), then jump to step 5.
+
+**Otherwise:** Follow `## Implementation plan` step by step, in the listed order. **Do not redecide architecture.** If a step references a file path that doesn't exist, **exit 3** with the offending path in the theory — do not invent a location. If a step needs context the spec didn't provide, read the existing code; do not search the web (unless the spec has `allow_web_search: true`).
 
 When the spec includes a `## References` block, prefer `claw-cli web fetch <url>` over freelance browsing. The URLs are the deterministic research surface.
 
@@ -61,6 +67,29 @@ When the spec includes a `## References` block, prefer `claw-cli web fetch <url>
 - **No "let me verify" reads after editing.** The gate will verify. You will not.
 
 If the spec's plan is genuinely ambiguous and following it strictly would produce wrong code, **exit 3** with the ambiguity stated. Do not improvise.
+
+## Retry mode (fix-on-top)
+
+Triggered when `RETRY_MODE=1`. The orchestrator escalates to a stronger model after attempt-1 failed at the gate; instead of throwing the prior implementation away, you patch it.
+
+**Inputs you can rely on:**
+- `$AGENT_BRANCH` is checked out, sitting on attempt-1's commit (attempt-1's diff is `git diff origin/main..HEAD`).
+- `$GATE_LOG_PATH` contains the gate-runner output that includes the failing test names, error messages, and stack traces.
+- The spec at `$SPEC_PATH` still defines the contract — *what* must be true — but the Implementation plan is now context, not a recipe; attempt-1 followed it (perhaps imperfectly) and you are extending or correcting that work.
+
+**The fix-mode flow:**
+
+1. **Read `$GATE_LOG_PATH` end to end.** Extract every failing test name and the exact error message. If the gate failed at build (exit 11), the relevant output is `go build` errors. If at `go test` (exit 12), look for `--- FAIL: TestX` blocks and the assertion failure beneath each. If at post-acceptance (exit 13), look for the verifier script's stderr.
+2. **Read `git diff origin/main..HEAD` to see what attempt-1 wrote.** Do NOT rewrite from scratch. Identify the smallest set of files whose code is responsible for the failures.
+3. **Form a targeted hypothesis per failure.** Example: *"`TestEmpty` fails with `converting NULL to int is unsupported` → the SQL `SUM(CASE …)` returns NULL on empty tables → wrap in `COALESCE(SUM(…), 0)`."* If you cannot form a confident hypothesis from the log + diff alone, **exit 6** with the unresolvable failure in `theory` — do not guess.
+4. **Apply minimal patches.** Edit only the files implicated by step 2. Do not touch unrelated code. Do not add new tests unless an existing test had wrong expectations and the *fixture itself* is the bug (rare; usually the implementation is wrong, not the test).
+5. **Spec-shaped sanity:** verify your patches still respect the spec's contract — same handler signature, same DB shape, same route paths. The spec is the gold standard; your patch only resolves the gap between attempt-1's code and the spec.
+
+**Constraints in retry mode:**
+- The diff cap from step 5 applies to the *total* diff (attempt-1 + your patch). If attempt-1 was already close to the cap and your fix would push it over, **exit 4**.
+- You are still bound by every rule in "What you must NEVER do."
+- Do not `git reset` or `git rebase` attempt-1's commit. Make a new commit on top.
+- Commit message format on retry: `agent: <ticket-id> (retry1) — <title>` (suffix `(retry1)` distinguishes it in history).
 
 ### 5. Check diff size
 
@@ -109,6 +138,7 @@ Write `$RESULT_DIR/pi-done.json` with this exact shape:
 | `3` | Plan references a file that doesn't exist | The offending path verbatim |
 | `4` | Diff exceeded `max_diff_lines` | The actual count and the cap |
 | `5` | Token budget approaching cap; stopped early | Where you stopped + what remains |
+| `6` | Retry mode: could not form a confident fix hypothesis from gate log + diff | What you observed and what was missing to decide |
 
 On any non-zero exit, write `$RESULT_DIR/pi-failed.json` with `{exit_code, theory, partial_commit_sha?}` before exiting. The orchestrator reads this to build the morning digest.
 
