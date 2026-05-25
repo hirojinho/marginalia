@@ -369,6 +369,53 @@ func (a *App) GetSessionHistory(sessionID int64) ([]Message, error) {
 	return msgs, rows.Err()
 }
 
+// GetSessionStats returns per-session aggregate counters for messages.
+func (a *App) GetSessionStats(sessionID int64) (SessionStats, error) {
+	// Verify session exists first.
+	var exists int
+	err := a.DB.QueryRow("SELECT 1 FROM sessions WHERE id = ?", sessionID).Scan(&exists)
+	if err == sql.ErrNoRows {
+		return SessionStats{}, fmt.Errorf("session not found: %w", sql.ErrNoRows)
+	}
+	if err != nil {
+		return SessionStats{}, fmt.Errorf("check session: %w", err)
+	}
+
+	var stats SessionStats
+	stats.SessionID = sessionID
+
+	var firstMsg, lastMsg sql.NullString
+	err = a.DB.QueryRow(`
+		SELECT
+			COUNT(*),
+			SUM(CASE WHEN role = 'user' THEN 1 ELSE 0 END),
+			SUM(CASE WHEN role = 'assistant' THEN 1 ELSE 0 END),
+			MIN(created_at),
+			MAX(created_at),
+			SUM(LENGTH(reasoning))
+		FROM messages WHERE session_id = ?
+	`, sessionID).Scan(
+		&stats.MessageCount,
+		&stats.UserMessageCount,
+		&stats.AssistantMessageCount,
+		&firstMsg,
+		&lastMsg,
+		&stats.TotalReasoningChars,
+	)
+	if err != nil {
+		return SessionStats{}, fmt.Errorf("query session stats: %w", err)
+	}
+
+	if firstMsg.Valid {
+		stats.FirstMessageAt = &firstMsg.String
+	}
+	if lastMsg.Valid {
+		stats.LastMessageAt = &lastMsg.String
+	}
+
+	return stats, nil
+}
+
 // SaveAssistantMessage persists an assistant turn with its optional reasoning text.
 func (a *App) SaveAssistantMessage(sessionID int64, content, reasoning string) error {
 	now := time.Now().Format(time.RFC3339)

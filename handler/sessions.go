@@ -179,6 +179,27 @@ func (h *Handler) handleSessionMessages(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, http.StatusOK, msgs)
 }
 
+func (h *Handler) getSessionStats(w http.ResponseWriter, r *http.Request) {
+	if methodNotAllowed(w, r, http.MethodGet) {
+		return
+	}
+	id, err := parseInt64(r.URL.Query().Get("id"), "id")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	stats, err := h.App.GetSessionStats(id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			writeError(w, http.StatusNotFound, "session not found")
+			return
+		}
+		writeServerError(w, "get session stats", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, stats)
+}
+
 // ---------- chat ----------
 
 func (h *Handler) handleChat(w http.ResponseWriter, r *http.Request) {

@@ -61,6 +61,16 @@ type PlanSummary struct {
 	HasPlan bool   `json:"hasPlan"`
 }
 
+type SessionStats struct {
+	SessionID             int64   `json:"session_id"`
+	MessageCount          int     `json:"message_count"`
+	UserMessageCount      int     `json:"user_message_count"`
+	AssistantMessageCount int     `json:"assistant_message_count"`
+	FirstMessageAt        *string `json:"first_message_at"`
+	LastMessageAt         *string `json:"last_message_at"`
+	TotalReasoningChars   int     `json:"total_reasoning_chars"`
+}
+
 type Session struct {
 	ID        int64  `json:"id"`
 	CourseID  string `json:"course_id"`

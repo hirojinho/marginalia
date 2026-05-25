@@ -48,6 +48,7 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("/api/sessions", h.handleSessions)
 	mux.HandleFunc("/api/sessions/active", h.handleSessionActive)
 	mux.HandleFunc("/api/sessions/messages", h.handleSessionMessages)
+	mux.HandleFunc("/api/sessions/stats", h.getSessionStats)
 	mux.HandleFunc("/api/plan", h.handlePlan)
 	mux.HandleFunc("/api/plan/toggle", h.handlePlanToggle)
 	mux.HandleFunc("/pdf/upload", h.handlePDFUpload)

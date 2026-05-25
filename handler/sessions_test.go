@@ -209,6 +209,140 @@ func TestHandleSessionsCreateRecordsSessionCreateEvent(t *testing.T) {
 	}
 }
 
+func TestHandleSessionStatsEmpty(t *testing.T) {
+	h := newTestHandler(t)
+
+	var created agent.Session
+	{
+		body := strings.NewReader(`{"course_id":"ce297","topic":"STPA"}`)
+		req := httptest.NewRequest(http.MethodPost, "/api/sessions", body)
+		rr := httptest.NewRecorder()
+		h.handleSessions(rr, req)
+		if rr.Code != http.StatusOK {
+			t.Fatalf("create status = %d, body=%s", rr.Code, rr.Body.String())
+		}
+		if err := json.NewDecoder(rr.Body).Decode(&created); err != nil {
+			t.Fatalf("decode created: %v", err)
+		}
+	}
+
+	url := "/api/sessions/stats?id=" + jsonInt(created.ID)
+	req := httptest.NewRequest(http.MethodGet, url, nil)
+	rr := httptest.NewRecorder()
+	h.getSessionStats(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body=%s", rr.Code, rr.Body.String())
+	}
+	var stats agent.SessionStats
+	if err := json.NewDecoder(rr.Body).Decode(&stats); err != nil {
+		t.Fatalf("decode stats: %v", err)
+	}
+	if stats.MessageCount != 0 {
+		t.Errorf("message_count = %d, want 0", stats.MessageCount)
+	}
+	if stats.UserMessageCount != 0 {
+		t.Errorf("user_message_count = %d, want 0", stats.UserMessageCount)
+	}
+	if stats.AssistantMessageCount != 0 {
+		t.Errorf("assistant_message_count = %d, want 0", stats.AssistantMessageCount)
+	}
+	if stats.TotalReasoningChars != 0 {
+		t.Errorf("total_reasoning_chars = %d, want 0", stats.TotalReasoningChars)
+	}
+	if stats.FirstMessageAt != nil {
+		t.Errorf("first_message_at = %v, want nil", stats.FirstMessageAt)
+	}
+	if stats.LastMessageAt != nil {
+		t.Errorf("last_message_at = %v, want nil", stats.LastMessageAt)
+	}
+}
+
+func TestHandleSessionStatsWithMessages(t *testing.T) {
+	h := newTestHandler(t)
+
+	s, err := h.App.CreateSession("ce297", "STPA")
+	if err != nil {
+		t.Fatalf("create session: %v", err)
+	}
+
+	if err := h.App.SaveMessage(s.ID, "user", "hi"); err != nil {
+		t.Fatalf("save user msg 1: %v", err)
+	}
+	if err := h.App.SaveMessage(s.ID, "user", "hello"); err != nil {
+		t.Fatalf("save user msg 2: %v", err)
+	}
+	if err := h.App.SaveAssistantMessage(s.ID, "answer", "thinking-1234"); err != nil {
+		t.Fatalf("save assistant msg: %v", err)
+	}
+
+	url := "/api/sessions/stats?id=" + jsonInt(s.ID)
+	req := httptest.NewRequest(http.MethodGet, url, nil)
+	rr := httptest.NewRecorder()
+	h.getSessionStats(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body=%s", rr.Code, rr.Body.String())
+	}
+	var stats agent.SessionStats
+	if err := json.NewDecoder(rr.Body).Decode(&stats); err != nil {
+		t.Fatalf("decode stats: %v", err)
+	}
+	if stats.SessionID != s.ID {
+		t.Errorf("session_id = %d, want %d", stats.SessionID, s.ID)
+	}
+	if stats.MessageCount != 3 {
+		t.Errorf("message_count = %d, want 3", stats.MessageCount)
+	}
+	if stats.UserMessageCount != 2 {
+		t.Errorf("user_message_count = %d, want 2", stats.UserMessageCount)
+	}
+	if stats.AssistantMessageCount != 1 {
+		t.Errorf("assistant_message_count = %d, want 1", stats.AssistantMessageCount)
+	}
+	if stats.TotalReasoningChars != len("thinking-1234") {
+		t.Errorf("total_reasoning_chars = %d, want %d", stats.TotalReasoningChars, len("thinking-1234"))
+	}
+	if stats.FirstMessageAt == nil {
+		t.Errorf("first_message_at is nil, want non-nil")
+	}
+	if stats.LastMessageAt == nil {
+		t.Errorf("last_message_at is nil, want non-nil")
+	}
+}
+
+func TestHandleSessionStatsNotFound(t *testing.T) {
+	h := newTestHandler(t)
+
+	url := "/api/sessions/stats?id=999999"
+	req := httptest.NewRequest(http.MethodGet, url, nil)
+	rr := httptest.NewRecorder()
+	h.getSessionStats(rr, req)
+
+	if rr.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404; body=%s", rr.Code, rr.Body.String())
+	}
+	var body map[string]string
+	if err := json.NewDecoder(rr.Body).Decode(&body); err != nil {
+		t.Fatalf("decode body: %v", err)
+	}
+	if body["error"] != "session not found" {
+		t.Errorf("error = %q, want 'session not found'", body["error"])
+	}
+}
+
+func TestHandleSessionStatsMissingID(t *testing.T) {
+	h := newTestHandler(t)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/sessions/stats", nil)
+	rr := httptest.NewRecorder()
+	h.getSessionStats(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400; body=%s", rr.Code, rr.Body.String())
+	}
+}
+
 func jsonInt(n int64) string {
 	b, _ := json.Marshal(n)
 	return string(b)
