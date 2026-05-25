@@ -388,11 +388,11 @@ func (a *App) GetSessionStats(sessionID int64) (SessionStats, error) {
 	err = a.DB.QueryRow(`
 		SELECT
 			COUNT(*),
-			SUM(CASE WHEN role = 'user' THEN 1 ELSE 0 END),
-			SUM(CASE WHEN role = 'assistant' THEN 1 ELSE 0 END),
+			COALESCE(SUM(CASE WHEN role = 'user' THEN 1 ELSE 0 END), 0),
+			COALESCE(SUM(CASE WHEN role = 'assistant' THEN 1 ELSE 0 END), 0),
 			MIN(created_at),
 			MAX(created_at),
-			SUM(LENGTH(reasoning))
+			COALESCE(SUM(LENGTH(reasoning)), 0)
 		FROM messages WHERE session_id = ?
 	`, sessionID).Scan(
 		&stats.MessageCount,
