@@ -3,7 +3,7 @@ id: 2026-05-21-session-stats-endpoint
 title: Add /api/sessions/stats endpoint returning per-session message + reasoning counters
 estimated_complexity: small
 max_wall_clock_minutes: 30
-max_diff_lines: 200
+max_diff_lines: 300
 max_retries: 1
 max_tokens: 100000
 requires_visual_approval: false
