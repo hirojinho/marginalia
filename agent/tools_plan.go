@@ -88,6 +88,7 @@ func (a *App) applyAddTask(plan *JSONPlan, title, priority string) string {
 	}
 	lastPhase := &plan.Phases[len(plan.Phases)-1]
 	lastPhase.Tasks = append(lastPhase.Tasks, Task{
+		ID:       newTaskID(),
 		Title:    title,
 		Done:     false,
 		Priority: priority,

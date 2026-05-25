@@ -3,6 +3,7 @@ package agent
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os"
 	"regexp"
 	"strconv"
@@ -38,6 +39,7 @@ type Cluster struct {
 }
 
 type Task struct {
+	ID       string `json:"id"`
 	Title    string `json:"title"`
 	Done     bool   `json:"done"`
 	Priority string `json:"priority,omitempty"`
@@ -112,6 +114,29 @@ func CountTasks(p *JSONPlan) (done, total int) {
 
 // LoadPlan reads the plan JSON for the given id from the vault.
 // Returns nil if the plan file is missing or malformed.
+// assignMissingTaskIDs walks the plan and assigns a new UUID to any task
+// with an empty ID. Returns true if any IDs were assigned (plan is dirty).
+func assignMissingTaskIDs(p *JSONPlan) bool {
+	dirty := false
+	for i := range p.Phases {
+		for j := range p.Phases[i].Tasks {
+			if p.Phases[i].Tasks[j].ID == "" {
+				p.Phases[i].Tasks[j].ID = newTaskID()
+				dirty = true
+			}
+		}
+		for k := range p.Phases[i].Clusters {
+			for j := range p.Phases[i].Clusters[k].Tasks {
+				if p.Phases[i].Clusters[k].Tasks[j].ID == "" {
+					p.Phases[i].Clusters[k].Tasks[j].ID = newTaskID()
+					dirty = true
+				}
+			}
+		}
+	}
+	return dirty
+}
+
 func (a *App) LoadPlan(id string) *JSONPlan {
 	path := a.VaultPath("data", "plans", id+".json")
 	data, err := os.ReadFile(path)
@@ -121,6 +146,11 @@ func (a *App) LoadPlan(id string) *JSONPlan {
 	var p JSONPlan
 	if err := json.Unmarshal(data, &p); err != nil {
 		return nil
+	}
+	if assignMissingTaskIDs(&p) {
+		if err := a.SavePlan(&p); err != nil {
+			slog.Warn("failed to persist migrated task IDs", "plan_id", id, "err", err)
+		}
 	}
 	return &p
 }
