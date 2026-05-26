@@ -32,6 +32,8 @@ var KnownCourses = []struct {
 	{"guitar", "🎸 Guitar — Motivation-First Consistency"},
 }
 
+// CourseName returns the display name for a course ID.
+// Prefer App.CourseName for new callers.
 func CourseName(id string) string {
 	for _, c := range KnownCourses {
 		if c.ID == id {
@@ -39,6 +41,12 @@ func CourseName(id string) string {
 		}
 	}
 	return ""
+}
+
+// AppCourseName returns the display name for a course ID via DB lookup.
+func (a *App) AppCourseName(id string) string {
+	c, _ := a.GetCourse(id)
+	return c.Name
 }
 
 func GetTools() []ToolDef {
@@ -161,6 +169,18 @@ func GetTools() []ToolDef {
 				"required": []string{"query"},
 			},
 		}},
+		{Type: "function", Function: ToolFunc{
+			Name:        "create_course",
+			Description: "Create a new course. The course will appear immediately in the UI drawer.",
+			Parameters: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"course_id":   map[string]interface{}{"type": "string", "description": "Course ID in kebab-case (e.g. linear-algebra, react-patterns)"},
+					"course_name": map[string]interface{}{"type": "string", "description": "Display name for the course"},
+				},
+				"required": []string{"course_id", "course_name"},
+			},
+		}},
 	}
 }
 
@@ -189,6 +209,26 @@ func (a *App) ExecuteTool(name string, args json.RawMessage) string {
 		return a.ToolStudySkill(args)
 	case "rag_search":
 		return a.ToolRAGSearch(args)
+	case "create_course":
+		return a.ToolCreateCourse(args)
 	}
 	return "unknown tool: " + name
+}
+
+// ToolCreateCourse handles the create_course LLM tool.
+func (a *App) ToolCreateCourse(args json.RawMessage) string {
+	var p struct {
+		CourseID   string `json:"course_id"`
+		CourseName string `json:"course_name"`
+	}
+	if err := json.Unmarshal(args, &p); err != nil {
+		return "error: " + err.Error()
+	}
+	if p.CourseID == "" || p.CourseName == "" {
+		return "error: course_id and course_name are required"
+	}
+	if err := a.CreateCourse(p.CourseID, p.CourseName); err != nil {
+		return "error: " + err.Error()
+	}
+	return "Created course '" + p.CourseName + "' (id: " + p.CourseID + ") — visible in drawer now."
 }

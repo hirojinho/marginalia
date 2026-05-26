@@ -29,8 +29,13 @@ func (h *Handler) handlePlan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	summaries := make([]agent.PlanSummary, 0, len(agent.KnownCourses))
-	for _, c := range agent.KnownCourses {
+	courses, err := h.App.ListCourses()
+	if err != nil {
+		writeServerError(w, "list courses", err)
+		return
+	}
+	summaries := make([]agent.PlanSummary, 0, len(courses))
+	for _, c := range courses {
 		p := h.App.LoadPlan(c.ID)
 		done, total := agent.CountTasks(p)
 		summaries = append(summaries, agent.PlanSummary{

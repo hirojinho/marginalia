@@ -135,6 +135,11 @@ func InitSchema(db *sql.DB) error {
 	);
 	CREATE INDEX IF NOT EXISTS events_created ON events(created_at);
 	CREATE INDEX IF NOT EXISTS events_kind_created ON events(kind, created_at);
+	CREATE TABLE IF NOT EXISTS courses (
+		id          TEXT PRIMARY KEY,
+		name        TEXT NOT NULL,
+		created_at  INTEGER NOT NULL
+	);
 	`
 	if _, err := db.Exec(schema); err != nil {
 		return fmt.Errorf("create schema: %w", err)
@@ -154,6 +159,66 @@ func InitSchema(db *sql.DB) error {
 		}
 	}
 
+	// Seed courses from compile-time KnownCourses if table is empty.
+	var courseCount int
+	_ = db.QueryRow("SELECT COUNT(*) FROM courses").Scan(&courseCount)
+	if courseCount == 0 {
+		now := time.Now().UnixMilli()
+		for _, c := range KnownCourses {
+			_, _ = db.Exec("INSERT INTO courses(id, name, created_at) VALUES (?, ?, ?)",
+				c.ID, c.Name, now)
+		}
+	}
+
+	return nil
+}
+
+// ---------- Courses ----------
+
+// ListCourses returns all courses ordered by creation time.
+func (a *App) ListCourses() ([]Course, error) {
+	rows, err := a.DB.Query("SELECT id, name, created_at FROM courses ORDER BY created_at ASC")
+	if err != nil {
+		return nil, fmt.Errorf("query courses: %w", err)
+	}
+	defer rows.Close()
+	var courses []Course
+	for rows.Next() {
+		var c Course
+		if err := rows.Scan(&c.ID, &c.Name, &c.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scan course: %w", err)
+		}
+		courses = append(courses, c)
+	}
+	return courses, rows.Err()
+}
+
+// GetCourse returns a single course by ID. Returns an empty Course
+// and nil error if not found.
+func (a *App) GetCourse(id string) (Course, error) {
+	var c Course
+	err := a.DB.QueryRow("SELECT id, name, created_at FROM courses WHERE id = ?", id).
+		Scan(&c.ID, &c.Name, &c.CreatedAt)
+	if err == sql.ErrNoRows {
+		return Course{}, nil
+	}
+	if err != nil {
+		return Course{}, fmt.Errorf("query course %q: %w", id, err)
+	}
+	return c, nil
+}
+
+// CreateCourse inserts a new course. Returns an error wrapping a
+// unique-constraint violation as a friendly message.
+func (a *App) CreateCourse(id, name string) error {
+	_, err := a.DB.Exec("INSERT INTO courses(id, name, created_at) VALUES (?, ?, ?)",
+		id, name, time.Now().UnixMilli())
+	if err != nil {
+		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
+			return fmt.Errorf("course already exists: %s", id)
+		}
+		return fmt.Errorf("insert course: %w", err)
+	}
 	return nil
 }
 
@@ -733,7 +798,7 @@ func (a *App) ListPDFs(courseFilter string) ([]PDFEntry, error) {
 			}
 		}
 		if e.CourseID != nil {
-			e.CourseName = CourseName(*e.CourseID)
+			e.CourseName = a.AppCourseName(*e.CourseID)
 		}
 		results = append(results, e)
 	}
@@ -750,7 +815,7 @@ func (a *App) GetPDF(id int64) (PDFEntry, error) {
 		return PDFEntry{}, err
 	}
 	if e.CourseID != nil {
-		e.CourseName = CourseName(*e.CourseID)
+		e.CourseName = a.AppCourseName(*e.CourseID)
 	}
 	return e, nil
 }

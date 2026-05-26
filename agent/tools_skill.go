@@ -28,7 +28,7 @@ func (a *App) ToolStudySkill(args json.RawMessage) string {
 
 	topic := params["topic"]
 	courseID := params["course_id"]
-	courseName := CourseName(courseID)
+	courseName := a.AppCourseName(courseID)
 
 	courseInterests := a.loadCourseInterests(courseID)
 	corpusContent := a.loadCorpusContext(topic, courseID)
@@ -129,7 +129,7 @@ func (a *App) GetSessionSystemPrompt(sessionID int64, basePrompt string) string 
 		return basePrompt + "\n\n---\n\nYou are in a general study session (no specific course)."
 	}
 
-	courseName := CourseName(courseID)
+	courseName := a.AppCourseName(courseID)
 	extra := "\n\n---\n\nYou are in a study session for **" + courseName + "** (course ID: " + courseID + ")."
 	if topic != "" && topic != "General" {
 		extra += " Topic: " + topic + "."
