@@ -35,7 +35,7 @@ The verifier under `## Verification recipe` must contain both `### Pre-baseline`
 
 ### 2. Read the budget signals
 
-From the frontmatter, hold `max_diff_lines` and `max_tokens` as your operating budget. Do not exceed either. If you approach `max_tokens`, stop, write a partial result with `theory: token-cap approaching`, and **exit 5** before exceeding the cap.
+From the frontmatter, hold `max_tokens` as your operating budget. If you approach `max_tokens`, stop, write a partial result with `theory: token-cap approaching`, and **exit 5** before exceeding the cap. `max_diff_lines` is NOT your concern: the orchestrator enforces the diff cap deterministically after the gate passes. Implement the plan fully and report the diff size — never trim, judge, or abort on size.
 
 ### 3. Create the agent branch
 
@@ -86,14 +86,14 @@ Triggered when `RETRY_MODE=1`. The orchestrator escalates to a stronger model af
 5. **Spec-shaped sanity:** verify your patches still respect the spec's contract — same handler signature, same DB shape, same route paths. The spec is the gold standard; your patch only resolves the gap between attempt-1's code and the spec.
 
 **Constraints in retry mode:**
-- The diff cap from step 5 applies to the *total* diff (attempt-1 + your patch). If attempt-1 was already close to the cap and your fix would push it over, **exit 4**.
+- The diff cap is not yours to enforce — implement the fix fully regardless of total diff size. An over-cap but green diff is paused by the orchestrator for manual merge (step 5), not thrown away.
 - You are still bound by every rule in "What you must NEVER do."
 - Do not `git reset` or `git rebase` attempt-1's commit. Make a new commit on top.
 - Commit message format on retry: `agent: <ticket-id> (retry1) — <title>` (suffix `(retry1)` distinguishes it in history).
 
-### 5. Check diff size
+### 5. Measure diff size (report only — never abort)
 
-After implementation, run `git diff --stat origin/main..HEAD` (counting only `+` lines from the per-file summary, summed). If the total exceeds `max_diff_lines`, **exit 4** — the implementation overran the budget. Do not attempt to shrink it; that's a spec-author decision.
+After implementation, run `git diff --numstat origin/main..HEAD` and sum the added-line column. Record this number as `diff_lines` in the handoff (step 6). **Do not abort on diff size.** The orchestrator owns the blast-radius decision: if your complete, green implementation exceeds `max_diff_lines`, the orchestrator pauses it for a human merge/discard rather than discarding it. Implement the plan fully and report the number — do not judge or shrink it.
 
 ### 6. Commit and emit the handoff
 
@@ -136,7 +136,6 @@ Write `$RESULT_DIR/pi-done.json` with this exact shape:
 | `1` | Generic failure — something else broke | A one-paragraph cause description with stderr excerpt |
 | `2` | Spec schema invalid | The specific missing field or section |
 | `3` | Plan references a file that doesn't exist | The offending path verbatim |
-| `4` | Diff exceeded `max_diff_lines` | The actual count and the cap |
 | `5` | Token budget approaching cap; stopped early | Where you stopped + what remains |
 | `6` | Retry mode: could not form a confident fix hypothesis from gate log + diff | What you observed and what was missing to decide |
 
