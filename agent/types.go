@@ -91,6 +91,17 @@ type Session struct {
 	SummaryAt int    `json:"summary_at"`
 }
 
+// ConfidencePoint represents a single confidence log entry.
+type ConfidencePoint struct {
+	ID        int64   `json:"id"`
+	SessionID int64   `json:"session_id"`
+	KCID      string  `json:"kc_id"`
+	Value     float64 `json:"value"`
+	Source    string  `json:"source"`
+	CreatedAt int64   `json:"created_at"`
+	RawText   string  `json:"raw_text,omitempty"`
+}
+
 // ExtractPDFPageCount returns the page count parsed from the PDF
 // /Count entry, or 0 if it cannot be determined.
 func ExtractPDFPageCount(data []byte) int {

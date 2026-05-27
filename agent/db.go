@@ -140,6 +140,17 @@ func InitSchema(db *sql.DB) error {
 		name        TEXT NOT NULL,
 		created_at  INTEGER NOT NULL
 	);
+	CREATE TABLE IF NOT EXISTS confidence_log (
+		id          INTEGER PRIMARY KEY AUTOINCREMENT,
+		session_id  INTEGER REFERENCES sessions(id) ON DELETE CASCADE,
+		kc_id       TEXT    NOT NULL,
+		value       REAL    NOT NULL CHECK (value >= 0.0 AND value <= 1.0),
+		source      TEXT    NOT NULL CHECK (source IN ('tool_call','inferred','manual','verifier')),
+		created_at  INTEGER NOT NULL,
+		raw_text    TEXT
+	);
+	CREATE INDEX IF NOT EXISTS idx_confidence_log_kc ON confidence_log(kc_id, created_at);
+	CREATE INDEX IF NOT EXISTS idx_confidence_log_session ON confidence_log(session_id, created_at);
 	`
 	if _, err := db.Exec(schema); err != nil {
 		return fmt.Errorf("create schema: %w", err)
@@ -847,4 +858,73 @@ func (a *App) SetLastOpenedPDF(id int64) error {
 
 func (a *App) GetLastOpenedPDFID() (int64, error) {
 	return a.getMetaInt("last_opened_pdf")
+}
+
+// LogConfidence inserts a confidence entry and returns the new row id.
+func (a *App) LogConfidence(sessionID int64, kcID string, value float64, source, rawText string) (int64, error) {
+	if value < 0.0 || value > 1.0 {
+		return 0, fmt.Errorf("value must be in [0.0, 1.0], got %v", value)
+	}
+	switch source {
+	case "tool_call", "inferred", "manual", "verifier":
+	default:
+		return 0, fmt.Errorf("invalid source %q: must be tool_call, inferred, manual, or verifier", source)
+	}
+	now := time.Now().UnixMilli()
+	res, err := a.DB.Exec(
+		"INSERT INTO confidence_log (session_id, kc_id, value, source, created_at, raw_text) VALUES (?, ?, ?, ?, ?, ?)",
+		sessionID, kcID, value, source, now, rawText,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("insert confidence_log: %w", err)
+	}
+	return res.LastInsertId()
+}
+
+// GetConfidenceTrajectory returns confidence entries for a kc_id, most recent first.
+func (a *App) GetConfidenceTrajectory(kcID string, limit int) ([]ConfidencePoint, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	rows, err := a.DB.Query(
+		"SELECT id, session_id, kc_id, value, source, created_at, COALESCE(raw_text, '') FROM confidence_log WHERE kc_id = ? ORDER BY created_at DESC LIMIT ?",
+		kcID, limit,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("query confidence trajectory: %w", err)
+	}
+	defer rows.Close()
+	var pts []ConfidencePoint
+	for rows.Next() {
+		var cp ConfidencePoint
+		if err := rows.Scan(&cp.ID, &cp.SessionID, &cp.KCID, &cp.Value, &cp.Source, &cp.CreatedAt, &cp.RawText); err != nil {
+			return nil, fmt.Errorf("scan confidence_point: %w", err)
+		}
+		pts = append(pts, cp)
+	}
+	return pts, rows.Err()
+}
+
+// GetRecentConfidence returns confidence entries created since sinceMs, most recent first.
+func (a *App) GetRecentConfidence(sinceMs int64, limit int) ([]ConfidencePoint, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	rows, err := a.DB.Query(
+		"SELECT id, session_id, kc_id, value, source, created_at, COALESCE(raw_text, '') FROM confidence_log WHERE created_at >= ? ORDER BY created_at DESC LIMIT ?",
+		sinceMs, limit,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("query recent confidence: %w", err)
+	}
+	defer rows.Close()
+	var pts []ConfidencePoint
+	for rows.Next() {
+		var cp ConfidencePoint
+		if err := rows.Scan(&cp.ID, &cp.SessionID, &cp.KCID, &cp.Value, &cp.Source, &cp.CreatedAt, &cp.RawText); err != nil {
+			return nil, fmt.Errorf("scan confidence_point: %w", err)
+		}
+		pts = append(pts, cp)
+	}
+	return pts, rows.Err()
 }

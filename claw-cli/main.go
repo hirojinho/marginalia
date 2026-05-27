@@ -158,6 +158,8 @@ func runWithStdin(args []string, stdin io.Reader, stdout, stderr io.Writer, dbPa
 		return runSkill(args[2:], stdout, stderr, dbPath)
 	case "session":
 		return runSession(args[2:], stdout, stderr, dbPath)
+	case "confidence":
+		return runConfidence(args[2:], stdout, stderr, dbPath)
 	default:
 		_, _ = fmt.Fprintf(stderr, "unknown subcommand: %q\n", args[1])
 		return 2
@@ -842,4 +844,132 @@ func noteSave(args []string, stdout, stderr io.Writer, dbPath string) int {
 	})
 	_, _ = fmt.Fprintln(stdout, app.ToolSaveNote(argsJSON))
 	return 0
+}
+
+func runConfidence(args []string, stdout, stderr io.Writer, dbPath string) int {
+	if len(args) < 1 {
+		_, _ = fmt.Fprintln(stderr, "usage: claw-cli confidence <trajectory|recent|schema> [args]")
+		return 2
+	}
+	switch args[0] {
+	case "trajectory":
+		return confidenceTrajectory(args[1:], stdout, stderr, dbPath)
+	case "recent":
+		return confidenceRecent(args[1:], stdout, stderr, dbPath)
+	case "schema":
+		return confidenceSchema(stdout, stderr, dbPath)
+	default:
+		_, _ = fmt.Fprintf(stderr, "unknown confidence subcommand: %q\n", args[0])
+		return 2
+	}
+}
+
+func confidenceTrajectory(args []string, stdout, stderr io.Writer, dbPath string) int {
+	fs := flag.NewFlagSet("confidence trajectory", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	limit := fs.Int("limit", 50, "max rows")
+	dbOverride := fs.String("db", "", "path to study.db")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	if fs.NArg() < 1 {
+		_, _ = fmt.Fprintln(stderr, "confidence trajectory: kc_id is required")
+		return 2
+	}
+	kcID := fs.Arg(0)
+	resolvedDB, err := resolveDBPath(*dbOverride, dbPath)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return 1
+	}
+	app, err := newAppFromEnv(resolvedDB, false)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return 1
+	}
+	defer func() { _ = app.Close() }()
+	points, err := app.GetConfidenceTrajectory(kcID, *limit)
+	if err != nil {
+		_, _ = fmt.Fprintf(stderr, "error: %v\n", err)
+		return 1
+	}
+	for _, p := range points {
+		_, _ = fmt.Fprintf(stdout, "%d\t%.2f\t%s\t%s\n", p.CreatedAt, p.Value, p.Source, p.RawText)
+	}
+	return 0
+}
+
+func confidenceRecent(args []string, stdout, stderr io.Writer, dbPath string) int {
+	fs := flag.NewFlagSet("confidence recent", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	since := fs.String("since", "7d", "time window (e.g. 7d, 24h, 30m)")
+	limit := fs.Int("limit", 50, "max rows")
+	dbOverride := fs.String("db", "", "path to study.db")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	resolvedDB, err := resolveDBPath(*dbOverride, dbPath)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return 1
+	}
+	sinceMs, err := parseSince(*since)
+	if err != nil {
+		_, _ = fmt.Fprintf(stderr, "invalid --since: %v\n", err)
+		return 2
+	}
+	app, err := newAppFromEnv(resolvedDB, false)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return 1
+	}
+	defer func() { _ = app.Close() }()
+	points, err := app.GetRecentConfidence(sinceMs, *limit)
+	if err != nil {
+		_, _ = fmt.Fprintf(stderr, "error: %v\n", err)
+		return 1
+	}
+	for _, p := range points {
+		_, _ = fmt.Fprintf(stdout, "%d\t%.2f\t%s\t%s\n", p.CreatedAt, p.Value, p.Source, p.RawText)
+	}
+	return 0
+}
+
+func confidenceSchema(stdout, stderr io.Writer, dbPath string) int {
+	resolvedDB, err := resolveDBPath("", dbPath)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return 1
+	}
+	app, err := newAppFromEnv(resolvedDB, false)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return 1
+	}
+	defer func() { _ = app.Close() }()
+	var count int
+	if err := app.DB.QueryRow("SELECT count(*) FROM confidence_log").Scan(&count); err != nil {
+		_, _ = fmt.Fprintf(stderr, "error: %v\n", err)
+		return 1
+	}
+	_, _ = fmt.Fprintln(stdout, "OK")
+	return 0
+}
+
+// parseSince converts a human duration string like "7d", "24h", "30m" to milliseconds ago.
+func parseSince(s string) (int64, error) {
+	if strings.HasSuffix(s, "d") {
+		n, err := fmt.Sscanf(s, "%dd", new(int))
+		if n != 1 || err != nil {
+			return 0, fmt.Errorf("bad duration: %s", s)
+		}
+		var days int
+		fmt.Sscanf(s, "%dd", &days)
+		return time.Now().Add(-time.Duration(days) * 24 * time.Hour).UnixMilli(), nil
+	}
+	d, err := time.ParseDuration(s)
+	if err != nil {
+		return 0, fmt.Errorf("bad duration %q: %w", s, err)
+	}
+	return time.Now().Add(-d).UnixMilli(), nil
 }

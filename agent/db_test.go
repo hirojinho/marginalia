@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"strings"
 	"testing"
 	"time"
 )
@@ -325,5 +326,95 @@ func TestPruneOldEventsRemovesOldRows(t *testing.T) {
 	evs, _ := a.ListRecentEvents(100)
 	if len(evs) != 2 {
 		t.Errorf("remaining = %d, want 2", len(evs))
+	}
+}
+
+func TestLogConfidence_ValidRow(t *testing.T) {
+	a := newMemoryApp(t)
+	sess, _ := a.CreateSession("test-course", "test topic")
+	id, err := a.LogConfidence(sess.ID, "task-uuid-1", 0.75, "tool_call", "pretty confident")
+	if err != nil {
+		t.Fatalf("insert: %v", err)
+	}
+	if id <= 0 {
+		t.Fatalf("expected positive id, got %d", id)
+	}
+	points, err := a.GetConfidenceTrajectory("task-uuid-1", 10)
+	if err != nil {
+		t.Fatalf("query: %v", err)
+	}
+	if len(points) != 1 {
+		t.Fatalf("expected 1 row, got %d", len(points))
+	}
+	if points[0].Value != 0.75 {
+		t.Errorf("value = %v, want 0.75", points[0].Value)
+	}
+	if points[0].Source != "tool_call" {
+		t.Errorf("source = %q, want tool_call", points[0].Source)
+	}
+	if points[0].RawText != "pretty confident" {
+		t.Errorf("raw_text = %q, want 'pretty confident'", points[0].RawText)
+	}
+}
+
+func TestLogConfidence_RejectsOutOfRange(t *testing.T) {
+	a := newMemoryApp(t)
+	if _, err := a.LogConfidence(0, "k1", -0.1, "tool_call", ""); err == nil {
+		t.Error("expected error for value=-0.1")
+	}
+	if _, err := a.LogConfidence(0, "k1", 1.5, "tool_call", ""); err == nil {
+		t.Error("expected error for value=1.5")
+	}
+}
+
+func TestLogConfidence_RejectsInvalidSource(t *testing.T) {
+	a := newMemoryApp(t)
+	if _, err := a.LogConfidence(0, "k1", 0.5, "bad_source", ""); err == nil {
+		t.Error("expected error for invalid source")
+	}
+}
+
+func TestGetConfidenceTrajectory_OrderingAndLimit(t *testing.T) {
+	a := newMemoryApp(t)
+	sess, _ := a.CreateSession("test-course", "test topic")
+	for i := 0; i < 5; i++ {
+		_, err := a.LogConfidence(sess.ID, "kc-ord", 0.5, "tool_call", "")
+		if err != nil {
+			t.Fatalf("insert %d: %v", i, err)
+		}
+	}
+	points, err := a.GetConfidenceTrajectory("kc-ord", 3)
+	if err != nil {
+		t.Fatalf("query: %v", err)
+	}
+	if len(points) != 3 {
+		t.Fatalf("expected 3 rows, got %d", len(points))
+	}
+	// Must be descending by created_at
+	for i := 1; i < len(points); i++ {
+		if points[i].CreatedAt > points[i-1].CreatedAt {
+			t.Errorf("row %d (%d) is newer than row %d (%d)", i, points[i].CreatedAt, i-1, points[i-1].CreatedAt)
+		}
+	}
+}
+
+func TestToolLogConfidence_DispatchedRoundTrip(t *testing.T) {
+	a := newMemoryApp(t)
+	sess, _ := a.CreateSession("test-course", "test topic")
+	input := `{"kc_id":"test-kc","value":0.8,"raw":"8/10"}`
+	_ = sess // session set in memory via CreateSession
+	result := a.ToolLogConfidence([]byte(input))
+	if strings.Contains(result, "error") {
+		t.Fatalf("tool returned error: %s", result)
+	}
+	points, err := a.GetConfidenceTrajectory("test-kc", 10)
+	if err != nil {
+		t.Fatalf("query: %v", err)
+	}
+	if len(points) != 1 {
+		t.Fatalf("expected 1 row, got %d", len(points))
+	}
+	if points[0].Value != 0.8 {
+		t.Errorf("value = %v, want 0.8", points[0].Value)
 	}
 }
