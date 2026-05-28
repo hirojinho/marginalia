@@ -113,6 +113,18 @@ func GetTools() []ToolDef {
 			},
 		}},
 		{Type: "function", Function: ToolFunc{
+			Name:        "rewrite_plan",
+			Description: "Replace the entire plan JSON for a course with new content (phases, clusters, tasks). Preserves task UUIDs across rewrites when titles match exactly — this is required so confidence/retrieval data stays anchored. Use this instead of save_note for plan rewrites. The plan_json field must be a valid JSON object matching the JSONPlan schema (id, name, phases[]).",
+			Parameters: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"plan_id":   map[string]interface{}{"type": "string", "description": "Plan ID, e.g. 'ce297', 'guitar'. Must already exist in the courses table."},
+					"plan_json": map[string]interface{}{"type": "string", "description": "Full JSONPlan as a JSON string. Tasks without an id field will be assigned UUIDs (existing ones inherited via title match)."},
+				},
+				"required": []string{"plan_id", "plan_json"},
+			},
+		}},
+		{Type: "function", Function: ToolFunc{
 			Name:        "pdf_extract",
 			Description: "Extract text content from an uploaded PDF. Use this to read and understand PDF content that the user has uploaded.",
 			Parameters: map[string]interface{}{
@@ -214,6 +226,8 @@ func (a *App) ExecuteTool(name string, args json.RawMessage) string {
 		return a.ToolSaveNote(args)
 	case "update_plan":
 		return a.ToolUpdatePlan(args)
+	case "rewrite_plan":
+		return a.ToolRewritePlan(args)
 	case "pdf_extract":
 		return a.ToolPDFExtract(args)
 	case "web_fetch":

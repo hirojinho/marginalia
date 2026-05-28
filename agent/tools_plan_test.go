@@ -228,3 +228,129 @@ func TestLoadPlan_Malformed(t *testing.T) {
 		t.Fatalf("expected nil for malformed")
 	}
 }
+
+func TestRewritePlan_PreservesUUIDsForMatchingTitles(t *testing.T) {
+	a := newMemoryApp(t)
+	old := &JSONPlan{
+		ID:   "ce297",
+		Name: "Safety",
+		Phases: []Phase{
+			{
+				Title: "Foundations",
+				Tasks: []Task{
+					{ID: "aaa-111", Title: "Read Avizienis", Done: false},
+					{ID: "bbb-222", Title: "Read Leveson", Done: true},
+				},
+				Clusters: []Cluster{
+					{
+						Title: "STPA",
+						Tasks: []Task{
+							{ID: "ccc-333", Title: "Step 1", Done: false},
+						},
+					},
+				},
+			},
+		},
+	}
+	writePlan(t, a, old)
+
+	newJSON := `{"id":"ce297","name":"Safety","phases":[{"title":"Foundations","tasks":[{"title":"Read Avizienis"},{"title":"Read Leveson"}],"clusters":[{"title":"STPA","tasks":[{"title":"Step 1"}]}]}]}`
+	// plan_json must be a JSON string, so we need to escape the inner JSON
+	escapedJSON, _ := json.Marshal(newJSON)
+	out := a.ToolRewritePlan(json.RawMessage(`{"plan_id":"ce297","plan_json":` + string(escapedJSON) + `}`))
+	if !strings.Contains(out, "3 inherited UUIDs") {
+		t.Fatalf("expected 3 inherited UUIDs, got %q", out)
+	}
+
+	loaded := a.LoadPlan("ce297")
+	if loaded.Phases[0].Tasks[0].ID != "aaa-111" {
+		t.Fatalf("UUID not preserved for task 0: got %q", loaded.Phases[0].Tasks[0].ID)
+	}
+	if loaded.Phases[0].Tasks[1].ID != "bbb-222" {
+		t.Fatalf("UUID not preserved for task 1: got %q", loaded.Phases[0].Tasks[1].ID)
+	}
+	if loaded.Phases[0].Clusters[0].Tasks[0].ID != "ccc-333" {
+		t.Fatalf("UUID not preserved for cluster task: got %q", loaded.Phases[0].Clusters[0].Tasks[0].ID)
+	}
+}
+
+func TestRewritePlan_AssignsNewUUIDsForNewTitles(t *testing.T) {
+	a := newMemoryApp(t)
+	old := &JSONPlan{
+		ID:   "ce297",
+		Name: "Safety",
+		Phases: []Phase{
+			{Title: "P1", Tasks: []Task{
+				{ID: "aaa-111", Title: "Existing Task"},
+			}},
+		},
+	}
+	writePlan(t, a, old)
+
+	newJSON := `{"id":"ce297","name":"Safety","phases":[{"title":"P1","tasks":[{"title":"Existing Task"},{"title":"Brand New Task"}]}]}`
+	escapedJSON, _ := json.Marshal(newJSON)
+	out := a.ToolRewritePlan(json.RawMessage(`{"plan_id":"ce297","plan_json":` + string(escapedJSON) + `}`))
+	if !strings.Contains(out, "1 inherited UUIDs") || !strings.Contains(out, "1 new UUIDs") {
+		t.Fatalf("expected 1 inherited + 1 new, got %q", out)
+	}
+
+	loaded := a.LoadPlan("ce297")
+	if loaded.Phases[0].Tasks[0].ID != "aaa-111" {
+		t.Fatalf("existing UUID not preserved: got %q", loaded.Phases[0].Tasks[0].ID)
+	}
+	if loaded.Phases[0].Tasks[1].ID == "" || loaded.Phases[0].Tasks[1].ID == "aaa-111" {
+		t.Fatalf("new task should have fresh UUID, got %q", loaded.Phases[0].Tasks[1].ID)
+	}
+}
+
+func TestRewritePlan_DropsTasksMissingFromNew(t *testing.T) {
+	a := newMemoryApp(t)
+	old := &JSONPlan{
+		ID:   "ce297",
+		Name: "Safety",
+		Phases: []Phase{
+			{Title: "P1", Tasks: []Task{
+				{Title: "T1"}, {Title: "T2"}, {Title: "T3"}, {Title: "T4"},
+			}},
+		},
+	}
+	writePlan(t, a, old)
+
+	newJSON := `{"id":"ce297","name":"Safety","phases":[{"title":"P1","tasks":[{"title":"T1"},{"title":"T3"}]}]}`
+	escapedJSON, _ := json.Marshal(newJSON)
+	_ = a.ToolRewritePlan(json.RawMessage(`{"plan_id":"ce297","plan_json":` + string(escapedJSON) + `}`))
+
+	loaded := a.LoadPlan("ce297")
+	total := countTasksInPlan(loaded)
+	if total != 2 {
+		t.Fatalf("expected 2 tasks after rewrite, got %d", total)
+	}
+}
+
+func TestRewritePlan_RejectsMismatchedID(t *testing.T) {
+	a := newMemoryApp(t)
+	newJSON := `{"id":"guitar","name":"Guitar","phases":[]}`
+	escapedJSON, _ := json.Marshal(newJSON)
+	out := a.ToolRewritePlan(json.RawMessage(`{"plan_id":"ce297","plan_json":` + string(escapedJSON) + `}`))
+	if !strings.Contains(out, "does not match plan_id") {
+		t.Fatalf("expected mismatch error, got %q", out)
+	}
+}
+
+func TestRewritePlan_FirstTimeCreate(t *testing.T) {
+	a := newMemoryApp(t)
+	newJSON := `{"id":"newcourse","name":"New Course","phases":[{"title":"P1","tasks":[{"title":"T1"}]}]}`
+	escapedJSON, _ := json.Marshal(newJSON)
+	out := a.ToolRewritePlan(json.RawMessage(`{"plan_id":"newcourse","plan_json":` + string(escapedJSON) + `}`))
+	if !strings.Contains(out, "0 inherited UUIDs") || !strings.Contains(out, "1 new UUIDs") {
+		t.Fatalf("expected 0 inherited + 1 new for first-time create, got %q", out)
+	}
+
+	loaded := a.LoadPlan("newcourse")
+	if loaded == nil {
+		t.Fatal("plan should exist after first-time create")
+	}
+	if loaded.Phases[0].Tasks[0].ID == "" {
+		t.Fatal("task should have a generated UUID")
+	}
+}

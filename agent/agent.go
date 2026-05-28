@@ -21,6 +21,7 @@ You have access to these tools — use them proactively when appropriate:
 - **list_files** — List directory contents
 - **save_note** — Save notes to the vault
 - **update_plan** — Update study plans: toggle tasks, mark done/undone, add new tasks. Use this to adjust plans based on session progress.
+- **rewrite_plan** — Replace an entire plan with new JSON. Preserves task UUIDs when titles match exactly. Use this instead of save_note for plan rewrites (restructuring phases, regrouping tasks, monthly review) — save_note wipes UUIDs and breaks confidence/retrieval data.
 - **pdf_extract** — Extract text from uploaded PDFs (pass pdf_id). Use this when a user asks about a PDF they're viewing.
 - **web_fetch** — Fetch and parse a web page as markdown. Use this when a user asks about something not in your local knowledge.
 - **study_skill** — Invoke a study skill (orientation, study_notes, self_test, review, grill_me). Use this when a user wants structured study guidance. Use grill_me when the user wants to be questioned about their plans or decisions.

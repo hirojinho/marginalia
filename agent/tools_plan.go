@@ -3,6 +3,8 @@ package agent
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"strings"
 )
 
 // ToolUpdatePlan handles the update_plan LLM tool: toggle, set_done, set_undone, and add_task actions.
@@ -127,4 +129,118 @@ func countTasksInPlan(p *JSONPlan) int {
 		}
 	}
 	return total
+}
+
+// ToolRewritePlan replaces the entire plan JSON for a course with new content.
+// It preserves task UUIDs across rewrites when titles match exactly (case-insensitive
+// after trim), so confidence/retrieval data stays anchored.
+func (a *App) ToolRewritePlan(args json.RawMessage) string {
+	var p struct {
+		PlanID   string `json:"plan_id"`
+		PlanJSON string `json:"plan_json"`
+	}
+	if err := json.Unmarshal(args, &p); err != nil {
+		return "error: " + err.Error()
+	}
+	if p.PlanID == "" {
+		return "error: plan_id is required"
+	}
+	if p.PlanJSON == "" {
+		return "error: plan_json is required"
+	}
+
+	var newPlan JSONPlan
+	if err := json.Unmarshal([]byte(p.PlanJSON), &newPlan); err != nil {
+		return "error: plan_json failed to parse as JSONPlan: " + err.Error()
+	}
+	if newPlan.ID != p.PlanID {
+		return fmt.Sprintf("error: plan_json.id (%q) does not match plan_id arg (%q)", newPlan.ID, p.PlanID)
+	}
+
+	oldPlan := a.LoadPlan(p.PlanID)
+	titleToID := buildTitleToIDMap(oldPlan)
+	inheritOrGenerateIDs(&newPlan, titleToID)
+
+	// Ensure the plans directory exists (needed for first-time creates)
+	dir := a.VaultPath("data", "plans")
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return "error creating plans directory: " + err.Error()
+	}
+	if err := a.SavePlan(&newPlan); err != nil {
+		return "error saving plan: " + err.Error()
+	}
+	preserved, generated := countIDOrigins(&newPlan, titleToID)
+	return fmt.Sprintf("rewrote plan %q: %d tasks, %d inherited UUIDs, %d new UUIDs",
+		p.PlanID, preserved+generated, preserved, generated)
+}
+
+func normalizeTitle(t string) string {
+	return strings.ToLower(strings.TrimSpace(t))
+}
+
+func buildTitleToIDMap(p *JSONPlan) map[string]string {
+	m := make(map[string]string)
+	if p == nil {
+		return m
+	}
+	walk := func(t Task) {
+		if t.ID != "" {
+			m[normalizeTitle(t.Title)] = t.ID
+		}
+	}
+	for _, ph := range p.Phases {
+		for _, t := range ph.Tasks {
+			walk(t)
+		}
+		for _, cl := range ph.Clusters {
+			for _, t := range cl.Tasks {
+				walk(t)
+			}
+		}
+	}
+	return m
+}
+
+func inheritOrGenerateIDs(p *JSONPlan, titleToID map[string]string) {
+	walk := func(t *Task) {
+		if t.ID != "" {
+			return // explicitly provided
+		}
+		if id, ok := titleToID[normalizeTitle(t.Title)]; ok {
+			t.ID = id
+		} else {
+			t.ID = newTaskID()
+		}
+	}
+	for i := range p.Phases {
+		for j := range p.Phases[i].Tasks {
+			walk(&p.Phases[i].Tasks[j])
+		}
+		for k := range p.Phases[i].Clusters {
+			for j := range p.Phases[i].Clusters[k].Tasks {
+				walk(&p.Phases[i].Clusters[k].Tasks[j])
+			}
+		}
+	}
+}
+
+func countIDOrigins(p *JSONPlan, titleToID map[string]string) (preserved, generated int) {
+	count := func(t Task) {
+		if titleToID[normalizeTitle(t.Title)] == t.ID {
+			preserved++
+		} else {
+			generated++
+		}
+	}
+	for _, ph := range p.Phases {
+		for _, t := range ph.Tasks {
+			count(t)
+		}
+		for _, cl := range ph.Clusters {
+			for _, t := range cl.Tasks {
+				count(t)
+			}
+		}
+	}
+	return
 }
