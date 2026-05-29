@@ -17,6 +17,16 @@ export const courseMeta = {
 let activeSessionId = null;
 let allSessions = [];
 
+const EXPANDED_KEY = 'claw-study:expandedCourse';
+
+function getExpandedCourse() {
+  return localStorage.getItem(EXPANDED_KEY); // string courseId, '' for General, or null
+}
+function setExpandedCourse(courseId) {
+  if (courseId === null) localStorage.removeItem(EXPANDED_KEY);
+  else localStorage.setItem(EXPANDED_KEY, courseId);
+}
+
 export function getActiveSessionId() {
   return activeSessionId;
 }
@@ -54,55 +64,61 @@ export async function loadActiveSession() {
 
 function renderSessionList() {
   const container = document.getElementById('session-list');
-  if (!allSessions || allSessions.length === 0) {
-    container.innerHTML =
-      '<div style="text-align:center;color:var(--text-tertiary);font-size:13px;padding:24px 12px;">No sessions yet.<br>Click <strong>+ New</strong> to start.</div>';
-    return;
-  }
 
-  const groups = {};
-  const groupOrder = [];
+  // Group sessions by course, newest-first within each course.
+  const byCourse = {};
   for (const s of allSessions) {
     const key = s.course_id || '';
-    if (!groups[key]) {
-      groups[key] = [];
-      groupOrder.push(key);
-    }
-    groups[key].push(s);
+    (byCourse[key] = byCourse[key] || []).push(s);
   }
+  for (const key of Object.keys(byCourse)) {
+    byCourse[key].sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+  }
+
+  // Which course is expanded: stored choice, else the active session's course,
+  // else the first course with sessions.
+  let expanded = getExpandedCourse();
+  if (expanded === null) {
+    const active = allSessions.find((s) => s.id === activeSessionId);
+    if (active) expanded = active.course_id || '';
+  }
+
+  // Always show every defined course (so '+' can launch into any).
+  const order = Object.keys(courseMeta);
 
   let html = '';
-  for (const key of groupOrder) {
-    const meta = courseMeta[key] || { name: 'General', color: '#78716C' };
-    html += `<div class="session-group-title">${escapeHtml(meta.name)}</div>`;
-    for (const s of groups[key]) {
-      const isActive = s.id === activeSessionId;
-      const timeAgo = formatTimeAgo(s.updated_at);
-      html += `<div class="session-item${isActive ? ' active' : ''}" data-session-id="${s.id}" data-action="switch-session">
-        <div style="display:flex;justify-content:space-between;align-items:start;">
-          <div class="session-topic-wrap">
-            <span class="session-topic" data-action="start-rename" data-session-id="${s.id}">${escapeHtml(s.topic || 'General')}</span>
-            <span class="session-rename-btn" data-action="start-rename" data-session-id="${s.id}" title="Rename">&#x270E;</span>
+  for (const key of order) {
+    const meta = courseMeta[key];
+    const sessions = byCourse[key] || [];
+    const isExpanded = expanded === key;
+    html += `<div class="course-group${isExpanded ? ' expanded' : ''}" data-course="${key}">
+      <div class="course-header" data-action="toggle-course" data-course="${key}">
+        <span class="course-chevron">&#x25B6;</span>
+        <span class="course-dot" style="background:${meta.color}"></span>
+        <span class="course-name">${escapeHtml(meta.name)}</span>
+        <span class="course-count">${sessions.length || ''}</span>
+        <span class="course-add" data-action="create-in-course" data-course="${key}" title="New session">&#x2b;</span>
+      </div>
+      <div class="course-sessions">`;
+    if (sessions.length === 0) {
+      html += `<div class="course-empty-hint">No sessions yet — + to start</div>`;
+    } else {
+      for (const s of sessions) {
+        const isActive = s.id === activeSessionId;
+        html += `<div class="session-item${isActive ? ' active' : ''}" data-session-id="${s.id}" data-action="switch-session">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div class="session-topic-wrap">
+              <span class="session-topic" data-action="start-rename" data-session-id="${s.id}">${escapeHtml(s.topic || 'Untitled')}</span>
+              <span class="session-rename-btn" data-action="start-rename" data-session-id="${s.id}" title="Rename">&#x270E;</span>
+            </div>
+            <span class="session-delete" data-action="delete-session" data-session-id="${s.id}" title="Delete">&#x2715;</span>
           </div>
-          <span class="session-delete" data-action="delete-session" data-session-id="${s.id}" title="Delete">&#x2715;</span>
-        </div>
-        <div class="session-meta">${timeAgo}${s.pdf_name ? ' &middot; ' + escapeHtml(s.pdf_name.replace(/\.pdf$/i, '')) : ''}</div>
-      </div>`;
+        </div>`;
+      }
     }
+    html += `</div></div>`;
   }
   container.innerHTML = html;
-}
-
-function formatTimeAgo(isoStr) {
-  if (!isoStr) return '';
-  const diff = Date.now() - new Date(isoStr).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return mins + 'm ago';
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return hrs + 'h ago';
-  const days = Math.floor(hrs / 24);
-  return days + 'd ago';
 }
 
 export async function switchSession(id) {
@@ -224,6 +240,26 @@ export async function createSession() {
   }
 }
 
+export async function createSessionInCourse(courseId) {
+  try {
+    const resp = await fetch('/api/sessions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ course_id: courseId, topic: '' }),
+    });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const session = await resp.json();
+    setExpandedCourse(courseId); // keep the course we just created in open
+    activeSessionId = session.id;
+    await loadActiveSession();
+    await loadSessions();
+    document.getElementById('messages').innerHTML = '';
+  } catch (err) {
+    console.error('Failed to create session', err);
+    showErrorBanner('Failed to create session: ' + err.message);
+  }
+}
+
 export async function deleteSession(id) {
   if (!confirm('Delete this session and its chat history?')) return;
   try {
@@ -289,10 +325,27 @@ function startRenameSession(id) {
 
 export function initSessionsUI() {
   document.getElementById('session-list').addEventListener('click', function (e) {
-    const el = e.target.closest('[data-action="start-rename"]');
-    if (!el) return;
-    e.stopPropagation();
-    startRenameSession(parseInt(el.dataset.sessionId, 10));
+    const renameEl = e.target.closest('[data-action="start-rename"]');
+    if (renameEl) {
+      e.stopPropagation();
+      startRenameSession(parseInt(renameEl.dataset.sessionId, 10));
+      return;
+    }
+    const addEl = e.target.closest('[data-action="create-in-course"]');
+    if (addEl) {
+      e.stopPropagation();
+      createSessionInCourse(addEl.dataset.course);
+      return;
+    }
+    // switch-session and delete-session are handled by the document-level
+    // dispatcher in app.js — do NOT re-bind them here (would double-fire).
+    const headerEl = e.target.closest('[data-action="toggle-course"]');
+    if (headerEl) {
+      const course = headerEl.dataset.course;
+      setExpandedCourse(getExpandedCourse() === course ? null : course);
+      renderSessionList();
+      return;
+    }
   });
   document.getElementById('session-modal-cancel').addEventListener('click', closeSessionModal);
   document.getElementById('session-modal-create').addEventListener('click', createSession);
