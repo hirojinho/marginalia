@@ -60,6 +60,65 @@ func TestVersionHandlerMethodNotAllowed(t *testing.T) {
 	}
 }
 
+func TestSchemaHandler(t *testing.T) {
+	h := newTestHandler(t)
+	req := httptest.NewRequest(http.MethodGet, "/debug/schema?table=confidence_log", nil)
+	rr := httptest.NewRecorder()
+	h.schemaHandler(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d, body=%s", rr.Code, rr.Body.String())
+	}
+	var got schemaResponse
+	if err := json.NewDecoder(rr.Body).Decode(&got); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if got.Table != "confidence_log" {
+		t.Fatalf("table = %q, want confidence_log", got.Table)
+	}
+	found := false
+	for _, c := range got.Columns {
+		if c == "knowledge_component_id" {
+			found = true
+		}
+		if c == "kc_id" {
+			t.Fatalf("column kc_id should not be present")
+		}
+	}
+	if !found {
+		t.Fatalf("column knowledge_component_id not found in %v", got.Columns)
+	}
+}
+
+func TestSchemaHandlerUnknownTable(t *testing.T) {
+	h := newTestHandler(t)
+	req := httptest.NewRequest(http.MethodGet, "/debug/schema?table=nonexistent", nil)
+	rr := httptest.NewRecorder()
+	h.schemaHandler(rr, req)
+	if rr.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404", rr.Code)
+	}
+}
+
+func TestSchemaHandlerMethodNotAllowed(t *testing.T) {
+	h := newTestHandler(t)
+	req := httptest.NewRequest(http.MethodPost, "/debug/schema?table=confidence_log", nil)
+	rr := httptest.NewRecorder()
+	h.schemaHandler(rr, req)
+	if rr.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("status = %d, want 405", rr.Code)
+	}
+}
+
+func TestSchemaHandlerBadParam(t *testing.T) {
+	h := newTestHandler(t)
+	req := httptest.NewRequest(http.MethodGet, "/debug/schema?table=DROP+TABLE", nil)
+	rr := httptest.NewRecorder()
+	h.schemaHandler(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400", rr.Code)
+	}
+}
+
 func TestVersionHandlerUnauthorized(t *testing.T) {
 	h := newAuthHandler(t, "secret")
 	mux := http.NewServeMux()

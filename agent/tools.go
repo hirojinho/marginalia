@@ -170,15 +170,15 @@ func GetTools() []ToolDef {
 		}},
 		{Type: "function", Function: ToolFunc{
 			Name:        "log_confidence",
-			Description: "Log the user's confidence value (0.0-1.0) for the current plan task after they answer Rule 3 ('how confident are you'). Pass kc_id = the active plan task's id field. raw is the user's verbatim reply for audit.",
+			Description: "Log the user's confidence value (0.0-1.0) for the current plan task after they answer Rule 3 ('how confident are you'). Pass knowledge_component_id = the active plan task's id field. raw is the user's verbatim reply for audit.",
 			Parameters: map[string]interface{}{
 				"type": "object",
 				"properties": map[string]interface{}{
-					"kc_id": map[string]interface{}{"type": "string", "description": "Plan task UUID (from the active plan's task.id field)"},
+					"knowledge_component_id": map[string]interface{}{"type": "string", "description": "Plan task UUID (from the active plan's task.id field)"},
 					"value": map[string]interface{}{"type": "number", "description": "Confidence in [0.0, 1.0]. Convert verbal answers (e.g. '3 out of 5' -> 0.6)."},
 					"raw":   map[string]interface{}{"type": "string", "description": "User's verbatim reply, for audit/debug"},
 				},
-				"required": []string{"kc_id", "value"},
+				"required": []string{"knowledge_component_id", "value"},
 			},
 		}},
 		{Type: "function", Function: ToolFunc{

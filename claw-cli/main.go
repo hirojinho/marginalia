@@ -873,10 +873,10 @@ func confidenceTrajectory(args []string, stdout, stderr io.Writer, dbPath string
 		return 2
 	}
 	if fs.NArg() < 1 {
-		_, _ = fmt.Fprintln(stderr, "confidence trajectory: kc_id is required")
+		_, _ = fmt.Fprintln(stderr, "confidence trajectory: knowledge_component_id is required")
 		return 2
 	}
-	kcID := fs.Arg(0)
+	knowledgeComponentID := fs.Arg(0)
 	resolvedDB, err := resolveDBPath(*dbOverride, dbPath)
 	if err != nil {
 		_, _ = fmt.Fprintln(stderr, err)
@@ -888,7 +888,7 @@ func confidenceTrajectory(args []string, stdout, stderr io.Writer, dbPath string
 		return 1
 	}
 	defer func() { _ = app.Close() }()
-	points, err := app.GetConfidenceTrajectory(kcID, *limit)
+	points, err := app.GetConfidenceTrajectory(knowledgeComponentID, *limit)
 	if err != nil {
 		_, _ = fmt.Fprintf(stderr, "error: %v\n", err)
 		return 1
