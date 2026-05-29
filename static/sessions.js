@@ -1,4 +1,4 @@
-// Session list, create/load/switch/delete, session pill, modal.
+// Session list: course accordion, create/load/switch/delete/rename, session pill.
 import { apiFetch } from './apiFetch.js';
 import { showErrorBanner } from './errorBanner.js';
 import { escapeHtml, renderContent } from './dom.js';

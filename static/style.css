@@ -925,23 +925,6 @@ header small {
   letter-spacing: 0.8px;
   color: var(--text-secondary);
 }
-#new-session-btn {
-  padding: 4px 10px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: 11px;
-  font-weight: 600;
-  cursor: pointer;
-  font-family: inherit;
-  transition: all 0.15s;
-}
-#new-session-btn:hover {
-  background: var(--accent-subtle);
-  color: var(--accent);
-  border-color: var(--accent);
-}
 #session-list {
   flex: 1;
   overflow-y: auto;
@@ -991,16 +974,6 @@ header small {
 }
 .session-item .session-rename-btn:hover {
   color: var(--accent);
-}
-.session-item .session-course {
-  display: inline-block;
-  font-size: 10px;
-  font-weight: 600;
-  padding: 1px 6px;
-  border-radius: 3px;
-  margin-right: 4px;
-  background: var(--bg-sunken);
-  color: var(--text-secondary);
 }
 .session-item .session-delete {
   flex-shrink: 0;
@@ -1090,91 +1063,6 @@ header small {
   color: var(--text-tertiary);
   padding: 6px 12px 10px;
   font-style: italic;
-}
-
-/* New session modal */
-#session-modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(28, 25, 23, 0.4);
-  z-index: 200;
-  display: none;
-  align-items: center;
-  justify-content: center;
-  backdrop-filter: blur(2px);
-}
-#session-modal-overlay.open {
-  display: flex;
-}
-#session-modal {
-  background: var(--bg-elevated);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-md);
-  width: 380px;
-  max-width: 90vw;
-  padding: 24px;
-}
-#session-modal h3 {
-  font-size: 16px;
-  font-weight: 600;
-  margin-bottom: 16px;
-}
-#session-modal label {
-  display: block;
-  font-size: 12px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--text-secondary);
-  margin-bottom: 6px;
-}
-#session-modal select,
-#session-modal input[type='text'] {
-  width: 100%;
-  padding: 8px 12px;
-  border: 1.5px solid var(--border);
-  border-radius: var(--radius-sm);
-  font-size: 14px;
-  font-family: inherit;
-  background: var(--bg);
-  color: var(--text);
-  outline: none;
-  margin-bottom: 16px;
-  transition: border-color 0.15s;
-}
-#session-modal select:focus,
-#session-modal input[type='text']:focus {
-  border-color: var(--accent);
-}
-#session-modal-actions {
-  display: flex;
-  gap: 8px;
-  justify-content: flex-end;
-}
-#session-modal-actions button {
-  padding: 8px 20px;
-  border-radius: var(--radius-sm);
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  font-family: inherit;
-  transition: all 0.15s;
-}
-.btn-cancel {
-  background: transparent;
-  border: 1px solid var(--border);
-  color: var(--text-secondary);
-}
-.btn-cancel:hover {
-  background: var(--bg-sunken);
-}
-.btn-create {
-  background: var(--accent);
-  border: 1px solid var(--accent);
-  color: #fff;
-}
-.btn-create:hover {
-  background: var(--accent-hover);
 }
 
 /* Header session pill */
