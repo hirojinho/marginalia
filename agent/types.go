@@ -95,7 +95,7 @@ type Session struct {
 type ConfidencePoint struct {
 	ID        int64   `json:"id"`
 	SessionID int64   `json:"session_id"`
-	KCID      string  `json:"kc_id"`
+	KnowledgeComponentID string `json:"knowledge_component_id"`
 	Value     float64 `json:"value"`
 	Source    string  `json:"source"`
 	CreatedAt int64   `json:"created_at"`

@@ -401,7 +401,7 @@ func TestGetConfidenceTrajectory_OrderingAndLimit(t *testing.T) {
 func TestToolLogConfidence_DispatchedRoundTrip(t *testing.T) {
 	a := newMemoryApp(t)
 	sess, _ := a.CreateSession("test-course", "test topic")
-	input := `{"kc_id":"test-kc","value":0.8,"raw":"8/10"}`
+	input := `{"knowledge_component_id":"test-kc","value":0.8,"raw":"8/10"}`
 	_ = sess // session set in memory via CreateSession
 	result := a.ToolLogConfidence([]byte(input))
 	if strings.Contains(result, "error") {
