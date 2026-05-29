@@ -1,12 +1,7 @@
 // Chat input, streaming response handler, message rendering.
 import { showErrorBanner } from './errorBanner.js';
 import { escapeHtml, renderMarkdown, scrollToBottom } from './dom.js';
-import {
-  getActiveSessionId,
-  openSessionModal,
-  loadSessions,
-  loadActiveSession,
-} from './sessions.js';
+import { getActiveSessionId, loadSessions, loadActiveSession } from './sessions.js';
 import {
   createToolPanel,
   createSkillChip,
@@ -45,7 +40,7 @@ export function initChat(chatEndpoint) {
     e.preventDefault();
     const activeSessionId = getActiveSessionId();
     if (!activeSessionId) {
-      openSessionModal();
+      showErrorBanner('Start a session first — use the + next to a course in the sidebar.');
       return;
     }
     const msg = input.value.trim();

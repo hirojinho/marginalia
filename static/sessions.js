@@ -3,8 +3,6 @@ import { apiFetch } from './apiFetch.js';
 import { showErrorBanner } from './errorBanner.js';
 import { escapeHtml, renderContent } from './dom.js';
 
-const MAX_TOPIC_LEN = 200;
-
 export const courseMeta = {
   ce297: { name: 'CE-297 Safety', color: '#B45309' },
   ddia: { name: 'DDIA', color: '#2563EB' },
@@ -75,8 +73,8 @@ function renderSessionList() {
     byCourse[key].sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
   }
 
-  // Which course is expanded: stored choice, else the active session's course,
-  // else the first course with sessions.
+  // Which course is expanded: the stored choice, else the active session's
+  // course, else none (all collapsed).
   let expanded = getExpandedCourse();
   if (expanded === null) {
     const active = allSessions.find((s) => s.id === activeSessionId);
@@ -197,49 +195,6 @@ function updateSessionPill(session) {
   pill.innerHTML = `<span class="pill-dot" style="background:${meta.color}"></span>${escapeHtml(session.topic || meta.name)}`;
 }
 
-export function openSessionModal() {
-  document.getElementById('session-modal-overlay').classList.add('open');
-  document.getElementById('session-topic').value = '';
-  document.getElementById('session-course').value = '';
-  document.getElementById('session-topic').focus();
-}
-
-export function closeSessionModal() {
-  document.getElementById('session-modal-overlay').classList.remove('open');
-}
-
-export async function createSession() {
-  const courseId = document.getElementById('session-course').value;
-  const topic = document.getElementById('session-topic').value.trim() || 'General';
-  if (topic.length > MAX_TOPIC_LEN) {
-    showErrorBanner('Topic is too long (max ' + MAX_TOPIC_LEN + ' characters).');
-    return;
-  }
-  const createBtn = document.getElementById('session-modal-create');
-  createBtn.disabled = true;
-  createBtn.textContent = 'Creating…';
-  try {
-    const resp = await fetch('/api/sessions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ course_id: courseId, topic: topic }),
-    });
-    if (!resp.ok) throw new Error('HTTP ' + resp.status);
-    const session = await resp.json();
-    activeSessionId = session.id;
-    await loadActiveSession();
-    await loadSessions();
-    document.getElementById('messages').innerHTML = '';
-    closeSessionModal();
-  } catch (err) {
-    console.error('Failed to create session', err);
-    showErrorBanner('Failed to create session: ' + err.message);
-  } finally {
-    createBtn.disabled = false;
-    createBtn.textContent = 'Create';
-  }
-}
-
 export async function createSessionInCourse(courseId) {
   try {
     const resp = await fetch('/api/sessions', {
@@ -345,25 +300,6 @@ export function initSessionsUI() {
       setExpandedCourse(getExpandedCourse() === course ? null : course);
       renderSessionList();
       return;
-    }
-  });
-  document.getElementById('session-modal-cancel').addEventListener('click', closeSessionModal);
-  document.getElementById('session-modal-create').addEventListener('click', createSession);
-  document.getElementById('new-session-btn').addEventListener('click', openSessionModal);
-  document.getElementById('session-course').addEventListener('change', function () {
-    const topicInput = document.getElementById('session-topic');
-    if (!topicInput.value) {
-      const meta = courseMeta[this.value] || courseMeta[''];
-      topicInput.placeholder = meta.name + ' topic...';
-    }
-  });
-  document.getElementById('session-modal-overlay').addEventListener('click', function (e) {
-    if (e.target === this) closeSessionModal();
-  });
-  document.getElementById('session-topic').addEventListener('keydown', function (e) {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      createSession();
     }
   });
 }
