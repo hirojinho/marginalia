@@ -3,7 +3,6 @@ package handler
 import (
 	"net/http"
 	"regexp"
-	"strings"
 )
 
 type versionResponse struct {
