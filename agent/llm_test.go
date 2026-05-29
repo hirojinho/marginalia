@@ -13,7 +13,7 @@ func TestCleanTitle(t *testing.T) {
 		{"strips trailing period", "Quorum reads and writes.", "Quorum reads and writes"},
 		{"collapses inner whitespace/newlines", "Two\n\nWord", "Two Word"},
 		{"empty stays empty", "   ", ""},
-		{"truncates over 60 runes", "aaaaaaaaaa bbbbbbbbbb cccccccccc dddddddddd eeeeeeeeee ffffffffff gggg", "aaaaaaaaaa bbbbbbbbbb cccccccccc dddddddddd eeeeeeeeee ffffffffff…"},
+		{"truncates over 60 runes", "aaaaaaaaaa bbbbbbbbbb cccccccccc dddddddddd eeeeeeeeee ffffffffff gggg", "aaaaaaaaaa bbbbbbbbbb cccccccccc dddddddddd eeeeeeeeee fffff…"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

@@ -284,7 +284,7 @@ func cleanTitle(s string) string {
 	}
 	s = strings.TrimRight(s, ".")
 	s = strings.TrimSpace(s)
-	const maxRunes = 65
+	const maxRunes = 60
 	runes := []rune(s)
 	if len(runes) > maxRunes {
 		s = string(runes[:maxRunes]) + "…"
