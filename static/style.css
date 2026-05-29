@@ -1030,6 +1030,81 @@ header small {
   color: #dc2626;
 }
 
+/* === COURSE ACCORDION === */
+.course-group {
+  border-bottom: 1px solid var(--border);
+}
+.course-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 12px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-secondary);
+}
+.course-header:hover {
+  background: var(--bg-sunken);
+}
+.course-header .course-chevron {
+  flex-shrink: 0;
+  font-size: 10px;
+  width: 10px;
+  transition: transform 0.15s;
+  color: var(--text-tertiary);
+}
+.course-group.expanded .course-header .course-chevron {
+  transform: rotate(90deg);
+}
+.course-header .course-dot {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.course-header .course-name {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.course-header .course-count {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+}
+.course-header .course-add {
+  flex-shrink: 0;
+  font-size: 15px;
+  line-height: 1;
+  color: var(--text-tertiary);
+  padding: 0 4px;
+  border-radius: var(--radius-sm);
+}
+.course-header .course-add:hover {
+  color: var(--accent);
+  background: var(--accent-subtle);
+}
+.course-sessions {
+  display: none;
+  padding: 2px 8px 8px;
+}
+.course-group.expanded .course-sessions {
+  display: block;
+}
+.course-empty-hint {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  padding: 6px 12px 10px;
+  font-style: italic;
+}
+
 /* New session modal */
 #session-modal-overlay {
   position: fixed;
