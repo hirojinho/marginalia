@@ -270,6 +270,41 @@ func (c *LLMClient) CallLLMNonStreaming(ctx context.Context, messages []Message)
 	return result.Choices[0].Message.Content, nil
 }
 
+const titlePrompt = `You generate a concise title for a study chat session, given the user's opening message. Reply with ONLY the title: 3 to 7 words, no surrounding quotes, no trailing punctuation, no preamble.`
+
+// cleanTitle normalizes a raw model title: trims, strips wrapping quotes,
+// collapses internal whitespace, drops a trailing period, and caps length.
+func cleanTitle(s string) string {
+	s = strings.TrimSpace(s)
+	s = strings.Join(strings.Fields(s), " ") // collapse whitespace/newlines
+	if len(s) >= 2 {
+		if (s[0] == '"' && s[len(s)-1] == '"') || (s[0] == '\'' && s[len(s)-1] == '\'') {
+			s = strings.TrimSpace(s[1 : len(s)-1])
+		}
+	}
+	s = strings.TrimRight(s, ".")
+	s = strings.TrimSpace(s)
+	const maxRunes = 65
+	runes := []rune(s)
+	if len(runes) > maxRunes {
+		s = string(runes[:maxRunes]) + "…"
+	}
+	return s
+}
+
+// GenerateTitle produces a short session title from the opening user message.
+func (c *LLMClient) GenerateTitle(ctx context.Context, firstMessage string) (string, error) {
+	msgs := []Message{
+		{Role: "system", Content: titlePrompt},
+		{Role: "user", Content: firstMessage},
+	}
+	raw, err := c.CallLLMNonStreaming(ctx, msgs)
+	if err != nil {
+		return "", err
+	}
+	return cleanTitle(raw), nil
+}
+
 const summaryPrompt = `Summarize this study session conversation in 3-5 concise bullet points. Focus on:
 - What topics were discussed
 - Key concepts or insights learned
