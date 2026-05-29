@@ -970,6 +970,13 @@ header small {
   background: var(--accent-subtle);
   border-color: var(--accent);
 }
+.session-topic-wrap {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  min-width: 0; /* allow this flex item to shrink so the topic can ellipsize */
+}
 .session-item .session-topic {
   font-size: 13px;
   font-weight: 500;
@@ -977,6 +984,21 @@ header small {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  min-width: 0; /* required for ellipsis inside the flex wrap */
+}
+.session-item .session-rename-btn {
+  flex-shrink: 0;
+  opacity: 0;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  padding: 0 2px;
+}
+.session-item:hover .session-rename-btn {
+  opacity: 1;
+}
+.session-item .session-rename-btn:hover {
+  color: var(--accent);
 }
 .session-item .session-meta {
   font-size: 11px;
@@ -994,7 +1016,7 @@ header small {
   color: var(--text-secondary);
 }
 .session-item .session-delete {
-  float: right;
+  flex-shrink: 0;
   opacity: 0;
   font-size: 12px;
   color: var(--text-tertiary);
