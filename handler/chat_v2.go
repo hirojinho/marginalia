@@ -112,15 +112,32 @@ func (h *Handler) handleChatV2(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var autoSetTopic string
+	// Kick off async title generation on the first turn. The LLM call runs
+	// concurrently with the (multi-second) Pi turn; result is emitted after
+	// streaming completes. Falls back to a deterministic truncation.
+	titleCh := make(chan string, 1)
 	if isFirstTurn && sess.Topic == "General" {
-		if t := autoTopic(req.Message); t != "" {
-			if err := h.App.UpdateSessionTopic(req.SessionID, t); err != nil {
-				slog.Warn("auto-set session topic", "session_id", req.SessionID, "err", err)
-			} else {
-				autoSetTopic = t
+		sid := req.SessionID
+		firstMsg := req.Message
+		go func() {
+			title, err := h.LLM.GenerateTitle(context.Background(), firstMsg)
+			if err != nil || title == "" {
+				slog.Warn("generate session title", "session_id", sid, "err", err)
+				title = autoTopic(firstMsg) // deterministic fallback
 			}
-		}
+			if title == "" {
+				titleCh <- ""
+				return
+			}
+			if err := h.App.UpdateSessionTopic(sid, title); err != nil {
+				slog.Warn("update session topic", "session_id", sid, "err", err)
+				titleCh <- ""
+				return
+			}
+			titleCh <- title
+		}()
+	} else {
+		close(titleCh) // no title this turn; recv yields ""
 	}
 
 	model := h.App.Config.AgentModel
@@ -148,14 +165,21 @@ func (h *Handler) handleChatV2(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
 
-	if autoSetTopic != "" {
-		data, _ := json.Marshal(map[string]string{"topic": autoSetTopic})
-		writeSSEEvent(w, flusher, "session_topic", string(data))
-	}
-
 	turnStart := time.Now()
 	assistantText, assistantReasoning, piUsage, piTools := streamPiTurn(ctx, events, w, flusher)
 	durationMs := time.Since(turnStart).Milliseconds()
+
+	// Title generation almost always finishes before the Pi turn does; if so,
+	// tell the client to refresh the sidebar. If not ready, the frontend picks
+	// it up on its next sessions reload.
+	select {
+	case title := <-titleCh:
+		if title != "" {
+			data, _ := json.Marshal(map[string]string{"topic": title})
+			writeSSEEvent(w, flusher, "session_topic", string(data))
+		}
+	default:
+	}
 
 	if assistantText == "" && assistantReasoning == "" {
 		slog.Warn("pi turn produced empty response", "session_id", req.SessionID, "ctx_err", ctx.Err())
