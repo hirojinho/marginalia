@@ -10,5 +10,7 @@ Numbered, append-only. Once written, an ADR is not edited — to change a decisi
 | [0004](0004-vanilla-js-frontend.md) | Vanilla JS frontend, no Node build step | Accepted | 2026-05-10 |
 | [0005](0005-push-to-main-no-prs.md) | Push to main directly, no PRs | Accepted | 2026-05-08 |
 | [0006](0006-embed-pi-as-agent-runtime.md) | Embed Pi as the agent runtime; expose domain ops via Go `claw-cli` | Accepted | 2026-05-10 |
+| [0007](0007-knowledge-component-as-atomic-note.md) | Knowledge Component as a content-bearing atomic note | Accepted | 2026-05-27 |
+| [0008](0008-sidebar-course-first-launcher.md) | Session sidebar is a course-first launcher, not a navigator | Accepted | 2026-05-29 |
 
 New ADR? Copy [`template.md`](template.md), pick the next number, link it from the table above.

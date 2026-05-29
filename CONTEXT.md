@@ -27,6 +27,28 @@ This is the unit that mastery, confidence, and retrieval are tracked *against*.
 - The **body is authored by the learner, in their own words** — the agent never
   writes it. The agent elicits, stores verbatim, critiques, and manages.
 
+## Course
+
+A subject the learner studies — e.g. *CE-297 Safety*, *DDIA*, *DSA Interview*,
+*Software Arch*, *Thesis*, plus *General* for the uncategorised. A small, fixed
+set. The Course is the **primary axis along which Sessions are organised**: the
+learner thinks "I'm doing DDIA now," not "open my most recent chat."
+
+## Session
+
+A single chat thread scoped to **one study task**. The learner starts a *new*
+Session for each task and **seldom returns to an old one** — so a Session is
+closer to a disposable work surface than to a durable document. Consequences
+that follow from this definition (not implementation, just meaning):
+
+- A Session belongs to exactly one Course (*General* when uncategorised).
+- Because creation is the dominant act and resumption is rare, the Session list
+  is an **archive**, not a navigator: its job is to let the rare lookup succeed,
+  not to be lived in.
+- A Session carries a short **title** naming its task. The title is the app's
+  responsibility to produce, not friction the learner must absorb up front —
+  consistent with the Authoring principle below.
+
 ## Authoring principle
 
 **The application absorbs *management* friction; the learner keeps the
