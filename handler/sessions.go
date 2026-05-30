@@ -53,6 +53,18 @@ func (h *Handler) createSession(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid json")
 		return
 	}
+	// Task-anchored creates are get-or-create to preserve the 1:1
+	// Task↔Session invariant (ADR 0014): a duplicate POST returns the
+	// existing session instead of creating a second anchored row.
+	if body.TaskID != "" {
+		if existing, ok, err := h.App.GetSessionByTask(body.CourseID, body.TaskID); err != nil {
+			writeServerError(w, "get session by task", err)
+			return
+		} else if ok {
+			writeJSON(w, http.StatusOK, existing)
+			return
+		}
+	}
 	var s agent.Session
 	var err error
 	if body.TaskID != "" {

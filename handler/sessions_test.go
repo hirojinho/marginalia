@@ -421,6 +421,23 @@ func TestCreateSessionWithTaskID(t *testing.T) {
 	if s.TaskID == nil || *s.TaskID != "t-9" {
 		t.Errorf("TaskID = %v, want t-9", s.TaskID)
 	}
+
+	// A second POST with the same course_id+task_id must return the SAME
+	// session (get-or-create), not create a duplicate (1:1 invariant).
+	body = strings.NewReader(`{"course_id":"ddia","task_id":"t-9","topic":"ignored"}`)
+	req = httptest.NewRequest(http.MethodPost, "/api/sessions", body)
+	rec = httptest.NewRecorder()
+	h.handleSessions(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("second POST status = %d, want 200", rec.Code)
+	}
+	var second agent.Session
+	if err := json.Unmarshal(rec.Body.Bytes(), &second); err != nil {
+		t.Fatalf("decode second: %v", err)
+	}
+	if second.ID != s.ID {
+		t.Errorf("second POST id = %d, want same as first %d (duplicate created)", second.ID, s.ID)
+	}
 }
 
 func jsonInt(n int64) string {
