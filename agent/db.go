@@ -321,7 +321,7 @@ func (a *App) GetSessionByTask(courseID, taskID string) (Session, bool, error) {
 	}
 	s, err := a.GetSession(id)
 	if err != nil {
-		return Session{}, false, err
+		return Session{}, false, fmt.Errorf("get session by task (fetch): %w", err)
 	}
 	return s, true, nil
 }

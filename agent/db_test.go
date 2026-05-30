@@ -572,6 +572,25 @@ func TestListSessionsExcludesHidden(t *testing.T) {
 	}
 }
 
+func TestGetSessionByTaskIgnoresHidden(t *testing.T) {
+	a := newMemoryApp(t)
+	created, err := a.CreateSessionForTask("ddia", "task-hidden", "to be hidden")
+	if err != nil {
+		t.Fatalf("create for task: %v", err)
+	}
+	// Visible immediately after creation.
+	if _, ok, err := a.GetSessionByTask("ddia", "task-hidden"); err != nil || !ok {
+		t.Fatalf("expected found before hiding, got ok=%v err=%v", ok, err)
+	}
+	// Once hidden, GetSessionByTask must not return it.
+	if _, err := a.DB.Exec("UPDATE sessions SET hidden = 1 WHERE id = ?", created.ID); err != nil {
+		t.Fatalf("mark hidden: %v", err)
+	}
+	if _, ok, err := a.GetSessionByTask("ddia", "task-hidden"); err != nil || ok {
+		t.Errorf("expected not-found after hiding, got ok=%v err=%v", ok, err)
+	}
+}
+
 func TestCreateAndGetSessionByTask(t *testing.T) {
 	a := newMemoryApp(t)
 
