@@ -31,23 +31,59 @@ This is the unit that mastery, confidence, and retrieval are tracked *against*.
 
 A subject the learner studies — e.g. *CE-297 Safety*, *DDIA*, *DSA Interview*,
 *Software Arch*, *Thesis*, plus *General* for the uncategorised. A small, fixed
-set. The Course is the **primary axis along which Sessions are organised**: the
-learner thinks "I'm doing DDIA now," not "open my most recent chat."
+set. Each Course has one **Plan**. The learner thinks "I'm doing DDIA now," and
+then navigates that Course's Plan.
+
+## Plan
+
+The ordered set of study tasks for a Course, grouped into phases (e.g.
+*Chapter 8 → tasks 67, 68, 69*). The Plan is the **primary navigation spine**:
+the learner moves through it task by task ("the next task from the last checked
+one"), and progress is tracked against it. A Task is one item in the Plan.
+
+The Plan — not a list of past chats — is what the learner navigates. This is the
+hierarchy: **Course → Plan (phases → Tasks) → the work on a Task.**
 
 ## Session
 
-A single chat thread scoped to **one study task**. The learner starts a *new*
-Session for each task and **seldom returns to an old one** — so a Session is
-closer to a disposable work surface than to a durable document. Consequences
+The **workspace for a single Task**: the chat with the tutor about that Task,
+plus its reading state and notes. A Session is *not* a top-level entity the
+learner browses — it is reached **through its Task in the Plan**. Consequences
 that follow from this definition (not implementation, just meaning):
 
-- A Session belongs to exactly one Course (*General* when uncategorised).
-- Because creation is the dominant act and resumption is rare, the Session list
-  is an **archive**, not a navigator: its job is to let the rare lookup succeed,
-  not to be lived in.
-- A Session carries a short **title** naming its task. The title is the app's
-  responsibility to produce, not friction the learner must absorb up front —
-  consistent with the Authoring principle below.
+- A Session is anchored to exactly one Task (and so to one Course). Opening a
+  Task opens its Session; a fresh Task creates one on entry.
+- There is **no flat session list** to navigate. Past work is reached by
+  selecting its (completed) Task in the Plan. The old "archive" framing is
+  retired — the Plan *is* the index of one's work.
+- A Session is a **small, spaced unit**: ideally one Task, after which work
+  *stops* and resumes on a later day, rather than many Tasks chained into one
+  long sitting (distributed practice). The "small and daily" shape is the goal.
+- A retrieval check that references an *earlier* Task at session-open still
+  belongs to **today's** Session — it points back at the old Task, it does not
+  reopen it.
+
+## Scratch
+
+A space for chats **not tied to any Task** — one-off questions, paper checks,
+an interests review, exploratory threads. Scratch is where ad-hoc work lives so
+the Plan stays a clean record of structured study. (A Scratch chat still earns a
+short auto-title, since it has no Task name to inherit.)
+
+## Studying vs Steering
+
+Two different activities that have been tangled in the same chat surface:
+
+- **Studying** — engaging with course content through the tutor: recall,
+  prediction, explanation, reading, reflection. This is the learner's cognitive
+  work and the thing a Session is for.
+- **Steering** — adjusting *how the system behaves*: editing the plan, setting a
+  Course's framing (e.g. "exam-prep first, conceptual exam"), changing tutor
+  preferences (pace, chunk size). This is configuration, not learning.
+
+These are distinct: Steering should not happen *inside* a Studying Session (it
+bloats and pollutes it), and durable Steering changes are owned by the learner
+directly, not produced as a side effect of a chat turn.
 
 ## Authoring principle
 

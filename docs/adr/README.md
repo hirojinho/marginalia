@@ -11,6 +11,10 @@ Numbered, append-only. Once written, an ADR is not edited — to change a decisi
 | [0005](0005-push-to-main-no-prs.md) | Push to main directly, no PRs | Accepted | 2026-05-08 |
 | [0006](0006-embed-pi-as-agent-runtime.md) | Embed Pi as the agent runtime; expose domain ops via Go `claw-cli` | Accepted | 2026-05-10 |
 | [0007](0007-knowledge-component-as-atomic-note.md) | Knowledge Component as a content-bearing atomic note | Accepted | 2026-05-27 |
-| [0008](0008-sidebar-course-first-launcher.md) | Session sidebar is a course-first launcher, not a navigator | Accepted | 2026-05-29 |
+| [0008](0008-sidebar-course-first-launcher.md) | Session sidebar is a course-first launcher, not a navigator | Superseded by 0011 | 2026-05-29 |
+| [0009](0009-session-single-task-spaced-unit.md) | Study session is a single-task spaced unit; tutor stops rather than chains | Accepted | 2026-05-29 |
+| [0010](0010-steering-via-settings-ui.md) | Steering is edited via a settings UI to source-of-truth stores | Accepted | 2026-05-29 |
+| [0011](0011-plan-is-navigation-spine.md) | The Plan is the navigation spine; a Session is a Task's workspace | Accepted | 2026-05-29 |
+| [0012](0012-segmented-active-reading.md) | Segmented active reading with a position-aware tutor | Accepted | 2026-05-29 |
 
 New ADR? Copy [`template.md`](template.md), pick the next number, link it from the table above.

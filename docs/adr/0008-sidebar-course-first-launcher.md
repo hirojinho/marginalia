@@ -1,7 +1,14 @@
 # 0008 — Session sidebar is a course-first launcher, not a navigator
 
-- **Status:** Accepted
+- **Status:** Superseded by [ADR 0011](0011-plan-is-navigation-spine.md)
 - **Date:** 2026-05-29
+
+> **Superseded (2026-05-29):** Usage data and an information-architecture review
+> the same day showed the *core thesis here is wrong* — the session list should
+> not be the primary navigator at all. The **Plan** is the navigation spine; a
+> Session becomes a Task's workspace. See [ADR 0011](0011-plan-is-navigation-spine.md).
+> What survives from this ADR: the truncation fix, the accordion tree mechanics
+> (repurposed for the plan rail), and async titling (now for Scratch chats).
 
 ## Context
 
