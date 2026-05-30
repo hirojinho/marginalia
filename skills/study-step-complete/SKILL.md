@@ -93,12 +93,18 @@ If the completed work revealed something about the **course/topic structure** th
 
 **Only save** if the insight changes how future steps should be planned. Don't save routine completions.
 
-### Step 5 — Recommend next step
+### Step 5 — Mark a stopping point (default: STOP)
 
-Based on the governing structure (not just the study plan order), identify:
-- What the logical next resource/task is
-- Why it's next (how it connects to what was just completed)
-- One sentence on what to watch for
+Completing one task is a complete session. The default is to **stop here, not
+chain into the next task** — distributed practice beats massed sessions (Cepeda
+2008).
+
+- Affirm the stop: "Good stopping point. Come back tomorrow and we'll open with a
+  quick recall on this." Name in one phrase what next time will open with, so the
+  return has a hook.
+- Do **not** recommend, preview, or start the next task.
+- Continuing is **opt-in**: only if the learner explicitly says "keep going" do
+  you proceed, treating the next task as a fresh task in this session.
 
 ## Red Flags
 
@@ -108,6 +114,6 @@ Based on the governing structure (not just the study plan order), identify:
 | Treating the study plan as the source of truth | The syllabus or objectives are the authority |
 | Long summary of what the user already knows | Keep the anchoring to position and connections, not recap |
 | Skipping memory update when a structural insight emerged | If it changes planning, save it |
-| Recommending next step without explaining the connection | Always say *why* it's next in the narrative |
+| Chaining into the next task by default | Stop after one task; continuing is opt-in (the learner says "keep going") |
 | Treating self-directed objectives as fixed | Objectives can shift — check whether the completion changed what the user is trying to learn |
 | Not running discovery when no anchor exists | Don't anchor to nothing — ask the two discovery questions first |
