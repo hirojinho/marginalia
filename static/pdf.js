@@ -213,13 +213,11 @@ function renderAllPages() {
     viewer.appendChild(canvas);
   }
 
-  let pdfSaveTimer = null;
-  let mostVisiblePage = currentPage;
-
+  // The observer only lazy-renders pages as they approach the viewport. The
+  // current-page number is owned solely by the scroll listener (see initPdf),
+  // so the two no longer fight over currentPage.
   pageObserver = new IntersectionObserver(
     (entries) => {
-      let bestRatio = 0;
-      let bestPage = 0;
       for (const entry of entries) {
         if (entry.isIntersecting) {
           const pageNum = parseInt(entry.target.dataset.pageNum);
@@ -227,29 +225,10 @@ function renderAllPages() {
             renderedPages.add(pageNum);
             renderPageToCanvas(pageNum, entry.target);
           }
-          if (entry.intersectionRatio > bestRatio) {
-            bestRatio = entry.intersectionRatio;
-            bestPage = pageNum;
-          }
         }
       }
-      if (bestPage > 0 && bestPage !== mostVisiblePage) {
-        mostVisiblePage = bestPage;
-        clearTimeout(pdfSaveTimer);
-        pdfSaveTimer = setTimeout(() => {
-          if (currentPdfId) {
-            currentPage = mostVisiblePage;
-            updatePageCounter();
-            fetch('/pdf/progress/' + currentPdfId, {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ page: mostVisiblePage }),
-            }).catch(() => {});
-          }
-        }, 2000);
-      }
     },
-    { root: viewer, rootMargin: '200px', threshold: [0, 0.1, 0.3, 0.6, 0.9] },
+    { root: viewer, rootMargin: '200px', threshold: 0.01 },
   );
 
   viewer.querySelectorAll('.pdf-page-canvas').forEach((canvas) => {
@@ -544,28 +523,36 @@ export function initPdf() {
     }
   });
 
-  // Scroll-position page tracking
-  let scrollTimeout = null;
+  // Scroll-position page tracking — the single source of truth for the
+  // current page in scroll mode. The current page is the one with the greatest
+  // visible area in the viewport (robust when a tall page fills the screen and
+  // its top has scrolled off). rAF-throttled so the counter tracks the scroll
+  // smoothly; the network save stays debounced via savePdfProgress.
+  let scrollRaf = null;
   document.getElementById('pdf-viewer')?.addEventListener('scroll', function () {
     if (viewMode !== 'scroll') return;
-    clearTimeout(scrollTimeout);
-    scrollTimeout = setTimeout(() => {
+    if (scrollRaf) return;
+    scrollRaf = requestAnimationFrame(() => {
+      scrollRaf = null;
       const viewer = document.getElementById('pdf-viewer');
-      const canvases = viewer.querySelectorAll('.pdf-page-canvas');
       const viewerRect = viewer.getBoundingClientRect();
-      for (const canvas of canvases) {
+      let bestPage = 0;
+      let bestVisible = 0;
+      for (const canvas of viewer.querySelectorAll('.pdf-page-canvas')) {
         const rect = canvas.getBoundingClientRect();
-        if (rect.top >= viewerRect.top && rect.top <= viewerRect.bottom) {
-          const pageNum = parseInt(canvas.id.replace('pdf-canvas-', ''));
-          if (pageNum && pageNum !== currentPage) {
-            currentPage = pageNum;
-            updatePageCounter();
-            savePdfProgress(currentPage);
-          }
-          break;
+        const visible =
+          Math.min(rect.bottom, viewerRect.bottom) - Math.max(rect.top, viewerRect.top);
+        if (visible > bestVisible) {
+          bestVisible = visible;
+          bestPage = parseInt(canvas.dataset.pageNum);
         }
       }
-    }, 200);
+      if (bestPage && bestPage !== currentPage) {
+        currentPage = bestPage;
+        updatePageCounter();
+        savePdfProgress(currentPage);
+      }
+    });
   });
 
   // Toolbar
