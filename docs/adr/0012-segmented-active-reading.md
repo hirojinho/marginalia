@@ -49,3 +49,6 @@ would misfire on skimming).
 - Segment sizing is the tutor's judgment from reading length; if that proves
   clumsy, a future version could let the learner set chunk size in Steering
   settings ([ADR 0010](0010-steering-via-settings-ui.md)).
+- The reading is **the learner's** cognitive work, so the tutor must withhold
+  the chunk's content until they have read it — reading the pages itself for
+  silent grounding only. See [ADR 0015](0015-silent-grounding-tutor-withholds-resource.md).
