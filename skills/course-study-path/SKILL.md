@@ -88,6 +88,8 @@ Within each phase, group resources into **clusters** with:
 
 ### Phase 4 — Create Files
 
+**First, register the course if it does not already exist.** Check the known courses; if `<topic>` is new, run `claw-cli course create --id <topic> --name "<display name>"` (optionally `--framing`/`--exam-style`) before the memory-save step below — otherwise `claw-cli memory save --course <topic>` points at a course the app does not list.
+
 Write the following files to `out/` so the user can copy them to the right place on their local machine:
 
 1. **`out/study-plan-<topic>.md`**
@@ -110,6 +112,8 @@ Write the following files to `out/` so the user can copy them to the right place
 Triggered when the user sends course slides, a syllabus, or lecture content.
 
 ### Phase 1 — Course Profile (first invocation only)
+
+If this is a brand-new course (not in the known-courses list), register it first with `claw-cli course create --id <slug> --name "<display name>"` (optionally `--framing`/`--exam-style`), then collect the profile.
 
 If no course profile exists in memory or context, collect it before creating tasks:
 
