@@ -4,6 +4,7 @@ import { apiFetch } from './apiFetch.js';
 import { courseMeta, setActiveSessionId, loadSessionMessages, clearWorkspace } from './sessions.js';
 import { escapeHtml } from './dom.js';
 import { openPdf, showView, setCurrentPdfId } from './pdf.js';
+import { openCourseSettings } from './settings.js';
 
 const SELECTED_COURSE_KEY = 'claw-study:railCourse';
 
@@ -145,7 +146,12 @@ function renderCourseSwitcher() {
     const sel = id === selectedCourse ? ' selected' : '';
     opts += `<option value="${escapeHtml(id)}"${sel}>${escapeHtml(courseMeta[id].name)}</option>`;
   }
-  return `<select id="rail-course-select" class="rail-course-select" data-action="noop">${opts}</select>`;
+  return (
+    `<div class="rail-course-row">` +
+    `<select id="rail-course-select" class="rail-course-select" data-action="noop">${opts}</select>` +
+    `<button class="rail-settings-btn" data-action="open-settings" title="Course settings" aria-label="Course settings">&#9881;</button>` +
+    `</div>`
+  );
 }
 
 function renderSessionLine(s) {
@@ -182,6 +188,14 @@ export function initRail() {
     const sel = e.target.closest('#rail-course-select');
     if (!sel) return;
     selectCourse(sel.value);
+  });
+
+  // Course settings gear.
+  document.getElementById('session-list').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-action="open-settings"]');
+    if (!btn) return;
+    e.stopPropagation();
+    if (selectedCourse) openCourseSettings(selectedCourse);
   });
 }
 
