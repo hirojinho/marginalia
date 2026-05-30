@@ -148,7 +148,7 @@ func TestWriteAgentsMDParameterizesSteering(t *testing.T) {
 		t.Fatalf("Create: %v", err)
 	}
 	md := readAgentsMD(t, dir)
-	for _, want := range []string{"~6 pages per chunk", "Stop-after-task is OFF", "exam-prep first", "conceptual oral", "How to teach this course"} {
+	for _, want := range []string{"~6 pages", "Chunk by meaning", "Stop-after-task is OFF", "exam-prep first", "conceptual oral", "How to teach this course"} {
 		if !strings.Contains(md, want) {
 			t.Errorf("AGENTS.md missing %q", want)
 		}
@@ -165,7 +165,7 @@ func TestWriteAgentsMDUsesDefaultsWhenNoProvider(t *testing.T) {
 		t.Fatalf("Create: %v", err)
 	}
 	md := readAgentsMD(t, dir)
-	for _, want := range []string{"~8 pages per chunk", "Stop-after-task is ON", "interleaved spaced retrieval"} {
+	for _, want := range []string{"~8 pages", "Chunk by meaning", "Stop-after-task is ON", "interleaved spaced retrieval"} {
 		if !strings.Contains(md, want) {
 			t.Errorf("AGENTS.md missing default %q", want)
 		}

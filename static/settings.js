@@ -29,8 +29,9 @@ function renderModal(courseId, s) {
       <label class="settings-field">Exam style
         <textarea id="set-exam" rows="2" placeholder="e.g. conceptual oral, problem sets">${escapeHtml(s.exam_style)}</textarea>
       </label>
-      <label class="settings-field">Reading chunk size (pages)
+      <label class="settings-field">Max pages per reading chunk (soft ceiling)
         <input id="set-chunk" type="number" min="3" max="30" value="${Number(s.chunk_pages)}">
+        <span class="settings-hint">Chunks follow section/idea boundaries; this just caps how long one chunk runs before a recall checkpoint.</span>
       </label>
       <label class="settings-check"><input id="set-stop" type="checkbox" ${s.stop_after_task ? 'checked' : ''}> Stop after each task</label>
       <label class="settings-check"><input id="set-inter" type="checkbox" ${s.interleaving ? 'checked' : ''}> Interleave older tasks at session open</label>

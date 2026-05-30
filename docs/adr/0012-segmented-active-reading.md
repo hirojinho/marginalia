@@ -53,6 +53,18 @@ would misfire on skimming).
   the chunk's content until they have read it — reading the pages itself for
   silent grounding only. See [ADR 0015](0015-silent-grounding-tutor-withholds-resource.md).
 
+## Update (2026-05-30): semantic chunking with a soft page ceiling
+
+The Phase-4 Steering work first exposed segment size as a fixed `chunk_pages`
+knob ("~N pages per chunk"). In use that read as too rigid: recall should land at
+*meaning* boundaries, not arbitrary page counts. Rule 9 now instructs the tutor to
+**chunk by natural boundaries** — section, subsection, coherent argument, or worked
+example — read ahead via `pdf extract` to find them, so chunk size varies with the
+material. `chunk_pages` is **repurposed from a target to a soft ceiling**: a
+cognitive-load guardrail (Sweller 1988) that triggers a mid-unit recall checkpoint
+when a single unit runs long, rather than a fixed cut. The page-based position-gate
+is unchanged — only the *boundary selection* became semantic.
+
 ## References
 
 Full citations and links for the evidence cited above: [docs/references.md](../references.md)
