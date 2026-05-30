@@ -1,7 +1,7 @@
 // Plan-spine rail: the selected course's plan (phases → tasks) is the left-rail
 // navigator. Tasks resolve to Sessions via /api/sessions/for-task (lazy).
 import { apiFetch } from './apiFetch.js';
-import { courseMeta } from './sessions.js';
+import { courseMeta, setActiveSessionId, loadSessionMessages, clearWorkspace } from './sessions.js';
 import { escapeHtml } from './dom.js';
 
 const SELECTED_COURSE_KEY = 'claw-study:railCourse';
@@ -136,4 +136,68 @@ export async function selectCourse(courseId) {
 export async function loadRail() {
   await loadRailData();
   renderRail();
+}
+
+// openTask resolves the Session for a task. If one exists, it is activated and
+// its chat loaded. If not, a pending-task workspace is shown (lazy: the row is
+// created on the first message — see chat.js).
+export async function openTask(taskId) {
+  const title = taskTitleById(taskId);
+  markActiveTask(taskId);
+  try {
+    const resp = await apiFetch(
+      '/api/sessions/for-task?course_id=' +
+        encodeURIComponent(selectedCourse) +
+        '&task_id=' +
+        encodeURIComponent(taskId),
+    );
+    const data = await resp.json();
+    if (data && data.id) {
+      pendingTask = null;
+      await fetch('/api/sessions/active', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: data.id }),
+      });
+      setActiveSessionId(data.id);
+      await loadSessionMessages();
+      setBanner(title);
+    } else {
+      // No session yet — hold a pending task; the workspace is empty until the
+      // first message creates the row.
+      pendingTask = { courseId: selectedCourse, taskId, title };
+      setActiveSessionId(null);
+      clearWorkspace();
+      setBanner(title + '  ·  new — your first message starts it');
+    }
+  } catch (err) {
+    console.error('Failed to open task', err);
+  }
+}
+
+function taskTitleById(taskId) {
+  let title = '';
+  if (currentPlan) {
+    walkTasks(currentPlan, (n) => {
+      if (n.kind === 'task' && n.task.id === taskId) title = n.task.title;
+    });
+  }
+  return title;
+}
+
+function markActiveTask(taskId) {
+  document.querySelectorAll('.rail-task').forEach((el) => {
+    el.classList.toggle('active', el.dataset.taskId === taskId);
+  });
+}
+
+function setBanner(text) {
+  const el = document.getElementById('workspace-banner');
+  if (!text) {
+    el.style.display = 'none';
+    el.textContent = '';
+    return;
+  }
+  el.style.display = 'block';
+  el.textContent = text;
 }

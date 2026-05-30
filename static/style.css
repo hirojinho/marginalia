@@ -1332,3 +1332,11 @@ header small {
 .rail-other-item:hover {
   background: var(--bg-sunken);
 }
+#workspace-banner {
+  padding: 8px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-sunken);
+}

@@ -204,6 +204,11 @@ export async function loadSessionMessages() {
   }
 }
 
+// clearWorkspace empties the chat pane (used when opening an as-yet-empty task).
+export function clearWorkspace() {
+  document.getElementById('messages').innerHTML = '';
+}
+
 function highlightActiveSession() {
   document.querySelectorAll('.session-item').forEach((el) => {
     el.classList.toggle('active', parseInt(el.dataset.sessionId) === activeSessionId);

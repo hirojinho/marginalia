@@ -13,7 +13,7 @@ import { initChat } from './chat.js';
 import { initPlan, openFullPlan, toggleTopic, openPdfFromDrawer } from './plan.js';
 import { initPdf, openPdf, triggerUpload, switchPdf } from './pdf.js';
 import { initPomodoro } from './pomodoro.js';
-import { initRail, loadRail } from './rail.js';
+import { initRail, loadRail, openTask } from './rail.js';
 
 installErrorBanner();
 
@@ -47,6 +47,9 @@ document.addEventListener('click', function (e) {
       break;
     case 'switch-pdf':
       switchPdf(parseInt(el.dataset.pdfId, 10));
+      break;
+    case 'open-task':
+      openTask(el.dataset.taskId);
       break;
     case 'noop':
       break;
