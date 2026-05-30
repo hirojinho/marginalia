@@ -126,6 +126,55 @@ func TestSandboxManagerSweepKeepsFresh(t *testing.T) {
 	}
 }
 
+func readAgentsMD(t *testing.T, dir string) string {
+	t.Helper()
+	b, err := os.ReadFile(filepath.Join(dir, "AGENTS.md"))
+	if err != nil {
+		t.Fatalf("read AGENTS.md: %v", err)
+	}
+	return string(b)
+}
+
+func TestWriteAgentsMDParameterizesSteering(t *testing.T) {
+	sm := NewSandboxManager(t.TempDir())
+	sm.Settings = func(string) CourseSettings {
+		return CourseSettings{
+			CourseID: "ce297", Framing: "exam-prep first", ExamStyle: "conceptual oral",
+			ChunkPages: 6, StopAfterTask: false, Interleaving: false,
+		}
+	}
+	dir, err := sm.Create(1, "", "ce297", "eduardo")
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	md := readAgentsMD(t, dir)
+	for _, want := range []string{"~6 pages per chunk", "Stop-after-task is OFF", "exam-prep first", "conceptual oral", "How to teach this course"} {
+		if !strings.Contains(md, want) {
+			t.Errorf("AGENTS.md missing %q", want)
+		}
+	}
+	if strings.Contains(md, "interleaved spaced retrieval") {
+		t.Errorf("interleaving clause should be absent when Interleaving=false")
+	}
+}
+
+func TestWriteAgentsMDUsesDefaultsWhenNoProvider(t *testing.T) {
+	sm := NewSandboxManager(t.TempDir()) // Settings nil → defaults
+	dir, err := sm.Create(2, "", "ce297", "eduardo")
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	md := readAgentsMD(t, dir)
+	for _, want := range []string{"~8 pages per chunk", "Stop-after-task is ON", "interleaved spaced retrieval"} {
+		if !strings.Contains(md, want) {
+			t.Errorf("AGENTS.md missing default %q", want)
+		}
+	}
+	if strings.Contains(md, "How to teach this course") {
+		t.Errorf("framing section should be absent when framing/exam_style empty")
+	}
+}
+
 func TestWriteAgentsMDIncludesPDFSection(t *testing.T) {
 	sm := NewSandboxManager(t.TempDir())
 	path, err := sm.Create(42, "", "", "")

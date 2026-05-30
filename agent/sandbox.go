@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -19,6 +20,10 @@ import (
 type SandboxManager struct {
 	baseDir string // <vaultRoot>/data/agent-sessions
 	outDir  string // <vaultRoot>/data/agent-out
+
+	// Settings, if set, supplies per-course Steering settings for AGENTS.md
+	// generation. Nil → DefaultCourseSettings is used. Wired in NewApp.
+	Settings func(courseID string) CourseSettings
 }
 
 // NewSandboxManager returns a manager rooted at vaultRoot.
@@ -170,8 +175,52 @@ func (sm *SandboxManager) writeAgentsMD(path, clawCLIPath string, sessionID int6
 	)
 	content = append(content, []byte(pdfSection)...)
 
+	// Resolve per-course Steering settings (ADR 0010/0016). Nil provider or
+	// missing row → behavior-preserving defaults.
+	settings := DefaultCourseSettings(course)
+	if sm.Settings != nil {
+		settings = sm.Settings(course)
+	}
+
+	// Framing / exam-style section — only when the learner has set something.
+	if course != "" && (settings.Framing != "" || settings.ExamStyle != "") {
+		var fb strings.Builder
+		fb.WriteString("\n## How to teach this course\n\n")
+		fb.WriteString("The learner's Steering settings for this course (set via the settings UI or by his explicit request). Honor them:\n\n")
+		if settings.Framing != "" {
+			fmt.Fprintf(&fb, "- **Framing / goal:** %s\n", settings.Framing)
+		}
+		if settings.ExamStyle != "" {
+			fmt.Fprintf(&fb, "- **Exam style:** %s\n", settings.ExamStyle)
+		}
+		content = append(content, []byte(fb.String())...)
+	}
+
+	// Tool section: how to change a setting conversationally (ADR 0016).
+	steerTool := "\n## Course settings (Steering) — change via tool, never via files\n\n" +
+		"Durable course settings live in a database table, surfaced above and in the rules below. " +
+		"If Eduardo asks to change one (\"smaller chunks\", \"stop chaining\", \"exam-prep framing\"), make the change with:\n" +
+		"```\nclaw-cli course settings set --course " + courseArgOrPlaceholder(course) + " --key <framing|exam_style|chunk_pages|stop_after_task|interleaving> --value <value>\n```\n" +
+		"Then confirm in ONE line and resume what you were doing — do not turn the session into a config conversation. " +
+		"**Never write settings into AGENTS.md, notes, or any file** — only this tool persists them. The change takes effect next turn.\n"
+	content = append(content, []byte(steerTool)...)
+
 	// Pedagogical rules go last so they sit closest to the user message in
-	// the assembled context — maximum LLM weight. These are non-negotiable.
+	// the assembled context — maximum LLM weight. Rules 6/9/10 reflect the
+	// course's Steering settings (ADR 0010/0016).
+	rule6 := "6. **Session-open retrieval check.** At the start of every chat session, before answering anything else, run ONE recall check. Usually ask him to recall, in his own words, the main idea of his most recent completed task. Occasionally instead pick an OLDER completed task from an earlier phase and ask him to recall that (interleaved spaced retrieval — Rohrer 2007; Cepeda 2008) — useful when earlier material is at risk of fading. Exactly one check either way; keep the opener small. Compare his recall against the actual content silently — note gaps and surface them this turn. Non-negotiable; highest-evidence pedagogic move (Roediger & Karpicke 2006, testing effect).\n"
+	if !settings.Interleaving {
+		rule6 = "6. **Session-open retrieval check.** At the start of every chat session, before answering anything else, run ONE recall check: ask him to recall, in his own words, the main idea of his most recent completed task. (Interleaving of older tasks is OFF for this course — stay on the most recent.) Keep the opener small. Compare his recall against the actual content silently — note gaps and surface them this turn. Non-negotiable; highest-evidence pedagogic move (Roediger & Karpicke 2006, testing effect).\n"
+	}
+
+	rule9 := fmt.Sprintf("9. **The reading is his — read to ground yourself, never to lecture.** A 🔴 Read task is HIS cognitive work, not yours to narrate. Chunk a long reading (~%d pages per chunk) and per chunk loop *predict → he reads → boundary recall*, ending with a full recall + confidence check; a short reading stays whole. **Position-gate (run before every boundary recall): read the page number in the `<reading_state>` block. If it is below the chunk's last page, do NOT advance or accept \"done\" — say where he is and that the chunk isn't finished, e.g.** *\"`<reading_state>` shows you on p.18, but this chunk runs to p.24 — finish it and I'll quiz you.\"* **Only run the boundary recall once the block confirms he reached the chunk's end.** An explain-back does not substitute for the page check — a confident summary can come from skimming. You MAY read the pages (`pdf extract`) to orient, to judge his recall/prediction, and to clarify questions *he* asks — but you must NOT reproduce, quote, summarize, or paraphrase a chunk's content before he has read it. Hand off explicitly: name the page range, ask him to read it, and wait. **Pull vs. push:** a question or \"explain this equation\" pulls grounded content out (always allowed — explicit requests override); dumping content before he reads is the leak. \"Read it interactively / together\" means smaller chunks with more recall, NOT lecturing. (ADR 0012 + 0015; Sweller 1988; Chi et al. 1989, self-explanation; Richland/Kornell/Kao 2009, pretesting effect; Bjork & Bjork 2011, desirable difficulties; Dunlosky et al. 2013, passive rereading is low-utility.)\n\n", settings.ChunkPages)
+
+	stopState, stopGuidance := "ON", "After he completes one task, STOP — affirm the stopping point and do NOT chain, preview, or start the next task. Continuing is opt-in (only if he says \"keep going\")."
+	if !settings.StopAfterTask {
+		stopState, stopGuidance = "OFF", "After he completes one task, you MAY offer to continue to the next task in the same session (chaining is allowed for this course)."
+	}
+	rule10 := fmt.Sprintf("10. **Stop-after-task is %s.** %s (This is the `stop_after_task` Steering setting; the study-step-complete skill Step 5 defers to it.)\n", stopState, stopGuidance)
+
 	pedagogySection := "\n## Pedagogical Rules (MANDATORY — apply on every turn)\n\n" +
 		"These govern how you teach Eduardo. Break them and the conversation is broken.\n\n" +
 		"1. **NEVER lecture continuously.** Max 3–4 sentences, then stop and ask him to explain back, apply, or react. If he hasn't spoken in the last 4 sentences, you're lecturing — stop.\n" +
@@ -179,11 +228,12 @@ func (sm *SandboxManager) writeAgentsMD(path, clawCLIPath string, sessionID int6
 		"3. **ALWAYS ask \"How confident are you with this?\"** before moving to a new topic. After the user replies, parse a value in [0.0, 1.0] from their answer and call the log_confidence tool with knowledge_component_id = the active task's id field from the plan, value = your parsed value, and raw = their verbatim reply. If no active task is in context, skip the tool call (prompt-only behavior). Low confidence → return to the previous topic; do not advance.\n" +
 		"4. **ALWAYS connect new concepts to prior knowledge.** Tie X to something he has already engaged with (earlier course material, Brendi work, prior thesis interests). No standalone introductions.\n" +
 		"5. **Progress through Bloom's levels: explain → apply → analyze → evaluate → create.** After he can explain X, ask him to apply it; after application, ask him to analyze (compare / find weaknesses); after analysis, ask him to evaluate; finally, where the topic supports it, ask him to create (synthesize / design / extend). Do not skip levels.\n" +
-		"6. **Session-open retrieval check.** At the start of every chat session, before answering anything else, run ONE recall check. Usually ask him to recall, in his own words, the main idea of his most recent completed task. Occasionally instead pick an OLDER completed task from an earlier phase and ask him to recall that (interleaved spaced retrieval — Rohrer 2007; Cepeda 2008) — useful when earlier material is at risk of fading. Exactly one check either way; keep the opener small. Compare his recall against the actual content silently — note gaps and surface them this turn. Non-negotiable; highest-evidence pedagogic move (Roediger & Karpicke 2006, testing effect).\n" +
+		rule6 +
 		"7. **Pre-Read prediction.** Before opening any new 🔴 Read task, ask him to predict in one sentence what he thinks the key idea will be — then **STOP**. Do not reveal, hint at, confirm, or answer it in the same turn, and never fabricate a prediction on his behalf. Only after he has predicted *and* read the chunk do you compare his prediction against the actual content — the gap is where the learning happens. (Slamecka & Graf 1978, generation effect; Richland, Kornell & Kao 2009, pretesting effect.)\n" +
 		"8. **Term budget: max 3 new technical terms per turn.** If a topic requires introducing more, break it across turns with a Rule-3 confidence check in between. (Sweller 1988, intrinsic cognitive load management.)\n" +
-		"9. **The reading is his — read to ground yourself, never to lecture.** A 🔴 Read task is HIS cognitive work, not yours to narrate. Chunk a long reading (~5–12 pages per chunk) and per chunk loop *predict → he reads → boundary recall*, ending with a full recall + confidence check; a short reading stays whole. **Position-gate (run before every boundary recall): read the page number in the `<reading_state>` block. If it is below the chunk's last page, do NOT advance or accept \"done\" — say where he is and that the chunk isn't finished, e.g.** *\"`<reading_state>` shows you on p.18, but this chunk runs to p.24 — finish it and I'll quiz you.\"* **Only run the boundary recall once the block confirms he reached the chunk's end.** An explain-back does not substitute for the page check — a confident summary can come from skimming. You MAY read the pages (`pdf extract`) to orient, to judge his recall/prediction, and to clarify questions *he* asks — but you must NOT reproduce, quote, summarize, or paraphrase a chunk's content before he has read it. Hand off explicitly: name the page range, ask him to read it, and wait. **Pull vs. push:** a question or \"explain this equation\" pulls grounded content out (always allowed — explicit requests override); dumping content before he reads is the leak. \"Read it interactively / together\" means smaller chunks with more recall, NOT lecturing. (ADR 0012 + 0015; Sweller 1988; Chi et al. 1989, self-explanation; Richland/Kornell/Kao 2009, pretesting effect; Bjork & Bjork 2011, desirable difficulties; Dunlosky et al. 2013, passive rereading is low-utility.)\n\n" +
-		"### Interest log — surface once per session\n\n" +
+		rule9 +
+		rule10 +
+		"\n### Interest log — surface once per session\n\n" +
 		"Once per study session, surface the oldest 1–2 entries from the course's `interests.md` (path is in the course profile section above). Ask: \"Do you want to spend 20 min on this now, or close it?\" Closure is a real option — the log should not become psychic debt. Skip this prompt if the session is clearly tactical (planning, debugging, single-task focus).\n"
 	content = append(content, []byte(pedagogySection)...)
 
@@ -191,4 +241,13 @@ func (sm *SandboxManager) writeAgentsMD(path, clawCLIPath string, sessionID int6
 		return fmt.Errorf("write agents.md: %w", err)
 	}
 	return nil
+}
+
+// courseArgOrPlaceholder returns the course id, or a placeholder for
+// course-less (Scratch) sessions where the agent must ask which course.
+func courseArgOrPlaceholder(course string) string {
+	if course == "" {
+		return "<course-id — ask which course>"
+	}
+	return course
 }

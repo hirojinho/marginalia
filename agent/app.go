@@ -99,11 +99,16 @@ type App struct {
 // NewApp constructs an App with all subsystems initialised. Caller is
 // responsible for invoking Close on shutdown.
 func NewApp(cfg Config, db *sql.DB) *App {
-	return &App{
+	app := &App{
 		DB:      db,
 		Config:  cfg,
 		Sandbox: NewSandboxManager(cfg.VaultRoot),
 	}
+	app.Sandbox.Settings = func(courseID string) CourseSettings {
+		s, _ := app.GetCourseSettings(courseID) // defaults on error are safe here
+		return s
+	}
+	return app
 }
 
 // Close releases resources held by App, including the database connection.
