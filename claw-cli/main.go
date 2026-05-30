@@ -11,6 +11,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -634,6 +635,8 @@ func runPDF(args []string, stdout, stderr io.Writer, dbPath string) int {
 	switch args[0] {
 	case "extract":
 		return pdfExtract(args[1:], stdout, stderr, dbPath)
+	case "list":
+		return pdfList(args[1:], stdout, stderr, dbPath)
 	default:
 		_, _ = fmt.Fprintf(stderr, "unknown pdf subcommand: %q\n", args[0])
 		return 2
@@ -669,6 +672,59 @@ func pdfExtract(args []string, stdout, stderr io.Writer, dbPath string) int {
 		"pages":  *pages,
 	})
 	_, _ = fmt.Fprintln(stdout, app.ToolPDFExtract(argsJSON))
+	return 0
+}
+
+func pdfList(args []string, stdout, stderr io.Writer, dbPath string) int {
+	fs := flag.NewFlagSet("pdf list", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	course := fs.String("course", "", "course id filter (optional)")
+	dbOverride := fs.String("db", "", "path to study.db")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	resolvedDB, err := resolveDBPath(*dbOverride, dbPath)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return 1
+	}
+	app, err := newAppFromEnv(resolvedDB, false)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return 1
+	}
+	defer func() { _ = app.Close() }()
+	pdfs, err := app.ListPDFs(*course)
+	if err != nil {
+		_, _ = fmt.Fprintf(stderr, "pdf list: %v\n", err)
+		return 1
+	}
+	if pdfs == nil {
+		pdfs = []agent.PDFEntry{}
+	}
+	// Most-recently-read first; nil/empty last_read_at sorts last.
+	sort.SliceStable(pdfs, func(i, j int) bool {
+		ri, rj := "", ""
+		if pdfs[i].LastReadAt != nil {
+			ri = *pdfs[i].LastReadAt
+		}
+		if pdfs[j].LastReadAt != nil {
+			rj = *pdfs[j].LastReadAt
+		}
+		if ri == rj {
+			return false
+		}
+		if ri == "" {
+			return false
+		}
+		if rj == "" {
+			return true
+		}
+		return ri > rj
+	})
+	enc := json.NewEncoder(stdout)
+	enc.SetIndent("", "  ")
+	_ = enc.Encode(map[string]any{"pdfs": pdfs})
 	return 0
 }
 

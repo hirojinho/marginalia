@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -451,5 +452,73 @@ func TestRunSkillDispatchMissingFlagsExits2(t *testing.T) {
 	code := run([]string{"clawcli", "skill", "dispatch", "--db", dbPath}, &stdout, &stderr, "")
 	if code != 2 {
 		t.Fatalf("exit %d, want 2", code)
+	}
+}
+
+func seedPDF(t *testing.T, dbPath string, id int, name, lastReadAt string) {
+	t.Helper()
+	db, err := agent.OpenDB(dbPath)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer func() { _ = db.Close() }()
+	var lra any
+	if lastReadAt != "" {
+		lra = lastReadAt
+	}
+	_, err = db.Exec(
+		"INSERT INTO pdfs (id, filename, original_name, course_id, pages, last_page, last_read_at, uploaded_at) VALUES (?,?,?,?,?,?,?,?)",
+		id, fmt.Sprintf("%d.pdf", id), name, nil, 10, 1, lra, "2026-05-01T00:00:00Z",
+	)
+	if err != nil {
+		t.Fatalf("seed pdf: %v", err)
+	}
+}
+
+func TestPDFListEmptyAndOrdered(t *testing.T) {
+	dbPath := newTempDB(t)
+
+	// Empty DB → {"pdfs": []}
+	var out, errb bytes.Buffer
+	if code := run([]string{"clawcli", "pdf", "list"}, &out, &errb, dbPath); code != 0 {
+		t.Fatalf("exit %d: %s", code, errb.String())
+	}
+	var empty struct {
+		PDFs []map[string]any `json:"pdfs"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &empty); err != nil {
+		t.Fatalf("parse empty: %v\n%s", err, out.String())
+	}
+	if len(empty.PDFs) != 0 {
+		t.Fatalf("want 0 pdfs, got %d", len(empty.PDFs))
+	}
+
+	// id1 read earlier, id2 read later, id3 never read.
+	seedPDF(t, dbPath, 1, "older.pdf", "2026-05-10T10:00:00Z")
+	seedPDF(t, dbPath, 2, "newer.pdf", "2026-05-20T10:00:00Z")
+	seedPDF(t, dbPath, 3, "unread.pdf", "")
+
+	out.Reset()
+	errb.Reset()
+	if code := run([]string{"clawcli", "pdf", "list"}, &out, &errb, dbPath); code != 0 {
+		t.Fatalf("exit %d: %s", code, errb.String())
+	}
+	var got struct {
+		PDFs []struct {
+			ID           int    `json:"id"`
+			OriginalName string `json:"original_name"`
+		} `json:"pdfs"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &got); err != nil {
+		t.Fatalf("parse: %v\n%s", err, out.String())
+	}
+	if len(got.PDFs) != 3 {
+		t.Fatalf("want 3 pdfs, got %d", len(got.PDFs))
+	}
+	if got.PDFs[0].ID != 2 {
+		t.Fatalf("want most-recently-read (id 2) first, got id %d", got.PDFs[0].ID)
+	}
+	if got.PDFs[2].ID != 3 {
+		t.Fatalf("want unread (id 3) last, got id %d", got.PDFs[2].ID)
 	}
 }
