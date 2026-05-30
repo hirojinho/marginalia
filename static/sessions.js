@@ -48,6 +48,9 @@ export function setActiveSessionId(id) {
   activeSessionId = id;
 }
 
+// loadActiveSession restores the active session id + pill and RETURNS the
+// active session object (or null) so callers can act on it (e.g. restore
+// reading on page load).
 export async function loadActiveSession() {
   try {
     const resp = await apiFetch('/api/sessions/active');
@@ -55,13 +58,15 @@ export async function loadActiveSession() {
     if (data && data.id) {
       activeSessionId = data.id;
       updateSessionPill(data);
-    } else {
-      activeSessionId = null;
-      updateSessionPill(null);
+      return data;
     }
+    activeSessionId = null;
+    updateSessionPill(null);
+    return null;
   } catch {
     activeSessionId = null;
     updateSessionPill(null);
+    return null;
   }
 }
 

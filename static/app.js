@@ -7,13 +7,12 @@ import {
   loadSessionMessages,
   switchSession,
   deleteSession,
-  getActiveSessionId,
 } from './sessions.js';
 import { initChat } from './chat.js';
 import { initPlan, openFullPlan, toggleTopic, openPdfFromDrawer } from './plan.js';
 import { initPdf, openPdf, triggerUpload, switchPdf } from './pdf.js';
 import { initPomodoro } from './pomodoro.js';
-import { initRail, loadRail, openTask, toggleTask } from './rail.js';
+import { initRail, loadRail, openTask, toggleTask, restoreReading } from './rail.js';
 
 installErrorBanner();
 
@@ -89,9 +88,13 @@ initPomodoro();
   initChat(chatEndpoint);
   await loadCourses();
   await loadRail();
-  await loadActiveSession();
-  if (getActiveSessionId()) {
+  const active = await loadActiveSession();
+  if (active && active.id) {
     await loadSessionMessages();
+    // Restore the active session's reading on load (deterministic — runs after
+    // pdfjsLib is ready, unlike the old pdfjs-ready listener which raced the
+    // head module's dispatch). Reading is tied to the session (ADR 0012).
+    restoreReading(active.last_pdf_id);
   }
 })();
 

@@ -690,20 +690,9 @@ export function initPdf() {
     }, 300);
   });
 
-  // Auto-open last PDF on startup in split view
-  window.addEventListener('pdfjs-ready', async () => {
-    try {
-      const resp = await apiFetch('/pdf/last');
-      const data = await resp.json();
-      if (data && data.pdf) {
-        currentPdfId = data.pdf.id;
-        currentPage = data.pdf.last_page || 1;
-        await openPdf(currentPdfId);
-      }
-    } catch {
-      // No last opened PDF, that's fine
-    }
-  });
+  // Load-time reading restore lives in app.js initApp (restoreReading), tied to
+  // the active session and run after pdfjsLib is ready. The old pdfjs-ready
+  // listener here raced the head module's dispatch and never fired — removed.
 
   // Filename dropdown
   document.getElementById('pdf-filename')?.addEventListener('click', async function (e) {

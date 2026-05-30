@@ -205,13 +205,7 @@ export async function openTask(taskId) {
       setActiveSessionId(data.id);
       await loadSessionMessages();
       setBanner(title);
-      // Reading is tied to the task (ADR 0012): auto-open the session's learned
-      // PDF. last_pdf_id is null until the learner first opens one — then skip.
-      if (data.last_pdf_id) {
-        setCurrentPdfId(data.last_pdf_id);
-        openPdf(data.last_pdf_id);
-        showView('split');
-      }
+      restoreReading(data.last_pdf_id);
     } else {
       // No session yet — hold a pending task; the workspace is empty until the
       // first message creates the row.
@@ -223,6 +217,16 @@ export async function openTask(taskId) {
   } catch (err) {
     console.error('Failed to open task', err);
   }
+}
+
+// restoreReading opens a session's learned PDF on the right in split view.
+// Reading is tied to the task/session (ADR 0012). No-op when pdfId is falsy
+// (the session never opened a PDF). Used by openTask and by page-load restore.
+export function restoreReading(pdfId) {
+  if (!pdfId) return;
+  setCurrentPdfId(pdfId);
+  openPdf(pdfId);
+  showView('split');
 }
 
 // toggleTask flips a task's done flag via the linear index (matches the backend
