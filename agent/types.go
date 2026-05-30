@@ -1,6 +1,8 @@
 package agent
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -194,6 +196,22 @@ func (a *App) LoadPlan(id string) *JSONPlan {
 		}
 	}
 	return &p
+}
+
+// PlanFingerprint returns a content hash of course id's plan file, used to
+// detect whether the plan changed across an agent turn (so the UI can refresh
+// only when it actually did). Returns "" if the plan file is absent or
+// unreadable; a "" → non-"" transition signals a plan created during the turn.
+// Hashing the content (not the mtime) avoids false positives from redundant
+// rewrites of identical content.
+func (a *App) PlanFingerprint(id string) string {
+	path := a.VaultPath("data", "plans", id+".json")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+	sum := sha256.Sum256(data)
+	return hex.EncodeToString(sum[:])
 }
 
 func (a *App) SavePlan(p *JSONPlan) error {

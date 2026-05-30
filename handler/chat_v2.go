@@ -175,9 +175,26 @@ func (h *Handler) handleChatV2(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
 
+	// Fingerprint the plan before the turn so we can tell the client to refresh
+	// the rail iff the agent mutates the plan (e.g. via `claw-cli plan toggle`).
+	// Captured after buildPiPrompt so a read-triggered task-ID migration isn't
+	// mistaken for an agent edit.
+	planBefore := ""
+	if sess.CourseID != "" {
+		planBefore = h.App.PlanFingerprint(sess.CourseID)
+	}
+
 	turnStart := time.Now()
 	assistantText, assistantReasoning, piUsage, piTools := streamPiTurn(ctx, events, w, flusher)
 	durationMs := time.Since(turnStart).Milliseconds()
+
+	// If the plan changed this turn, signal the rail to re-fetch. The rail only
+	// reloads on page load / course switch otherwise, so agent-driven plan edits
+	// would stay stale until reload. Comparing a content fingerprint means no
+	// refresh fires on turns that leave the plan untouched.
+	if sess.CourseID != "" && h.App.PlanFingerprint(sess.CourseID) != planBefore {
+		writeSSEEvent(w, flusher, "plan_changed", `{}`)
+	}
 
 	// Title generation almost always finishes before the Pi turn does; if so,
 	// tell the client to refresh the sidebar. If not ready, the frontend picks

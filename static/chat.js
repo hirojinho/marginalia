@@ -200,6 +200,10 @@ export function initChat(chatEndpoint) {
             } else if (eventType === 'session_topic') {
               loadRail();
               loadActiveSession();
+            } else if (eventType === 'plan_changed') {
+              // Agent mutated the plan this turn — refresh the rail so task
+              // done/next/has-work state reflects it without a page reload.
+              loadRail();
             } else if (eventType === 'done') {
               if (currentAssistantMsg) currentAssistantMsg.classList.remove('token-cursor');
               currentAssistantMsg = null;
