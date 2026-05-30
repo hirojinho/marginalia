@@ -102,6 +102,17 @@ type ConfidencePoint struct {
 	RawText   string  `json:"raw_text,omitempty"`
 }
 
+// KnowledgeComponent represents a content-bearing atomic note.
+type KnowledgeComponent struct {
+	ID              string `json:"id"`
+	Title           string `json:"title"`
+	Body            string `json:"body"`
+	SourceTaskID    string `json:"source_task_id,omitempty"`
+	SourceSessionID int64  `json:"source_session_id,omitempty"`
+	CreatedAt       int64  `json:"created_at"`
+	UpdatedAt       int64  `json:"updated_at"`
+}
+
 // ExtractPDFPageCount returns the page count parsed from the PDF
 // /Count entry, or 0 if it cannot be determined.
 func ExtractPDFPageCount(data []byte) int {

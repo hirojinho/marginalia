@@ -445,3 +445,77 @@ func TestToolLogConfidence_DispatchedRoundTrip(t *testing.T) {
 		t.Errorf("value = %v, want 0.8", points[0].Value)
 	}
 }
+
+func TestKnowledgeComponentCRUD(t *testing.T) {
+	a := newMemoryApp(t)
+
+	// Create with provenance
+	id, err := a.CreateKnowledgeComponent("Test Title", "Test Body", "task-123", 0)
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	if id == "" {
+		t.Fatal("expected non-empty id")
+	}
+
+	// Get round-trip
+	kc, err := a.GetKnowledgeComponent(id)
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	if kc == nil {
+		t.Fatal("expected component, got nil")
+	}
+	if kc.Title != "Test Title" {
+		t.Errorf("title = %q, want %q", kc.Title, "Test Title")
+	}
+	if kc.Body != "Test Body" {
+		t.Errorf("body = %q, want %q", kc.Body, "Test Body")
+	}
+	if kc.SourceTaskID != "task-123" {
+		t.Errorf("source_task_id = %q, want %q", kc.SourceTaskID, "task-123")
+	}
+	if kc.SourceSessionID != 0 {
+		t.Errorf("source_session_id = %d, want 0", kc.SourceSessionID)
+	}
+
+	// Get missing
+	missing, err := a.GetKnowledgeComponent("nonexistent-id")
+	if err != nil {
+		t.Fatalf("get missing: %v", err)
+	}
+	if missing != nil {
+		t.Fatal("expected nil for missing id")
+	}
+
+	// List
+	id2, err := a.CreateKnowledgeComponent("Second", "Body 2", "", 0)
+	if err != nil {
+		t.Fatalf("create second: %v", err)
+	}
+	_ = id2
+	// Ensure second record is newer by bumping its updated_at
+	_, _ = a.DB.Exec("UPDATE knowledge_components SET created_at = created_at + 1, updated_at = updated_at + 1 WHERE id = ?", id2)
+	list, err := a.ListKnowledgeComponents(50)
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if len(list) != 2 {
+		t.Fatalf("expected 2 components, got %d", len(list))
+	}
+	if list[0].Title != "Second" {
+		t.Errorf("expected newest first, got title %q", list[0].Title)
+	}
+}
+
+func TestKnowledgeComponentEmptyTitleOrBodyRejected(t *testing.T) {
+	a := newMemoryApp(t)
+	_, err := a.CreateKnowledgeComponent("", "body", "", 0)
+	if err == nil {
+		t.Fatal("expected error for empty title")
+	}
+	_, err = a.CreateKnowledgeComponent("title", "", "", 0)
+	if err == nil {
+		t.Fatal("expected error for empty body")
+	}
+}
