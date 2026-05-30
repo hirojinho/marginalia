@@ -3,6 +3,7 @@ package agent
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -122,5 +123,28 @@ func TestSandboxManagerSweepKeepsFresh(t *testing.T) {
 	}
 	if removed != 0 {
 		t.Errorf("Sweep removed %d fresh sandboxes, want 0", removed)
+	}
+}
+
+func TestWriteAgentsMDIncludesPDFSection(t *testing.T) {
+	sm := NewSandboxManager(t.TempDir())
+	path, err := sm.Create(42, "", "", "")
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	data, err := os.ReadFile(filepath.Join(path, "AGENTS.md"))
+	if err != nil {
+		t.Fatalf("read AGENTS.md: %v", err)
+	}
+	body := string(data)
+	for _, want := range []string{
+		"## Slides / PDFs",
+		"claw-cli pdf current --session 42",
+		"Never reconstruct",
+		"claw-cli pdf extract",
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("AGENTS.md missing %q", want)
+		}
 	}
 }

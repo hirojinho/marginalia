@@ -157,6 +157,18 @@ func (sm *SandboxManager) writeAgentsMD(path, clawCLIPath string, sessionID int6
 		content = append(content, []byte(planSection)...)
 	}
 
+	pdfSection := fmt.Sprintf(
+		"\n## Slides / PDFs\n\n"+
+			"The user studies from PDF documents shown in a viewer beside this chat. "+
+			"**Never reconstruct slide or document content from your own memory — read the actual pages.** "+
+			"To see what the user is currently reading:\n```\nclaw-cli pdf current --session %d\n```\n"+
+			"This returns the open PDF's `id` and `last_page` (the page they are on). Then read the relevant pages:\n"+
+			"```\nclaw-cli pdf extract --id <id> --pages <range around last_page, e.g. 40-50>\n```\n"+
+			"Use `claw-cli pdf list` to see every uploaded PDF (most-recently-read first).\n",
+		sessionID,
+	)
+	content = append(content, []byte(pdfSection)...)
+
 	// Pedagogical rules go last so they sit closest to the user message in
 	// the assembled context — maximum LLM weight. These are non-negotiable.
 	pedagogySection := "\n## Pedagogical Rules (MANDATORY — apply on every turn)\n\n" +
