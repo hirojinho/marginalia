@@ -792,7 +792,7 @@ func TestPlanRewriteBadJSONExits1(t *testing.T) {
 	if code != 1 {
 		t.Fatalf("want exit 1 on bad JSON, got %d", code)
 	}
-	if !strings.Contains(errb.String(), "error") {
+	if !strings.Contains(errb.String(), "failed to parse") {
 		t.Fatalf("stderr: %s", errb.String())
 	}
 }
@@ -809,6 +809,9 @@ func TestPlanRewriteIDMismatchExits1(t *testing.T) {
 	if code != 1 {
 		t.Fatalf("want exit 1 on id mismatch, got %d (stderr: %s)", code, errb.String())
 	}
+	if !strings.Contains(errb.String(), "does not match") {
+		t.Fatalf("expected id-mismatch message, stderr: %s", errb.String())
+	}
 }
 
 func TestPlanRewriteMissingFlagsExits2(t *testing.T) {
@@ -817,5 +820,18 @@ func TestPlanRewriteMissingFlagsExits2(t *testing.T) {
 	code := run([]string{"clawcli", "plan", "rewrite", "--course", "rw-course"}, &out, &errb, dbPath)
 	if code != 2 {
 		t.Fatalf("want exit 2 when --plan-file missing, got %d (stderr: %s)", code, errb.String())
+	}
+}
+
+func TestPlanRewriteMissingFileExits1(t *testing.T) {
+	dbPath := newTempDB(t)
+	t.Setenv("VAULT_ROOT", t.TempDir())
+	var out, errb bytes.Buffer
+	code := run([]string{"clawcli", "plan", "rewrite", "--course", "rw-course", "--plan-file", "/nonexistent/plan.json"}, &out, &errb, dbPath)
+	if code != 1 {
+		t.Fatalf("want exit 1 on missing file, got %d (stderr: %s)", code, errb.String())
+	}
+	if !strings.Contains(errb.String(), "reading") {
+		t.Fatalf("expected a read error, stderr: %s", errb.String())
 	}
 }
