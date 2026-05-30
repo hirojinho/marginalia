@@ -109,9 +109,14 @@ config**, not create-vs-edit: designing a new chapter's tasks is Authoring even
 though it edits an existing Plan; ticking a task done is Steering even though it
 changes the Plan too.
 
-Steering should not happen *inside* a Studying Session (it bloats and pollutes
-it). Authoring is its own conversational surface, distinct from both a
-task-anchored Session and from the Steering UI.
+Steering has a dedicated **Steering UI** (a settings form) and is also reachable
+conversationally: the tutor may change a setting *anywhere*, including inside a
+Studying Session, by making one deterministic write and resuming — what must not
+happen is a Studying Session *accreting* into an open-ended config conversation.
+The earlier "no Steering inside a Studying Session" rule was about that
+accretion (and about the old unreliability of chat-driven config); a single
+one-shot setting change is fine. Authoring is its own conversational surface,
+distinct from both a task-anchored Session and from the Steering UI.
 
 ## Authoring principle
 

@@ -1,6 +1,6 @@
 # 0010 — Steering is edited via a settings UI to source-of-truth stores; the agent never persists config to generated artifacts
 
-- **Status:** Accepted
+- **Status:** Accepted (amended by [0016](0016-agent-may-write-steering-via-deterministic-tool.md) — the tutor may also write config, via a deterministic typed tool to the same store)
 - **Date:** 2026-05-29
 
 ## Context
