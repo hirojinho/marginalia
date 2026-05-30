@@ -359,7 +359,7 @@ func (a *App) CreateSessionForTask(courseID, taskID, topic string) (Session, err
 func (a *App) GetSessionByTask(courseID, taskID string) (Session, bool, error) {
 	var id int64
 	err := a.DB.QueryRow(
-		"SELECT id FROM sessions WHERE course_id = ? AND task_id = ? AND hidden = 0 ORDER BY id LIMIT 1",
+		"SELECT id FROM sessions WHERE course_id = ? AND task_id = ? AND hidden = 0 AND archived = 0 ORDER BY id LIMIT 1",
 		courseID, taskID,
 	).Scan(&id)
 	if errors.Is(err, sql.ErrNoRows) {

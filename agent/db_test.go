@@ -572,6 +572,25 @@ func TestListSessionsExcludesHidden(t *testing.T) {
 	}
 }
 
+func TestGetSessionByTaskExcludesArchived(t *testing.T) {
+	a := newMemoryApp(t)
+	s, err := a.CreateSessionForTask("ddia", "task-arch", "anchored then archived")
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	// Visible while live.
+	if _, ok, err := a.GetSessionByTask("ddia", "task-arch"); err != nil || !ok {
+		t.Fatalf("expected found before archive, ok=%v err=%v", ok, err)
+	}
+	if _, err := a.DB.Exec("UPDATE sessions SET archived = 1 WHERE id = ?", s.ID); err != nil {
+		t.Fatalf("archive: %v", err)
+	}
+	// Once archived, the task should resolve as having no live session.
+	if _, ok, err := a.GetSessionByTask("ddia", "task-arch"); err != nil || ok {
+		t.Errorf("expected not-found after archive, ok=%v err=%v", ok, err)
+	}
+}
+
 func TestGetSessionByTaskIgnoresHidden(t *testing.T) {
 	a := newMemoryApp(t)
 	created, err := a.CreateSessionForTask("ddia", "task-hidden", "to be hidden")
