@@ -571,3 +571,34 @@ func TestListSessionsExcludesHidden(t *testing.T) {
 		t.Errorf("visible session %d missing from ListSessions", visible.ID)
 	}
 }
+
+func TestCreateAndGetSessionByTask(t *testing.T) {
+	a := newMemoryApp(t)
+
+	if _, ok, err := a.GetSessionByTask("ddia", "task-uuid-1"); err != nil || ok {
+		t.Fatalf("expected (not found), got ok=%v err=%v", ok, err)
+	}
+
+	created, err := a.CreateSessionForTask("ddia", "task-uuid-1", "DDIA 3.3 Weak Isolation")
+	if err != nil {
+		t.Fatalf("create for task: %v", err)
+	}
+	if created.TaskID == nil || *created.TaskID != "task-uuid-1" {
+		t.Fatalf("TaskID = %v, want task-uuid-1", created.TaskID)
+	}
+	if created.CourseID != "ddia" {
+		t.Errorf("CourseID = %q, want ddia", created.CourseID)
+	}
+
+	got, ok, err := a.GetSessionByTask("ddia", "task-uuid-1")
+	if err != nil || !ok {
+		t.Fatalf("expected (found), got ok=%v err=%v", ok, err)
+	}
+	if got.ID != created.ID {
+		t.Errorf("GetSessionByTask returned id %d, want %d", got.ID, created.ID)
+	}
+
+	if _, ok, _ := a.GetSessionByTask("ddia", "task-uuid-2"); ok {
+		t.Errorf("unexpected session for task-uuid-2")
+	}
+}

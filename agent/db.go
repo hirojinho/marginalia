@@ -280,6 +280,52 @@ func (a *App) CreateSession(courseID, topic string) (Session, error) {
 	}, nil
 }
 
+// CreateSessionForTask creates a Session anchored to a plan task's UUID
+// (ADR 0014, 1:1 Task↔Session). topic defaults to "General" when empty.
+func (a *App) CreateSessionForTask(courseID, taskID, topic string) (Session, error) {
+	if topic == "" {
+		topic = "General"
+	}
+	now := time.Now().Format(time.RFC3339)
+	res, err := a.DB.Exec(
+		"INSERT INTO sessions (course_id, task_id, topic, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+		courseID, taskID, topic, now, now,
+	)
+	if err != nil {
+		return Session{}, fmt.Errorf("insert task session: %w", err)
+	}
+	id, err := res.LastInsertId()
+	if err != nil {
+		return Session{}, fmt.Errorf("last insert id: %w", err)
+	}
+	if err := a.setMetaInt("last_session", id); err != nil {
+		return Session{}, fmt.Errorf("set last_session: %w", err)
+	}
+	a.SetActiveSessionIDInMemory(id)
+	return a.GetSession(id)
+}
+
+// GetSessionByTask returns the (single) Session anchored to (courseID, taskID).
+// The bool is false when none exists. Hidden sessions are ignored.
+func (a *App) GetSessionByTask(courseID, taskID string) (Session, bool, error) {
+	var id int64
+	err := a.DB.QueryRow(
+		"SELECT id FROM sessions WHERE course_id = ? AND task_id = ? AND hidden = 0 ORDER BY id LIMIT 1",
+		courseID, taskID,
+	).Scan(&id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return Session{}, false, nil
+	}
+	if err != nil {
+		return Session{}, false, fmt.Errorf("get session by task: %w", err)
+	}
+	s, err := a.GetSession(id)
+	if err != nil {
+		return Session{}, false, err
+	}
+	return s, true, nil
+}
+
 func (a *App) ListSessions() ([]Session, error) {
 	rows, err := a.DB.Query("SELECT id, course_id, task_id, topic, created_at, updated_at, last_pdf_id, last_page, archived FROM sessions WHERE hidden = 0 ORDER BY updated_at DESC")
 	if err != nil {
