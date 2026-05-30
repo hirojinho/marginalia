@@ -43,10 +43,16 @@ the "exit."
 ### Nature of the artifact
 
 A **pure Claw skill** — a `SKILL.md` of instructions that composes existing
-capabilities. No new binaries. It uses:
+capabilities, in the exact style of the shipped `claw-study-read` skill (file
+reads + `sqlite3`/`grep`, **no `claw-cli`** — it isn't in Claw's container). It
+uses:
 
-- `claw-cli course interests --course <id>` (exists) and direct reads over the
-  `/workspace/study-app/` mount for seeds (interest-logs, corpus).
+- **Interest-logs from Claw's own group memory** — `memory/courses/<id>/interests.md`
+  (`ce297`, `ddia`, `dsa-interview`, `software-arch`) and `memory/thesis/interests.md`.
+  (The study-app `memory/courses` tree is empty on the VPS; the live interest-logs
+  are Claw's, read natively.)
+- **Corpus from the study-app mount** — `/workspace/study-app/data/corpus/`
+  (`courses/`, `meta/`, `study-methods/`).
 - `curl` to the Wikipedia API for the real article URL.
 - Claw's own memory dir for the wander-log (plain markdown read/append).
 
@@ -70,9 +76,10 @@ On a trigger:
 
 1. **Read the wander-log** at `groups/dm-with-hiroji/memory/wander/log.md` to
    know which recent topics to avoid.
-2. **Gather seeds** — interest-logs across the known courses (`ce297`, `ddia`,
-   `dsa-interview`, `software-arch`, `thesis`) via `claw-cli course interests`,
-   plus a sampling of corpus/Knowledge-Component topics.
+2. **Gather seeds** — read interest-logs from Claw's group memory
+   (`memory/courses/{ce297,ddia,dsa-interview,software-arch}/interests.md` +
+   `memory/thesis/interests.md`), plus a sampling of corpus topics under
+   `/workspace/study-app/data/corpus/`.
 3. **Hop sideways** — pick a seed, then jump *one step* into an adjacent or
    tangential topic (may be fully off-syllabus). Serendipity is the point; the
    seed is a launch pad, not the destination. Avoid anything in the wander-log.
@@ -118,7 +125,7 @@ immediate rehash without heavier machinery.
 
 | Unit | Responsibility | Depends on |
 |------|----------------|------------|
-| `docs/claw-skills/wander.md` (SKILL.md) | the entire Wander behaviour: triggers, seed→hop→write→link→menu→log | `claw-cli course interests`, `/workspace/study-app/` mount, Wikipedia API, wander-log file |
+| `docs/claw-skills/wander.md` (SKILL.md) | the entire Wander behaviour: triggers, seed→hop→write→link→menu→log | Claw group-memory interest-logs, `/workspace/study-app/data/corpus/`, Wikipedia API, wander-log file |
 | wander-log (`memory/wander/log.md`) | last-~15 topic memory for repeat-avoidance | filesystem only |
 | `CONTEXT.md` Wander entry | canonical meaning of the term | — |
 | ADR 0013 | records the no-buttons / numbered-reply decision | — |
