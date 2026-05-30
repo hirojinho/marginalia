@@ -629,7 +629,7 @@ func runNote(args []string, stdout, stderr io.Writer, dbPath string) int {
 
 func runPDF(args []string, stdout, stderr io.Writer, dbPath string) int {
 	if len(args) < 1 {
-		_, _ = fmt.Fprintln(stderr, "usage: claw-cli pdf <extract> [args]")
+		_, _ = fmt.Fprintln(stderr, "usage: claw-cli pdf <extract|list|current> [args]")
 		return 2
 	}
 	switch args[0] {
@@ -637,10 +637,58 @@ func runPDF(args []string, stdout, stderr io.Writer, dbPath string) int {
 		return pdfExtract(args[1:], stdout, stderr, dbPath)
 	case "list":
 		return pdfList(args[1:], stdout, stderr, dbPath)
+	case "current":
+		return pdfCurrent(args[1:], stdout, stderr, dbPath)
 	default:
 		_, _ = fmt.Fprintf(stderr, "unknown pdf subcommand: %q\n", args[0])
 		return 2
 	}
+}
+
+func pdfCurrent(args []string, stdout, stderr io.Writer, dbPath string) int {
+	fs := flag.NewFlagSet("pdf current", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	session := fs.Int64("session", 0, "session id (optional; uses its last-viewed PDF)")
+	dbOverride := fs.String("db", "", "path to study.db")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	resolvedDB, err := resolveDBPath(*dbOverride, dbPath)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return 1
+	}
+	app, err := newAppFromEnv(resolvedDB, false)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return 1
+	}
+	defer func() { _ = app.Close() }()
+
+	var pdfID int64
+	if *session > 0 {
+		if id, err := app.GetSessionLastPDFID(*session); err == nil && id > 0 {
+			pdfID = id
+		}
+	}
+	if pdfID == 0 {
+		if id, err := app.GetLastOpenedPDFID(); err == nil && id > 0 {
+			pdfID = id
+		}
+	}
+	if pdfID == 0 {
+		_, _ = fmt.Fprintln(stderr, "pdf current: no PDF is currently open")
+		return 1
+	}
+	entry, err := app.GetPDF(pdfID)
+	if err != nil {
+		_, _ = fmt.Fprintf(stderr, "pdf current: %v\n", err)
+		return 1
+	}
+	enc := json.NewEncoder(stdout)
+	enc.SetIndent("", "  ")
+	_ = enc.Encode(entry)
+	return 0
 }
 
 func pdfExtract(args []string, stdout, stderr io.Writer, dbPath string) int {

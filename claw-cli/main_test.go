@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -475,6 +476,18 @@ func seedPDF(t *testing.T, dbPath string, id int, name, lastReadAt string) {
 	}
 }
 
+func openApp(t *testing.T, dbPath string) *agent.App {
+	t.Helper()
+	db, err := agent.OpenDB(dbPath)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	if err := agent.InitSchema(db); err != nil {
+		t.Fatalf("init: %v", err)
+	}
+	return agent.NewApp(agent.Config{VaultRoot: t.TempDir()}, db)
+}
+
 func TestPDFListEmptyAndOrdered(t *testing.T) {
 	dbPath := newTempDB(t)
 
@@ -520,5 +533,79 @@ func TestPDFListEmptyAndOrdered(t *testing.T) {
 	}
 	if got.PDFs[2].ID != 3 {
 		t.Fatalf("want unread (id 3) last, got id %d", got.PDFs[2].ID)
+	}
+}
+
+func TestPDFCurrentSessionHit(t *testing.T) {
+	dbPath := newTempDB(t)
+	seedPDF(t, dbPath, 2, "ch8.pdf", "2026-05-20T10:00:00Z")
+
+	var sessID int64
+	func() {
+		app := openApp(t, dbPath)
+		defer func() { _ = app.Close() }()
+		sess, err := app.CreateSession("ce297", "topic")
+		if err != nil {
+			t.Fatalf("create session: %v", err)
+		}
+		sessID = sess.ID
+		if _, err := app.DB.Exec("UPDATE sessions SET last_pdf_id = ? WHERE id = ?", 2, sessID); err != nil {
+			t.Fatalf("set last_pdf_id: %v", err)
+		}
+	}()
+
+	var out, errb bytes.Buffer
+	code := run([]string{"clawcli", "pdf", "current", "--session", strconv.FormatInt(sessID, 10)}, &out, &errb, dbPath)
+	if code != 0 {
+		t.Fatalf("exit %d: %s", code, errb.String())
+	}
+	var got struct {
+		ID           int    `json:"id"`
+		OriginalName string `json:"original_name"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &got); err != nil {
+		t.Fatalf("parse: %v\n%s", err, out.String())
+	}
+	if got.ID != 2 {
+		t.Fatalf("want session's pdf id 2, got %d", got.ID)
+	}
+}
+
+func TestPDFCurrentFallbackToLastOpened(t *testing.T) {
+	dbPath := newTempDB(t)
+	seedPDF(t, dbPath, 5, "last.pdf", "2026-05-21T10:00:00Z")
+	func() {
+		app := openApp(t, dbPath)
+		defer func() { _ = app.Close() }()
+		if err := app.SetLastOpenedPDF(5); err != nil {
+			t.Fatalf("set last opened: %v", err)
+		}
+	}()
+
+	var out, errb bytes.Buffer
+	code := run([]string{"clawcli", "pdf", "current"}, &out, &errb, dbPath)
+	if code != 0 {
+		t.Fatalf("exit %d: %s", code, errb.String())
+	}
+	var got struct {
+		ID int `json:"id"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &got); err != nil {
+		t.Fatalf("parse: %v\n%s", err, out.String())
+	}
+	if got.ID != 5 {
+		t.Fatalf("want fallback id 5, got %d", got.ID)
+	}
+}
+
+func TestPDFCurrentNoneOpen(t *testing.T) {
+	dbPath := newTempDB(t)
+	var out, errb bytes.Buffer
+	code := run([]string{"clawcli", "pdf", "current"}, &out, &errb, dbPath)
+	if code != 1 {
+		t.Fatalf("want exit 1, got %d (stderr: %s)", code, errb.String())
+	}
+	if !strings.Contains(errb.String(), "no PDF is currently open") {
+		t.Fatalf("stderr: %s", errb.String())
 	}
 }
