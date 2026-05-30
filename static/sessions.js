@@ -12,8 +12,34 @@ export const courseMeta = {
   '': { name: 'General', color: '#78716C' },
 };
 
+// Colors for courses that exist in the DB but aren't in the hardcoded map above
+// (e.g. created via the agent / POST /api/courses). Cycled by discovery order.
+const FALLBACK_COURSE_COLORS = ['#0D9488', '#DB2777', '#CA8A04', '#4F46E5', '#0891B2'];
+
 let activeSessionId = null;
 let allSessions = [];
+
+// Merge courses from the backend into courseMeta so agent-created courses
+// (which aren't in the hardcoded map) show up in the sidebar.
+export async function loadCourses() {
+  try {
+    const resp = await apiFetch('/api/courses');
+    const courses = await resp.json();
+    let extra = 0;
+    for (const c of courses || []) {
+      if (!c || !c.id || c.id.startsWith('postship-smoke')) continue;
+      if (!courseMeta[c.id]) {
+        courseMeta[c.id] = {
+          name: c.name || c.id,
+          color: FALLBACK_COURSE_COLORS[extra % FALLBACK_COURSE_COLORS.length],
+        };
+        extra++;
+      }
+    }
+  } catch (err) {
+    console.error('Failed to load courses', err);
+  }
+}
 
 const EXPANDED_KEY = 'claw-study:expandedCourse';
 

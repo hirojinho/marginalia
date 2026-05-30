@@ -9,6 +9,15 @@ import (
 var kebabRe = regexp.MustCompile(`^[a-z0-9-]+$`)
 
 func (h *Handler) handleCourses(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodGet {
+		courses, err := h.App.ListCourses()
+		if err != nil {
+			writeServerError(w, "list courses", err)
+			return
+		}
+		writeJSON(w, http.StatusOK, courses)
+		return
+	}
 	if methodNotAllowed(w, r, http.MethodPost) {
 		return
 	}

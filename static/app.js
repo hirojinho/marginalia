@@ -2,6 +2,7 @@
 // importing handler functions from each feature module — no event bus.
 import { installErrorBanner } from './errorBanner.js';
 import {
+  loadCourses,
   loadSessions,
   loadActiveSession,
   loadSessionMessages,
@@ -78,6 +79,7 @@ initPomodoro();
 (async function initApp() {
   const chatEndpoint = await loadRuntimeEndpoint();
   initChat(chatEndpoint);
+  await loadCourses();
   await loadSessions();
   await loadActiveSession();
   if (getActiveSessionId()) {
