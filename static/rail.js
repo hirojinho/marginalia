@@ -3,6 +3,7 @@
 import { apiFetch } from './apiFetch.js';
 import { courseMeta, setActiveSessionId, loadSessionMessages, clearWorkspace } from './sessions.js';
 import { escapeHtml } from './dom.js';
+import { openPdf, showView, setCurrentPdfId } from './pdf.js';
 
 const SELECTED_COURSE_KEY = 'claw-study:railCourse';
 
@@ -204,6 +205,13 @@ export async function openTask(taskId) {
       setActiveSessionId(data.id);
       await loadSessionMessages();
       setBanner(title);
+      // Reading is tied to the task (ADR 0012): auto-open the session's learned
+      // PDF. last_pdf_id is null until the learner first opens one — then skip.
+      if (data.last_pdf_id) {
+        setCurrentPdfId(data.last_pdf_id);
+        openPdf(data.last_pdf_id);
+        showView('split');
+      }
     } else {
       // No session yet — hold a pending task; the workspace is empty until the
       // first message creates the row.
