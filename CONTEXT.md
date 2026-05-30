@@ -92,3 +92,24 @@ directly, not produced as a side effect of a chat turn.
 learning and stays with the learner. Filing, scheduling, deduping, surfacing,
 and linking Knowledge Components are the app's job. See
 [ADR 0007](docs/adr/0007-knowledge-component-as-atomic-note.md).
+
+## Wander
+
+A **Wander** is a single leisure-reading card the learner *pulls* on demand
+(over Telegram, via Claw) — a short, deliberately level-appropriate explainer
+on a topic seeded from their study material, ending with a small numbered menu
+of follow-on threads to pull next. **Wandering** is the activity of chasing
+those threads.
+
+Wandering is a *third* activity alongside **Studying** and **Steering**: it is
+neither Socratic tutoring (no recall, confidence check, or Bloom progression —
+it is pure reading, and the pedagogy rules are deliberately *off*) nor
+configuration. It is anchored to **no Task or Session** — closest in spirit to
+*Scratch*, but it lives on the Telegram surface and is read-only leisure.
+
+- The seed is the learner's interest-logs and corpus, but a Wander **hops one
+  step sideways** from the seed and may roam off-syllabus entirely; serendipity
+  is the point.
+- The card is a *rung below* the primary source: it gives footholds the
+  learner's current level needs. The real source (e.g. a Wikipedia article) is
+  the **exit** the card ramps toward, not its content.
