@@ -652,3 +652,79 @@ func TestCourseSettingsSetRejectsBadKey(t *testing.T) {
 		t.Fatalf("expected non-zero exit for bad key; stderr: %s", stderr.String())
 	}
 }
+
+func TestCourseCreateInsertsRow(t *testing.T) {
+	dbPath := newTempDB(t)
+	var stdout, stderr bytes.Buffer
+	code := run([]string{
+		"clawcli", "course", "create",
+		"--id", "new-course", "--name", "Brand New Course",
+	}, &stdout, &stderr, dbPath)
+	if code != 0 {
+		t.Fatalf("create exit %d, stderr: %s", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "Created course") {
+		t.Fatalf("expected confirmation, got: %s", stdout.String())
+	}
+	app := openApp(t, dbPath)
+	defer func() { _ = app.Close() }()
+	c, err := app.GetCourse("new-course")
+	if err != nil {
+		t.Fatalf("GetCourse: %v", err)
+	}
+	if c.ID != "new-course" || c.Name != "Brand New Course" {
+		t.Fatalf("course not persisted, got %+v", c)
+	}
+}
+
+func TestCourseCreateWithSettings(t *testing.T) {
+	dbPath := newTempDB(t)
+	var stdout, stderr bytes.Buffer
+	code := run([]string{
+		"clawcli", "course", "create",
+		"--id", "framed-course", "--name", "Framed",
+		"--framing", "exam-prep lens", "--exam-style", "short essays",
+	}, &stdout, &stderr, dbPath)
+	if code != 0 {
+		t.Fatalf("create exit %d, stderr: %s", code, stderr.String())
+	}
+	stdout.Reset()
+	stderr.Reset()
+	code = run([]string{
+		"clawcli", "course", "settings", "get", "--course", "framed-course",
+	}, &stdout, &stderr, dbPath)
+	if code != 0 {
+		t.Fatalf("get exit %d, stderr: %s", code, stderr.String())
+	}
+	out := stdout.String()
+	if !strings.Contains(out, "framing: exam-prep lens") {
+		t.Fatalf("framing not persisted:\n%s", out)
+	}
+	if !strings.Contains(out, "exam_style: short essays") {
+		t.Fatalf("exam_style not persisted:\n%s", out)
+	}
+}
+
+func TestCourseCreateDuplicateExits1(t *testing.T) {
+	dbPath := newTempDB(t)
+	var stdout, stderr bytes.Buffer
+	run([]string{"clawcli", "course", "create", "--id", "dup-course", "--name", "First"}, &stdout, &stderr, dbPath)
+	stdout.Reset()
+	stderr.Reset()
+	code := run([]string{"clawcli", "course", "create", "--id", "dup-course", "--name", "Second"}, &stdout, &stderr, dbPath)
+	if code != 1 {
+		t.Fatalf("want exit 1 on duplicate, got %d", code)
+	}
+	if !strings.Contains(stderr.String(), "course already exists") {
+		t.Fatalf("stderr: %s", stderr.String())
+	}
+}
+
+func TestCourseCreateInvalidIDExits2(t *testing.T) {
+	dbPath := newTempDB(t)
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"clawcli", "course", "create", "--id", "Bad ID", "--name", "X"}, &stdout, &stderr, dbPath)
+	if code != 2 {
+		t.Fatalf("want exit 2 on invalid id, got %d (stderr: %s)", code, stderr.String())
+	}
+}

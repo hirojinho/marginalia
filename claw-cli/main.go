@@ -11,6 +11,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -19,6 +20,9 @@ import (
 )
 
 const defaultUserID = "eduardo"
+
+// courseIDRe is the kebab-case rule shared with POST /api/courses (handler/courses.go).
+var courseIDRe = regexp.MustCompile(`^[a-z0-9-]+$`)
 
 // resolveStudyRoot returns CLAW_STUDY_ROOT or empty.
 func resolveStudyRoot() string {
@@ -540,7 +544,7 @@ func planToggle(args []string, stdout, stderr io.Writer, dbPath string) int {
 
 func runCourse(args []string, stdout, stderr io.Writer, dbPath string) int {
 	if len(args) < 1 {
-		_, _ = fmt.Fprintln(stderr, "usage: claw-cli course <interests|settings> [args]")
+		_, _ = fmt.Fprintln(stderr, "usage: claw-cli course <interests|settings|create> [args]")
 		return 2
 	}
 	switch args[0] {
@@ -548,6 +552,8 @@ func runCourse(args []string, stdout, stderr io.Writer, dbPath string) int {
 		return courseInterests(args[1:], stdout, stderr)
 	case "settings":
 		return courseSettings(args[1:], stdout, stderr, dbPath)
+	case "create":
+		return courseCreate(args[1:], stdout, stderr, dbPath)
 	default:
 		_, _ = fmt.Fprintf(stderr, "unknown course subcommand: %q\n", args[0])
 		return 2
@@ -580,6 +586,58 @@ func courseInterests(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 	_, _ = stdout.Write(body)
+	return 0
+}
+
+func courseCreate(args []string, stdout, stderr io.Writer, dbPath string) int {
+	fs := flag.NewFlagSet("course create", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	id := fs.String("id", "", "course id (kebab-case, required)")
+	name := fs.String("name", "", "course display name (required)")
+	framing := fs.String("framing", "", "optional initial framing (course_settings)")
+	examStyle := fs.String("exam-style", "", "optional initial exam_style (course_settings)")
+	dbOverride := fs.String("db", "", "path to study.db")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	if *id == "" || *name == "" {
+		_, _ = fmt.Fprintln(stderr, "course create: --id and --name are required")
+		return 2
+	}
+	if !courseIDRe.MatchString(*id) {
+		_, _ = fmt.Fprintln(stderr, "course create: --id must be kebab-case (lowercase letters, digits, hyphens only)")
+		return 2
+	}
+	resolvedDB, err := resolveDBPath(*dbOverride, dbPath)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return 1
+	}
+	app, err := newAppFromEnv(resolvedDB, false)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return 1
+	}
+	defer func() { _ = app.Close() }()
+	if err := app.CreateCourse(*id, *name); err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return 1
+	}
+	_, _ = fmt.Fprintf(stdout, "Created course %q (id: %s)\n", *name, *id)
+	if *framing != "" {
+		if err := app.SetCourseSetting(*id, "framing", *framing); err != nil {
+			_, _ = fmt.Fprintln(stderr, err)
+			return 1
+		}
+		_, _ = fmt.Fprintf(stdout, "set framing for course %s\n", *id)
+	}
+	if *examStyle != "" {
+		if err := app.SetCourseSetting(*id, "exam_style", *examStyle); err != nil {
+			_, _ = fmt.Fprintln(stderr, err)
+			return 1
+		}
+		_, _ = fmt.Fprintf(stdout, "set exam_style for course %s\n", *id)
+	}
 	return 0
 }
 
