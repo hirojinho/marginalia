@@ -122,6 +122,33 @@ func TestDeleteSessionClearsActive(t *testing.T) {
 	}
 }
 
+func TestUpdateSessionPDF(t *testing.T) {
+	a := newMemoryApp(t)
+	s, err := a.CreateSession("ce297", "STPA")
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	if err := a.UpdateSessionPDF(s.ID, 42, 17); err != nil {
+		t.Fatalf("update session pdf: %v", err)
+	}
+
+	got, err := a.GetSession(s.ID)
+	if err != nil {
+		t.Fatalf("get session: %v", err)
+	}
+	if got.LastPdfID == nil || *got.LastPdfID != 42 {
+		t.Errorf("last_pdf_id = %v, want 42", got.LastPdfID)
+	}
+	if got.LastPage != 17 {
+		t.Errorf("last_page = %d, want 17", got.LastPage)
+	}
+
+	if err := a.UpdateSessionPDF(99999, 1, 1); err == nil {
+		t.Error("expected error updating a non-existent session")
+	}
+}
+
 func TestSaveAssistantMessagePersistsReasoning(t *testing.T) {
 	a := newMemoryApp(t)
 	s, err := a.CreateSession("ce297", "STPA")

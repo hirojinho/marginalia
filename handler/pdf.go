@@ -80,19 +80,10 @@ func (h *Handler) handlePDFUpload(w http.ResponseWriter, r *http.Request) {
 		slog.Warn("set last_opened_pdf", "err", err)
 	}
 
-	activeSess := h.App.ActiveSessionID()
-	var sessPtr *int64
-	if activeSess != 0 {
-		sessPtr = &activeSess
-	}
-	if err := h.App.RecordEvent(agent.Event{
-		Kind:      "pdf_open",
-		SessionID: sessPtr,
-		CourseID:  courseID,
-		CreatedAt: time.Now().UnixMilli(),
-	}); err != nil {
-		slog.Warn("record pdf_open event", "err", err)
-	}
+	// pdf_open is recorded when the PDF is actually opened for viewing
+	// (the first progress PUT of a session-pdf pair, see handlePDFProgress),
+	// not here on upload — the frontend opens the PDF right after upload,
+	// so the view-time hook covers this case without double counting.
 
 	go h.App.ExtractAndCachePDFText(id, filePath)
 
@@ -193,6 +184,31 @@ func (h *Handler) handlePDFProgress(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			writeServerError(w, "update pdf progress", err)
 			return
+		}
+
+		// Link the PDF + page to the active study session so the tutor knows
+		// the learner's reading position (ADR 0012). The first PUT of a new
+		// (session, pdf) pair is a genuine open, not a page turn — record a
+		// pdf_open analytics event there, before overwriting the link.
+		if active := h.App.ActiveSessionID(); active != 0 {
+			if prev, perr := h.App.GetSessionLastPDFID(active); perr == nil && prev != id {
+				courseID := ""
+				if pdf, gerr := h.App.GetPDF(id); gerr == nil && pdf.CourseID != nil {
+					courseID = *pdf.CourseID
+				}
+				sessPtr := active
+				if rerr := h.App.RecordEvent(agent.Event{
+					Kind:      "pdf_open",
+					SessionID: &sessPtr,
+					CourseID:  courseID,
+					CreatedAt: time.Now().UnixMilli(),
+				}); rerr != nil {
+					slog.Warn("record pdf_open event", "err", rerr)
+				}
+			}
+			if uerr := h.App.UpdateSessionPDF(active, id, body.Page); uerr != nil {
+				slog.Warn("update session pdf", "err", uerr)
+			}
 		}
 
 		// Best-effort background extraction if not yet cached.

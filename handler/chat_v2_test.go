@@ -123,23 +123,36 @@ func TestDeleteSessionRemovesSandbox(t *testing.T) {
 // ---------- streamPiTurn unit tests ----------
 
 func TestBuildPiPromptPassthroughWhenNoCourse(t *testing.T) {
-	got := buildPiPrompt("", "/no/such/binary", "hello")
+	got := buildPiPrompt("", "/no/such/binary", "hello", nil)
 	if got != "hello" {
 		t.Errorf("got %q, want passthrough %q", got, "hello")
 	}
 }
 
 func TestBuildPiPromptPassthroughWhenNoClawCLI(t *testing.T) {
-	got := buildPiPrompt("ddia", "", "hello")
+	got := buildPiPrompt("ddia", "", "hello", nil)
 	if got != "hello" {
 		t.Errorf("got %q, want passthrough %q", got, "hello")
 	}
 }
 
 func TestBuildPiPromptPassthroughWhenClawCLIFails(t *testing.T) {
-	got := buildPiPrompt("ddia", "/no/such/binary/path", "hello")
+	got := buildPiPrompt("ddia", "/no/such/binary/path", "hello", nil)
 	if got != "hello" {
 		t.Errorf("got %q, want passthrough on exec failure", got)
+	}
+}
+
+func TestBuildPiPromptEmitsReadingState(t *testing.T) {
+	rs := &readingState{PDFName: "Chapter 8 - PHI ETA", Page: 72, Total: 104}
+	// No course/claw-cli, so only the reading_state block + message remain.
+	got := buildPiPrompt("", "", "what's on this page?", rs)
+	wantBlock := "<reading_state pdf=\"Chapter 8 - PHI ETA\" page=\"72/104\"/>"
+	if !strings.Contains(got, wantBlock) {
+		t.Errorf("missing reading_state block.\ngot:  %q\nwant substring: %q", got, wantBlock)
+	}
+	if !strings.HasSuffix(got, "what's on this page?") {
+		t.Errorf("user message not preserved at end: %q", got)
 	}
 }
 

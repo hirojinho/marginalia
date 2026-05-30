@@ -148,7 +148,17 @@ func (h *Handler) handleChatV2(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), piTurnTimeout)
 	defer cancel()
 
-	piPrompt := buildPiPrompt(sess.CourseID, h.App.Config.ClawCLIPath, req.Message)
+	var rs *readingState
+	if sess.LastPdfID != nil {
+		if pdf, perr := h.App.GetPDF(*sess.LastPdfID); perr == nil {
+			rs = &readingState{
+				PDFName: strings.TrimSuffix(pdf.OriginalName, ".pdf"),
+				Page:    sess.LastPage,
+				Total:   pdf.Pages,
+			}
+		}
+	}
+	piPrompt := buildPiPrompt(sess.CourseID, h.App.Config.ClawCLIPath, req.Message, rs)
 	events, err := agent.RunPi(ctx, sandboxPath, piPrompt, model, h.App.Config.PiPath, h.App.Config.SkillsDir, h.App.Config.APIKey)
 	if err != nil {
 		writeServerError(w, "start pi", err)
@@ -322,33 +332,45 @@ func writeSSEEvent(w http.ResponseWriter, flusher http.Flusher, eventType, data 
 	flusher.Flush()
 }
 
-// buildPiPrompt wraps the user message with a fresh <plan_state> block
-// for course-scoped sessions, so Pi sees authoritative plan state inside
-// the conversation history (where it can't be ignored, unlike the system
-// prompt which Pi may skip re-reading on --continue). Returns userMessage
-// unchanged if no course or claw-cli is configured, or if claw-cli fails.
-func buildPiPrompt(courseID, clawCLIPath, userMessage string) string {
-	if courseID == "" || clawCLIPath == "" {
-		return userMessage
-	}
-	out, err := exec.Command(clawCLIPath, "plan", "status", "--course", courseID).Output()
-	if err != nil || len(out) == 0 {
-		return userMessage
-	}
+// readingState carries the learner's current PDF reading position so the
+// tutor can prompt at chunk boundaries and verify their page (ADR 0012).
+type readingState struct {
+	PDFName string
+	Page    int
+	Total   int
+}
+
+// buildPiPrompt prefixes the user message with fresh context blocks Pi must
+// not ignore (unlike the system prompt, which it may skip re-reading on
+// --continue): a <plan_state> block for course-scoped sessions, and a
+// <reading_state> block when the session is reading a PDF. Returns
+// userMessage unchanged when neither block applies.
+func buildPiPrompt(courseID, clawCLIPath, userMessage string, rs *readingState) string {
 	var b strings.Builder
-	b.WriteString("<plan_state course=\"")
-	b.WriteString(courseID)
-	b.WriteString("\" authoritative=\"true\">\n")
-	b.WriteString("Fresh read from `data/plans/")
-	b.WriteString(courseID)
-	b.WriteString(".json` (the canonical store the UI shows). This supersedes any plan state earlier in this conversation. The `study-plan.md` markdown files were retired 2026-05-14 — DO NOT read or write any `.md` plan file. To update a task, call `claw-cli plan toggle --course ")
-	b.WriteString(courseID)
-	b.WriteString(" --task <N>` using the #N indices below.\n\n")
-	b.Write(out)
-	if !strings.HasSuffix(string(out), "\n") {
-		b.WriteString("\n")
+
+	if courseID != "" && clawCLIPath != "" {
+		out, err := exec.Command(clawCLIPath, "plan", "status", "--course", courseID).Output()
+		if err == nil && len(out) > 0 {
+			b.WriteString("<plan_state course=\"")
+			b.WriteString(courseID)
+			b.WriteString("\" authoritative=\"true\">\n")
+			b.WriteString("Fresh read from `data/plans/")
+			b.WriteString(courseID)
+			b.WriteString(".json` (the canonical store the UI shows). This supersedes any plan state earlier in this conversation. The `study-plan.md` markdown files were retired 2026-05-14 — DO NOT read or write any `.md` plan file. To update a task, call `claw-cli plan toggle --course ")
+			b.WriteString(courseID)
+			b.WriteString(" --task <N>` using the #N indices below.\n\n")
+			b.Write(out)
+			if !strings.HasSuffix(string(out), "\n") {
+				b.WriteString("\n")
+			}
+			b.WriteString("</plan_state>\n\n")
+		}
 	}
-	b.WriteString("</plan_state>\n\n")
+
+	if rs != nil && rs.PDFName != "" {
+		fmt.Fprintf(&b, "<reading_state pdf=%q page=\"%d/%d\"/>\n\n", rs.PDFName, rs.Page, rs.Total)
+	}
+
 	b.WriteString(userMessage)
 	return b.String()
 }
