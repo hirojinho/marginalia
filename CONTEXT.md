@@ -99,10 +99,11 @@ differ by *what they touch* and *whether they are generative*:
   exist, and would be destroyed by a form. Authoring *produces* the Course/Plan
   that Studying then moves through.
 - **Steering** — *mechanical, declarative configuration* of how the system
-  behaves: toggling a task done, reordering, renaming, setting a Course's framing
-  ("exam-prep first, conceptual exam"), tutor preferences (pace, chunk size).
-  Not generative; it belongs in a settings/management UI, owned by the learner
-  directly, not produced as a side effect of a chat turn.
+  behaves: toggling a task done, reordering, renaming, **splitting one task into
+  several, adding or removing a task** (declarative restructuring the learner
+  directs), setting a Course's framing ("exam-prep first, conceptual exam"), tutor
+  preferences (pace, chunk size). Not generative; it belongs in a settings/management
+  UI, owned by the learner directly, not produced as a side effect of a chat turn.
 
 The line between Authoring and Steering is **generative design vs. declarative
 config**, not create-vs-edit: designing a new chapter's tasks is Authoring even
@@ -117,6 +118,15 @@ The earlier "no Steering inside a Studying Session" rule was about that
 accretion (and about the old unreliability of chat-driven config); a single
 one-shot setting change is fine. Authoring is its own conversational surface,
 distinct from both a task-anchored Session and from the Steering UI.
+
+The same persistence rule covers **plan structure**, not just settings knobs: a
+declarative restructure the learner directs (split this task, add/rename/reorder
+one) is persisted by the tutor through a single deterministic write to the plan
+store (`claw-cli plan rewrite`), in any surface, then confirmed and resumed —
+never narrated raw into a file, never accreting. The *generative* design that may
+precede it (the tutor working out a chunk map from a PDF) is Studying/Authoring;
+the *write* that lands it is the Steering-style one-shot. See
+[ADR 0017](docs/adr/0017-agent-may-restructure-plan-via-deterministic-rewrite.md).
 
 ## Authoring principle
 
