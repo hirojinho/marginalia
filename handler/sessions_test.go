@@ -405,6 +405,24 @@ func TestHandleSessionForTask_MissingParams(t *testing.T) {
 	}
 }
 
+func TestCreateSessionWithTaskID(t *testing.T) {
+	h := newTestHandler(t)
+	body := strings.NewReader(`{"course_id":"ddia","task_id":"t-9","topic":"anchored"}`)
+	req := httptest.NewRequest(http.MethodPost, "/api/sessions", body)
+	rec := httptest.NewRecorder()
+	h.handleSessions(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	var s agent.Session
+	if err := json.Unmarshal(rec.Body.Bytes(), &s); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if s.TaskID == nil || *s.TaskID != "t-9" {
+		t.Errorf("TaskID = %v, want t-9", s.TaskID)
+	}
+}
+
 func jsonInt(n int64) string {
 	b, _ := json.Marshal(n)
 	return string(b)

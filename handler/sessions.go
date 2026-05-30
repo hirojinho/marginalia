@@ -46,13 +46,20 @@ func (h *Handler) listSessions(w http.ResponseWriter, _ *http.Request) {
 func (h *Handler) createSession(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		CourseID string `json:"course_id"`
+		TaskID   string `json:"task_id"`
 		Topic    string `json:"topic"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid json")
 		return
 	}
-	s, err := h.App.CreateSession(body.CourseID, body.Topic)
+	var s agent.Session
+	var err error
+	if body.TaskID != "" {
+		s, err = h.App.CreateSessionForTask(body.CourseID, body.TaskID, body.Topic)
+	} else {
+		s, err = h.App.CreateSession(body.CourseID, body.Topic)
+	}
 	if err != nil {
 		writeServerError(w, "create session", err)
 		return
