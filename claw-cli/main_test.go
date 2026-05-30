@@ -552,6 +552,9 @@ func TestPDFCurrentSessionHit(t *testing.T) {
 		if _, err := app.DB.Exec("UPDATE sessions SET last_pdf_id = ? WHERE id = ?", 2, sessID); err != nil {
 			t.Fatalf("set last_pdf_id: %v", err)
 		}
+		if err := app.SetLastOpenedPDF(99); err != nil { // competing global; session must win
+			t.Fatalf("set last opened: %v", err)
+		}
 	}()
 
 	var out, errb bytes.Buffer

@@ -665,6 +665,9 @@ func pdfCurrent(args []string, stdout, stderr io.Writer, dbPath string) int {
 	}
 	defer func() { _ = app.Close() }()
 
+	// Prefer the session's last-viewed PDF; if the session has none (or the
+	// id is unknown), fall back to the global last-opened PDF. The live agent
+	// always passes a real session id, so the fallback is a convenience, not an error.
 	var pdfID int64
 	if *session > 0 {
 		if id, err := app.GetSessionLastPDFID(*session); err == nil && id > 0 {
