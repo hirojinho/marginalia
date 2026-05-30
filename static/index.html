@@ -117,15 +117,24 @@
               <div id="pdf-dropdown"></div>
             </div>
             <div class="toolbar-right">
+              <span id="pdf-page-nav" title="Current page — type a number and press Enter to jump">
+                Page
+                <input
+                  id="pdf-page-input"
+                  type="text"
+                  inputmode="numeric"
+                  autocomplete="off"
+                  value="0"
+                />
+                / <span id="pdf-page-total">0</span>
+              </span>
               <button id="pdf-view-toggle" title="Toggle view mode">Scroll</button>
               <button id="pdf-zoom-out" title="Zoom out">&#8722;</button>
               <span id="pdf-zoom-level">100%</span>
               <button id="pdf-zoom-in" title="Zoom in">+</button>
             </div>
           </div>
-          <div id="pdf-viewer">
-            <div id="pdf-page-counter">0 / 0</div>
-          </div>
+          <div id="pdf-viewer"></div>
         </div>
       </div>
     </div>

@@ -198,13 +198,11 @@ export async function openPdf(id) {
 
 function renderAllPages() {
   const viewer = document.getElementById('pdf-viewer');
-  const counter = document.getElementById('pdf-page-counter');
   if (pageObserver) {
     pageObserver.disconnect();
     pageObserver = null;
   }
   viewer.innerHTML = '';
-  viewer.appendChild(counter);
   renderedPages = new Set();
 
   for (let i = 1; i <= totalPages; i++) {
@@ -281,14 +279,12 @@ async function renderPageToCanvas(pageNum, canvas) {
 
 function renderPage(pageNum) {
   const viewer = document.getElementById('pdf-viewer');
-  const counter = document.getElementById('pdf-page-counter');
   if (pageObserver) {
     pageObserver.disconnect();
     pageObserver = null;
   }
   renderedPages = null;
   viewer.innerHTML = '';
-  viewer.appendChild(counter);
 
   const canvas = document.createElement('canvas');
   canvas.className = 'pdf-page-canvas';
@@ -299,10 +295,36 @@ function renderPage(pageNum) {
 }
 
 function updatePageCounter() {
-  const counter = document.getElementById('pdf-page-counter');
-  if (counter) {
-    counter.textContent = currentPage + ' / ' + totalPages;
+  const input = document.getElementById('pdf-page-input');
+  const total = document.getElementById('pdf-page-total');
+  // Don't clobber what the user is mid-typing in the page input.
+  if (input && document.activeElement !== input) {
+    input.value = currentPage;
   }
+  if (total) {
+    total.textContent = totalPages;
+  }
+}
+
+// Jump to a page typed into the toolbar input. Clamps to [1, totalPages],
+// scrolls to it in scroll mode or re-renders it in single mode, and persists.
+function goToPage(pageNum) {
+  if (!pdfDoc || !totalPages) return;
+  let target = parseInt(pageNum, 10);
+  if (isNaN(target)) {
+    updatePageCounter(); // revert the input to currentPage
+    return;
+  }
+  target = Math.max(1, Math.min(totalPages, target));
+  currentPage = target;
+  if (viewMode === 'single') {
+    renderPage(target);
+  } else {
+    const canvas = document.getElementById('pdf-canvas-' + target);
+    if (canvas) canvas.scrollIntoView({ block: 'start' });
+  }
+  updatePageCounter();
+  saveProgress();
 }
 
 function saveProgress() {
@@ -576,10 +598,27 @@ export function initPdf() {
     applyZoom(currentScale - 0.25);
   });
 
+  const pageInput = document.getElementById('pdf-page-input');
+  pageInput?.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      goToPage(this.value);
+      this.blur();
+    }
+  });
+  // On focus, select all so a typed number replaces the current page cleanly.
+  pageInput?.addEventListener('focus', function () {
+    this.select();
+  });
+  // Leaving the field without Enter reverts to the live page rather than
+  // jumping — Enter is the deliberate commit.
+  pageInput?.addEventListener('blur', updatePageCounter);
+
   // Keyboard shortcuts
   document.addEventListener('keydown', function (e) {
     if (!currentPdfId || !pdfDoc) return;
     if (document.activeElement === document.getElementById('message-input')) return;
+    if (document.activeElement === document.getElementById('pdf-page-input')) return;
 
     switch (e.key) {
       case 'j':
