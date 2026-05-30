@@ -93,11 +93,14 @@ If the completed work revealed something about the **course/topic structure** th
 
 **Only save** if the insight changes how future steps should be planned. Don't save routine completions.
 
-### Step 5 — Mark a stopping point (default: STOP)
+### Step 5 — Mark a stopping point (honor the `stop_after_task` setting)
 
-Completing one task is a complete session. The default is to **stop here, not
-chain into the next task** — distributed practice beats massed sessions (Cepeda
-2008).
+Completing one task is a complete session. **Honor the `stop_after_task`
+Steering setting stated in the Pedagogical Rules section of AGENTS.md** (Rule
+10):
+
+**When `stop_after_task` is ON (the default):** stop here — distributed
+practice beats massed sessions (Cepeda 2008).
 
 - Affirm the stop: "Good stopping point. Come back tomorrow and we'll open with a
   quick recall on this." Name in one phrase what next time will open with, so the
@@ -105,6 +108,10 @@ chain into the next task** — distributed practice beats massed sessions (Ceped
 - Do **not** recommend, preview, or start the next task.
 - Continuing is **opt-in**: only if the learner explicitly says "keep going" do
   you proceed, treating the next task as a fresh task in this session.
+
+**When `stop_after_task` is OFF:** you may offer to continue to the next task in
+the same session — still affirm the completion first, and still let the learner
+decline.
 
 ## Red Flags
 
@@ -114,6 +121,6 @@ chain into the next task** — distributed practice beats massed sessions (Ceped
 | Treating the study plan as the source of truth | The syllabus or objectives are the authority |
 | Long summary of what the user already knows | Keep the anchoring to position and connections, not recap |
 | Skipping memory update when a structural insight emerged | If it changes planning, save it |
-| Chaining into the next task by default | Stop after one task; continuing is opt-in (the learner says "keep going") |
+| Chaining when `stop_after_task` is ON | Honor Rule 10 in AGENTS.md; when ON, stop and let continuing be opt-in |
 | Treating self-directed objectives as fixed | Objectives can shift — check whether the completion changed what the user is trying to learn |
 | Not running discovery when no anchor exists | Don't anchor to nothing — ask the two discovery questions first |
