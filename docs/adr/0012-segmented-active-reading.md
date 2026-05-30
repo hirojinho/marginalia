@@ -52,3 +52,9 @@ would misfire on skimming).
 - The reading is **the learner's** cognitive work, so the tutor must withhold
   the chunk's content until they have read it — reading the pages itself for
   silent grounding only. See [ADR 0015](0015-silent-grounding-tutor-withholds-resource.md).
+
+## References
+
+Full citations and links for the evidence cited above: [docs/references.md](../references.md)
+(`slamecka-graf-1978`, `roediger-karpicke-2006`, `sweller-1988`, `chi-1989`,
+`dunlosky-2013`).

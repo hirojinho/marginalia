@@ -78,3 +78,9 @@ request for content; it means smaller chunks with more frequent recall (the
 - This does not weaken anti-hallucination: the tutor still reads before it
   speaks. It changes *what it does with* what it read — judge and clarify, not
   recite.
+
+## References
+
+Full citations and links for the evidence cited above: [docs/references.md](../references.md)
+(`richland-kornell-kao-2009`, `kornell-hays-bjork-2009`, `slamecka-graf-1978`,
+`bjork-bjork-2011`, `dunlosky-2013`).
