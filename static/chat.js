@@ -1,7 +1,13 @@
 // Chat input, streaming response handler, message rendering.
 import { showErrorBanner } from './errorBanner.js';
 import { escapeHtml, renderMarkdown, scrollToBottom } from './dom.js';
-import { getActiveSessionId, loadSessions, loadActiveSession } from './sessions.js';
+import {
+  getActiveSessionId,
+  setActiveSessionId,
+  loadSessions,
+  loadActiveSession,
+} from './sessions.js';
+import { getPendingTask, clearPendingTask, loadRail } from './rail.js';
 import {
   createToolPanel,
   createSkillChip,
@@ -38,17 +44,48 @@ export function initChat(chatEndpoint) {
 
   document.getElementById('chat-form').addEventListener('submit', async function (e) {
     e.preventDefault();
-    const activeSessionId = getActiveSessionId();
-    if (!activeSessionId) {
-      showErrorBanner('Start a session first — use the + next to a course in the sidebar.');
-      return;
-    }
     const msg = input.value.trim();
     if (!msg) return;
     if (msg.length > MAX_MESSAGE_LEN) {
       showErrorBanner(
         'Message is too long (' + msg.length + '/' + MAX_MESSAGE_LEN + ' characters).',
       );
+      return;
+    }
+    // Lazy task-session creation (ADR 0014): if a task is open with no Session
+    // yet, create it now — on the first message — then activate it.
+    let createdSession = false;
+    const pending = getPendingTask();
+    if (pending) {
+      try {
+        const r = await fetch('/api/sessions/for-task', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            course_id: pending.courseId,
+            task_id: pending.taskId,
+            topic: pending.title,
+          }),
+        });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const session = await r.json();
+        setActiveSessionId(session.id);
+        await fetch('/api/sessions/active', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: session.id }),
+        });
+        clearPendingTask();
+        createdSession = true;
+      } catch (err) {
+        console.error('Failed to create task session', err);
+        showErrorBanner('Failed to start the task session: ' + err.message);
+        return;
+      }
+    }
+    const activeSessionId = getActiveSessionId();
+    if (!activeSessionId) {
+      showErrorBanner('Open a task in the rail (or pick a chat) first.');
       return;
     }
     input.value = '';
@@ -203,6 +240,8 @@ export function initChat(chatEndpoint) {
     } finally {
       document.getElementById('send-btn').disabled = false;
       input.focus();
+      // A newly-created task Session needs its has-work dot rendered in the rail.
+      if (createdSession) loadRail();
     }
   });
 }
