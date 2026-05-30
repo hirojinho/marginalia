@@ -612,3 +612,43 @@ func TestPDFCurrentNoneOpen(t *testing.T) {
 		t.Fatalf("stderr: %s", errb.String())
 	}
 }
+
+func TestCourseSettingsSetAndGet(t *testing.T) {
+	dbPath := newTempDB(t)
+	var stdout, stderr bytes.Buffer
+	code := run([]string{
+		"clawcli", "course", "settings", "set",
+		"--course", "ce297", "--key", "chunk_pages", "--value", "6",
+	}, &stdout, &stderr, dbPath)
+	if code != 0 {
+		t.Fatalf("set exit %d, stderr: %s", code, stderr.String())
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+	code = run([]string{
+		"clawcli", "course", "settings", "get", "--course", "ce297",
+	}, &stdout, &stderr, dbPath)
+	if code != 0 {
+		t.Fatalf("get exit %d, stderr: %s", code, stderr.String())
+	}
+	out := stdout.String()
+	if !strings.Contains(out, "chunk_pages: 6") {
+		t.Fatalf("expected chunk_pages: 6 in output:\n%s", out)
+	}
+	if !strings.Contains(out, "stop_after_task: true") {
+		t.Fatalf("expected default stop_after_task: true:\n%s", out)
+	}
+}
+
+func TestCourseSettingsSetRejectsBadKey(t *testing.T) {
+	dbPath := newTempDB(t)
+	var stdout, stderr bytes.Buffer
+	code := run([]string{
+		"clawcli", "course", "settings", "set",
+		"--course", "ce297", "--key", "nope", "--value", "x",
+	}, &stdout, &stderr, dbPath)
+	if code == 0 {
+		t.Fatalf("expected non-zero exit for bad key; stderr: %s", stderr.String())
+	}
+}

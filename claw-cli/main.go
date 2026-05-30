@@ -540,12 +540,14 @@ func planToggle(args []string, stdout, stderr io.Writer, dbPath string) int {
 
 func runCourse(args []string, stdout, stderr io.Writer, dbPath string) int {
 	if len(args) < 1 {
-		_, _ = fmt.Fprintln(stderr, "usage: claw-cli course <interests> [args]")
+		_, _ = fmt.Fprintln(stderr, "usage: claw-cli course <interests|settings> [args]")
 		return 2
 	}
 	switch args[0] {
 	case "interests":
 		return courseInterests(args[1:], stdout, stderr)
+	case "settings":
+		return courseSettings(args[1:], stdout, stderr, dbPath)
 	default:
 		_, _ = fmt.Fprintf(stderr, "unknown course subcommand: %q\n", args[0])
 		return 2
@@ -578,6 +580,99 @@ func courseInterests(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 	_, _ = stdout.Write(body)
+	return 0
+}
+
+func courseSettings(args []string, stdout, stderr io.Writer, dbPath string) int {
+	if len(args) < 1 {
+		_, _ = fmt.Fprintln(stderr, "usage: claw-cli course settings <get|set> [args]")
+		return 2
+	}
+	switch args[0] {
+	case "get":
+		return courseSettingsGet(args[1:], stdout, stderr, dbPath)
+	case "set":
+		return courseSettingsSet(args[1:], stdout, stderr, dbPath)
+	default:
+		_, _ = fmt.Fprintf(stderr, "unknown course settings subcommand: %q\n", args[0])
+		return 2
+	}
+}
+
+func printCourseSettings(w io.Writer, s agent.CourseSettings) {
+	_, _ = fmt.Fprintf(w, "course: %s\n", s.CourseID)
+	_, _ = fmt.Fprintf(w, "framing: %s\n", s.Framing)
+	_, _ = fmt.Fprintf(w, "exam_style: %s\n", s.ExamStyle)
+	_, _ = fmt.Fprintf(w, "chunk_pages: %d\n", s.ChunkPages)
+	_, _ = fmt.Fprintf(w, "stop_after_task: %v\n", s.StopAfterTask)
+	_, _ = fmt.Fprintf(w, "interleaving: %v\n", s.Interleaving)
+}
+
+func courseSettingsGet(args []string, stdout, stderr io.Writer, dbPath string) int {
+	fs := flag.NewFlagSet("course settings get", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	course := fs.String("course", "", "course id (required)")
+	dbOverride := fs.String("db", "", "path to study.db")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	if *course == "" {
+		_, _ = fmt.Fprintln(stderr, "course settings get: --course is required")
+		return 2
+	}
+	resolvedDB, err := resolveDBPath(*dbOverride, dbPath)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return 1
+	}
+	app, err := newAppFromEnv(resolvedDB, false)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return 1
+	}
+	defer func() { _ = app.Close() }()
+	s, err := app.GetCourseSettings(*course)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return 1
+	}
+	printCourseSettings(stdout, s)
+	return 0
+}
+
+func courseSettingsSet(args []string, stdout, stderr io.Writer, dbPath string) int {
+	fs := flag.NewFlagSet("course settings set", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	course := fs.String("course", "", "course id (required)")
+	key := fs.String("key", "", "setting key (framing|exam_style|chunk_pages|stop_after_task|interleaving)")
+	value := fs.String("value", "", "setting value")
+	dbOverride := fs.String("db", "", "path to study.db")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	if *course == "" || *key == "" {
+		_, _ = fmt.Fprintln(stderr, "course settings set: --course and --key are required")
+		return 2
+	}
+	resolvedDB, err := resolveDBPath(*dbOverride, dbPath)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return 1
+	}
+	app, err := newAppFromEnv(resolvedDB, false)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return 1
+	}
+	defer func() { _ = app.Close() }()
+	if err := app.SetCourseSetting(*course, *key, *value); err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return 1
+	}
+	_, _ = fmt.Fprintf(stdout, "set %s = %s for course %s\n", *key, *value, *course)
+	if s, err := app.GetCourseSettings(*course); err == nil {
+		printCourseSettings(stdout, s)
+	}
 	return 0
 }
 
