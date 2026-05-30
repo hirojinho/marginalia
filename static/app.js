@@ -3,18 +3,17 @@
 import { installErrorBanner } from './errorBanner.js';
 import {
   loadCourses,
-  loadSessions,
   loadActiveSession,
   loadSessionMessages,
   switchSession,
   deleteSession,
   getActiveSessionId,
-  initSessionsUI,
 } from './sessions.js';
 import { initChat } from './chat.js';
 import { initPlan, openFullPlan, toggleTopic, openPdfFromDrawer } from './plan.js';
 import { initPdf, openPdf, triggerUpload, switchPdf } from './pdf.js';
 import { initPomodoro } from './pomodoro.js';
+import { initRail, loadRail } from './rail.js';
 
 installErrorBanner();
 
@@ -49,6 +48,8 @@ document.addEventListener('click', function (e) {
     case 'switch-pdf':
       switchPdf(parseInt(el.dataset.pdfId, 10));
       break;
+    case 'noop':
+      break;
   }
 });
 
@@ -70,7 +71,7 @@ async function loadRuntimeEndpoint() {
   }
 }
 
-initSessionsUI();
+initRail();
 initPlan();
 initPdf();
 initPomodoro();
@@ -80,7 +81,7 @@ initPomodoro();
   const chatEndpoint = await loadRuntimeEndpoint();
   initChat(chatEndpoint);
   await loadCourses();
-  await loadSessions();
+  await loadRail();
   await loadActiveSession();
   if (getActiveSessionId()) {
     await loadSessionMessages();

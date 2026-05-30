@@ -1225,3 +1225,110 @@ header small {
   font-size: 16px;
   line-height: 1;
 }
+
+/* ---------- Plan-spine rail (ADR 0011) ---------- */
+.rail-course-select {
+  width: 100%;
+  margin: 8px 0 12px;
+  padding: 6px 8px;
+  font: inherit;
+  font-size: 13px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  color: var(--text);
+}
+.rail-phase {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: var(--text-secondary);
+  margin: 14px 0 6px;
+}
+.rail-cluster {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin: 8px 0 4px 6px;
+}
+.rail-task {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 6px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.rail-task:hover {
+  background: var(--bg-sunken);
+}
+.rail-task.active {
+  background: var(--bg-sunken);
+}
+.rail-task.next {
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+.rail-task-title {
+  flex: 1;
+  font-size: 13px;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+.rail-task.done .rail-task-title {
+  color: var(--text-tertiary);
+  text-decoration: line-through;
+}
+.rail-check {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 15px;
+  border: 1.5px solid var(--border-strong);
+  border-radius: 3px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  cursor: pointer;
+}
+.rail-check.done {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+.rail-work-dot {
+  width: 6px;
+  height: 6px;
+  flex: 0 0 6px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.rail-empty {
+  color: var(--text-tertiary);
+  font-size: 13px;
+  padding: 16px 4px;
+}
+.rail-other {
+  margin-top: 20px;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+.rail-other-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: var(--text-tertiary);
+  margin-bottom: 6px;
+}
+.rail-other-item {
+  font-size: 12px;
+  color: var(--text-secondary);
+  padding: 4px 6px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.rail-other-item:hover {
+  background: var(--bg-sunken);
+}
