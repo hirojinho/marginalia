@@ -175,6 +175,20 @@ export async function openTask(taskId) {
   }
 }
 
+// toggleTask flips a task's done flag via the linear index (matches the backend
+// walk order in handler/plan.go) and re-renders the rail.
+export async function toggleTask(idx) {
+  const fd = new FormData();
+  fd.append('course', selectedCourse);
+  fd.append('index', String(idx));
+  try {
+    await fetch('/api/plan/toggle', { method: 'POST', body: fd });
+    await loadRail();
+  } catch (err) {
+    console.error('toggle failed', err);
+  }
+}
+
 function taskTitleById(taskId) {
   let title = '';
   if (currentPlan) {
