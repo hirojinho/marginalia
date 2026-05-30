@@ -728,3 +728,94 @@ func TestCourseCreateInvalidIDExits2(t *testing.T) {
 		t.Fatalf("want exit 2 on invalid id, got %d (stderr: %s)", code, stderr.String())
 	}
 }
+
+func TestPlanRewriteValidFileCreatesAndPreservesIDs(t *testing.T) {
+	dbPath := newTempDB(t)
+	t.Setenv("VAULT_ROOT", t.TempDir()) // plans live under VAULT_ROOT/data/plans/
+	planJSON := `{"id":"rw-course","name":"RW","phases":[{"title":"P1","tasks":[` +
+		`{"id":"keep-123","title":"Existing","done":false},` +
+		`{"title":"Fresh","done":false}]}]}`
+	planFile := filepath.Join(t.TempDir(), "plan.json")
+	if err := os.WriteFile(planFile, []byte(planJSON), 0o644); err != nil {
+		t.Fatalf("write plan file: %v", err)
+	}
+	var out, errb bytes.Buffer
+	code := run([]string{"clawcli", "plan", "rewrite", "--course", "rw-course", "--plan-file", planFile}, &out, &errb, dbPath)
+	if code != 0 {
+		t.Fatalf("rewrite exit %d, stderr: %s", code, errb.String())
+	}
+	out.Reset()
+	errb.Reset()
+	if code := run([]string{"clawcli", "plan", "show", "--course", "rw-course"}, &out, &errb, dbPath); code != 0 {
+		t.Fatalf("show exit %d, stderr: %s", code, errb.String())
+	}
+	var shown struct {
+		Phases []struct {
+			Tasks []struct {
+				ID    string `json:"id"`
+				Title string `json:"title"`
+			} `json:"tasks"`
+		} `json:"phases"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &shown); err != nil {
+		t.Fatalf("parse show output: %v\n%s", err, out.String())
+	}
+	if len(shown.Phases) != 1 || len(shown.Phases[0].Tasks) != 2 {
+		t.Fatalf("unexpected plan shape: %+v", shown)
+	}
+	var existingID, freshID string
+	for _, tk := range shown.Phases[0].Tasks {
+		switch tk.Title {
+		case "Existing":
+			existingID = tk.ID
+		case "Fresh":
+			freshID = tk.ID
+		}
+	}
+	if existingID != "keep-123" {
+		t.Fatalf("explicit id not preserved, got %q", existingID)
+	}
+	if freshID == "" || freshID == "keep-123" {
+		t.Fatalf("new task did not get a fresh uuid, got %q", freshID)
+	}
+}
+
+func TestPlanRewriteBadJSONExits1(t *testing.T) {
+	dbPath := newTempDB(t)
+	t.Setenv("VAULT_ROOT", t.TempDir())
+	planFile := filepath.Join(t.TempDir(), "bad.json")
+	if err := os.WriteFile(planFile, []byte("{not valid json"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	var out, errb bytes.Buffer
+	code := run([]string{"clawcli", "plan", "rewrite", "--course", "rw-course", "--plan-file", planFile}, &out, &errb, dbPath)
+	if code != 1 {
+		t.Fatalf("want exit 1 on bad JSON, got %d", code)
+	}
+	if !strings.Contains(errb.String(), "error") {
+		t.Fatalf("stderr: %s", errb.String())
+	}
+}
+
+func TestPlanRewriteIDMismatchExits1(t *testing.T) {
+	dbPath := newTempDB(t)
+	t.Setenv("VAULT_ROOT", t.TempDir())
+	planFile := filepath.Join(t.TempDir(), "mismatch.json")
+	if err := os.WriteFile(planFile, []byte(`{"id":"other","name":"X","phases":[]}`), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	var out, errb bytes.Buffer
+	code := run([]string{"clawcli", "plan", "rewrite", "--course", "rw-course", "--plan-file", planFile}, &out, &errb, dbPath)
+	if code != 1 {
+		t.Fatalf("want exit 1 on id mismatch, got %d (stderr: %s)", code, errb.String())
+	}
+}
+
+func TestPlanRewriteMissingFlagsExits2(t *testing.T) {
+	dbPath := newTempDB(t)
+	var out, errb bytes.Buffer
+	code := run([]string{"clawcli", "plan", "rewrite", "--course", "rw-course"}, &out, &errb, dbPath)
+	if code != 2 {
+		t.Fatalf("want exit 2 when --plan-file missing, got %d (stderr: %s)", code, errb.String())
+	}
+}

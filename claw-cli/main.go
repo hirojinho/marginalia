@@ -386,7 +386,7 @@ func runRag(args []string, stdout, stderr io.Writer, dbPath string) int {
 
 func runPlan(args []string, stdout, stderr io.Writer, dbPath string) int {
 	if len(args) < 1 {
-		_, _ = fmt.Fprintln(stderr, "usage: claw-cli plan <show|status|toggle> [args]")
+		_, _ = fmt.Fprintln(stderr, "usage: claw-cli plan <show|status|toggle|rewrite> [args]")
 		return 2
 	}
 	switch args[0] {
@@ -396,6 +396,8 @@ func runPlan(args []string, stdout, stderr io.Writer, dbPath string) int {
 		return planStatus(args[1:], stdout, stderr, dbPath)
 	case "toggle":
 		return planToggle(args[1:], stdout, stderr, dbPath)
+	case "rewrite":
+		return planRewrite(args[1:], stdout, stderr, dbPath)
 	default:
 		_, _ = fmt.Fprintf(stderr, "unknown plan subcommand: %q\n", args[0])
 		return 2
@@ -539,6 +541,48 @@ func planToggle(args []string, stdout, stderr io.Writer, dbPath string) int {
 		"task_index": *taskIndex,
 	})
 	_, _ = fmt.Fprintln(stdout, app.ToolUpdatePlan(argsJSON))
+	return 0
+}
+
+func planRewrite(args []string, stdout, stderr io.Writer, dbPath string) int {
+	fs := flag.NewFlagSet("plan rewrite", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	course := fs.String("course", "", "course id / plan id (required)")
+	planFile := fs.String("plan-file", "", "path to a JSON file holding the full new plan (required)")
+	dbOverride := fs.String("db", "", "path to study.db")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	if *course == "" || *planFile == "" {
+		_, _ = fmt.Fprintln(stderr, "plan rewrite: --course and --plan-file are required")
+		return 2
+	}
+	planBytes, err := os.ReadFile(*planFile)
+	if err != nil {
+		_, _ = fmt.Fprintf(stderr, "plan rewrite: reading %q: %v\n", *planFile, err)
+		return 1
+	}
+	resolvedDB, err := resolveDBPath(*dbOverride, dbPath)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return 1
+	}
+	app, err := newAppFromEnv(resolvedDB, false)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return 1
+	}
+	defer func() { _ = app.Close() }()
+	argsJSON, _ := json.Marshal(map[string]any{ // string values cannot fail to marshal
+		"plan_id":   *course,
+		"plan_json": string(planBytes),
+	})
+	result := app.ToolRewritePlan(argsJSON)
+	if strings.HasPrefix(result, "error") {
+		_, _ = fmt.Fprintln(stderr, result)
+		return 1
+	}
+	_, _ = fmt.Fprintln(stdout, result)
 	return 0
 }
 
