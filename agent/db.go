@@ -175,6 +175,9 @@ func InitSchema(db *sql.DB) error {
 		"ALTER TABLE sessions ADD COLUMN summary_at INTEGER DEFAULT 0",
 		"ALTER TABLE messages ADD COLUMN reasoning TEXT NOT NULL DEFAULT ''",
 		"ALTER TABLE confidence_log RENAME COLUMN kc_id TO knowledge_component_id",
+		"ALTER TABLE sessions ADD COLUMN task_id TEXT",
+		"ALTER TABLE sessions ADD COLUMN archived INTEGER NOT NULL DEFAULT 0",
+		"ALTER TABLE sessions ADD COLUMN hidden INTEGER NOT NULL DEFAULT 0",
 	}
 	for _, m := range migrations {
 		if _, err := db.Exec(m); err != nil && !strings.Contains(err.Error(), "duplicate column") && !strings.Contains(err.Error(), "no such column") {
@@ -278,7 +281,7 @@ func (a *App) CreateSession(courseID, topic string) (Session, error) {
 }
 
 func (a *App) ListSessions() ([]Session, error) {
-	rows, err := a.DB.Query("SELECT id, course_id, topic, created_at, updated_at, last_pdf_id, last_page FROM sessions ORDER BY updated_at DESC")
+	rows, err := a.DB.Query("SELECT id, course_id, task_id, topic, created_at, updated_at, last_pdf_id, last_page, archived FROM sessions WHERE hidden = 0 ORDER BY updated_at DESC")
 	if err != nil {
 		return nil, fmt.Errorf("query sessions: %w", err)
 	}
@@ -287,7 +290,7 @@ func (a *App) ListSessions() ([]Session, error) {
 	var sessions []Session
 	for rows.Next() {
 		var s Session
-		if err := rows.Scan(&s.ID, &s.CourseID, &s.Topic, &s.CreatedAt, &s.UpdatedAt, &s.LastPdfID, &s.LastPage); err != nil {
+		if err := rows.Scan(&s.ID, &s.CourseID, &s.TaskID, &s.Topic, &s.CreatedAt, &s.UpdatedAt, &s.LastPdfID, &s.LastPage, &s.Archived); err != nil {
 			return nil, fmt.Errorf("scan session: %w", err)
 		}
 		if s.LastPdfID != nil {
@@ -306,9 +309,9 @@ func (a *App) ListSessions() ([]Session, error) {
 func (a *App) GetSession(id int64) (Session, error) {
 	var s Session
 	err := a.DB.QueryRow(
-		"SELECT id, course_id, topic, created_at, updated_at, last_pdf_id, last_page FROM sessions WHERE id = ?",
+		"SELECT id, course_id, task_id, topic, created_at, updated_at, last_pdf_id, last_page, archived FROM sessions WHERE id = ?",
 		id,
-	).Scan(&s.ID, &s.CourseID, &s.Topic, &s.CreatedAt, &s.UpdatedAt, &s.LastPdfID, &s.LastPage)
+	).Scan(&s.ID, &s.CourseID, &s.TaskID, &s.Topic, &s.CreatedAt, &s.UpdatedAt, &s.LastPdfID, &s.LastPage, &s.Archived)
 	if err != nil {
 		return Session{}, err
 	}

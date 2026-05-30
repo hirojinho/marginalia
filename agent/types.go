@@ -79,27 +79,29 @@ type SessionStats struct {
 }
 
 type Session struct {
-	ID        int64  `json:"id"`
-	CourseID  string `json:"course_id"`
-	Topic     string `json:"topic"`
-	CreatedAt string `json:"created_at"`
-	UpdatedAt string `json:"updated_at"`
-	LastPdfID *int64 `json:"last_pdf_id"`
-	LastPage  int    `json:"last_page"`
-	PdfName   string `json:"pdf_name,omitempty"`
-	Summary   string `json:"summary"`
-	SummaryAt int    `json:"summary_at"`
+	ID        int64   `json:"id"`
+	CourseID  string  `json:"course_id"`
+	TaskID    *string `json:"task_id"`
+	Topic     string  `json:"topic"`
+	CreatedAt string  `json:"created_at"`
+	UpdatedAt string  `json:"updated_at"`
+	LastPdfID *int64  `json:"last_pdf_id"`
+	LastPage  int     `json:"last_page"`
+	Archived  bool    `json:"archived"`
+	PdfName   string  `json:"pdf_name,omitempty"`
+	Summary   string  `json:"summary"`
+	SummaryAt int     `json:"summary_at"`
 }
 
 // ConfidencePoint represents a single confidence log entry.
 type ConfidencePoint struct {
-	ID        int64   `json:"id"`
-	SessionID int64   `json:"session_id"`
-	KnowledgeComponentID string `json:"knowledge_component_id"`
-	Value     float64 `json:"value"`
-	Source    string  `json:"source"`
-	CreatedAt int64   `json:"created_at"`
-	RawText   string  `json:"raw_text,omitempty"`
+	ID                   int64   `json:"id"`
+	SessionID            int64   `json:"session_id"`
+	KnowledgeComponentID string  `json:"knowledge_component_id"`
+	Value                float64 `json:"value"`
+	Source               string  `json:"source"`
+	CreatedAt            int64   `json:"created_at"`
+	RawText              string  `json:"raw_text,omitempty"`
 }
 
 // KnowledgeComponent represents a content-bearing atomic note.

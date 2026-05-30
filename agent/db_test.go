@@ -519,3 +519,55 @@ func TestKnowledgeComponentEmptyTitleOrBodyRejected(t *testing.T) {
 		t.Fatal("expected error for empty body")
 	}
 }
+
+func TestSessionTaskIDRoundTrips(t *testing.T) {
+	a := newMemoryApp(t)
+	s, err := a.CreateSession("ce297", "STPA")
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	got, err := a.GetSession(s.ID)
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	if got.TaskID != nil {
+		t.Errorf("TaskID = %v, want nil", got.TaskID)
+	}
+	if got.Archived {
+		t.Errorf("Archived = true, want false")
+	}
+}
+
+func TestListSessionsExcludesHidden(t *testing.T) {
+	a := newMemoryApp(t)
+	visible, err := a.CreateSession("ce297", "real work")
+	if err != nil {
+		t.Fatalf("create visible: %v", err)
+	}
+	hidden, err := a.CreateSession("verifier-stats", "stats-verifier")
+	if err != nil {
+		t.Fatalf("create hidden: %v", err)
+	}
+	if _, err := a.DB.Exec("UPDATE sessions SET hidden = 1 WHERE id = ?", hidden.ID); err != nil {
+		t.Fatalf("mark hidden: %v", err)
+	}
+
+	list, err := a.ListSessions()
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	for _, s := range list {
+		if s.ID == hidden.ID {
+			t.Errorf("hidden session %d appeared in ListSessions", hidden.ID)
+		}
+	}
+	var sawVisible bool
+	for _, s := range list {
+		if s.ID == visible.ID {
+			sawVisible = true
+		}
+	}
+	if !sawVisible {
+		t.Errorf("visible session %d missing from ListSessions", visible.ID)
+	}
+}
