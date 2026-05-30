@@ -107,9 +107,25 @@ Identify what from this resource is worth capturing later — don't prescribe ho
 - **For the course:** What concepts, arguments, or claims from this resource are load-bearing for later syllabus topics? What will reappear or be built upon?
 - **For the user's interests:** What ideas connect to their broader intellectual threads (formal foundations, thesis directions, cross-domain links)? What's worth sitting with beyond the course requirements?
 
+### Step 4 — Run the reading in segments (🔴 Read tasks)
+
+A long reading is not one passive pass. After the orientation, run the reading as a **segmented active-reading loop** — reading is verified, not assumed (ADR 0012).
+
+**Chunk it.** For a long reading, propose **page-range chunks** (e.g. "Let's do pp. 40–48 first, then pause"). Size each chunk to one coherent idea or section — typically 5–12 pages. A short reading (a few pages, one tight section) stays **whole** — don't over-segment.
+
+**Per chunk:**
+1. **Predict** (generation effect, as in the Step 3 prediction): before the chunk, ask for a one-sentence prediction of its key idea. For the first chunk this is the orientation's prediction; for later chunks, ask fresh.
+2. The user reads the chunk.
+3. **Verify position before accepting "done".** You can see the learner's current page in the `<reading_state pdf="…" page="N/total"/>` block injected into the conversation. When they say they've finished a chunk, check that page against the chunk's range. If it doesn't reach the chunk end, say so and don't advance — *"`<reading_state>` shows you on p. 43, but this chunk runs to 48 — finish it before we recall."*
+4. **Boundary recall / self-explanation** (testing effect): ask them to recall the chunk's main idea in their own words, or to self-explain how it connects to the prediction and to prior chunks. Compare silently against the content; surface gaps. Then compare their prediction to what the chunk actually said.
+
+**At the end of the reading:** a full recall of the whole reading's thread + a confidence check before marking the task done.
+
+**Discourage passive rereading.** If the learner is stuck, do *not* tell them to "read it again." Rereading feels productive but is among the weakest study techniques (Dunlosky et al. 2013). Instead prompt retrieval, self-explanation, or a targeted re-read of one specific passage with a question to answer.
+
 ## Output Format
 
-Use clear section headers. Keep the whole output under ~400 words — dense but scannable. Lead with the most important thing first (usually the approach or the key section list).
+Use clear section headers. Keep the orientation output (Steps 1–3) under ~400 words — dense but scannable. Lead with the most important thing first (usually the approach or the key section list). The Step 4 segmented-reading loop runs conversationally *after* the orientation, one chunk at a time — not as part of the upfront block.
 
 ## Common Mistakes
 
@@ -118,3 +134,5 @@ Use clear section headers. Keep the whole output under ~400 words — dense but 
 - **Adding exercises:** exercises belong in the study plan, not in orientation. Don't include focus exercises or "how to use Claude" sections.
 - **Skipping research:** if you don't look up the resource, you'll miss section names and produce vague guidance. Always fetch structure first, then fetch section content.
 - **Stopping at the TOC:** knowing that Section 3 exists is not enough. Fetch the actual content of the section the user is starting — the orientation should reference what the section says, not just what it's called.
+- **Accepting "done" without checking the page:** for a 🔴 Read task, verify the `<reading_state>` page against the chunk range before advancing — a claimed finish that doesn't reach the chunk end is a signal, not a pass.
+- **Telling a stuck learner to "reread":** passive rereading is among the weakest techniques (Dunlosky 2013). Prompt retrieval or self-explanation instead.
