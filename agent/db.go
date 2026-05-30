@@ -2,6 +2,7 @@ package agent
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strconv"
@@ -151,6 +152,16 @@ func InitSchema(db *sql.DB) error {
 	);
 	CREATE INDEX IF NOT EXISTS idx_confidence_log_kc ON confidence_log(knowledge_component_id, created_at);
 	CREATE INDEX IF NOT EXISTS idx_confidence_log_session ON confidence_log(session_id, created_at);
+	CREATE TABLE IF NOT EXISTS knowledge_components (
+	    id                 TEXT    PRIMARY KEY,
+	    title              TEXT    NOT NULL,
+	    body               TEXT    NOT NULL,
+	    source_task_id     TEXT,
+	    source_session_id  INTEGER REFERENCES sessions(id) ON DELETE SET NULL,
+	    created_at         INTEGER NOT NULL,
+	    updated_at         INTEGER NOT NULL
+	);
+	CREATE INDEX IF NOT EXISTS idx_knowledge_components_task ON knowledge_components(source_task_id);
 	`
 	if _, err := db.Exec(schema); err != nil {
 		return fmt.Errorf("create schema: %w", err)
@@ -928,4 +939,72 @@ func (a *App) GetRecentConfidence(sinceMs int64, limit int) ([]ConfidencePoint, 
 		pts = append(pts, cp)
 	}
 	return pts, rows.Err()
+}
+
+// CreateKnowledgeComponent inserts a new knowledge component and returns its id.
+func (a *App) CreateKnowledgeComponent(title, body, sourceTaskID string, sourceSessionID int64) (string, error) {
+	if title == "" {
+		return "", fmt.Errorf("title must not be empty")
+	}
+	if body == "" {
+		return "", fmt.Errorf("body must not be empty")
+	}
+	id := newTaskID()
+	now := time.Now().UnixMilli()
+	var taskID interface{}
+	if sourceTaskID != "" {
+		taskID = sourceTaskID
+	}
+	var sessionID interface{}
+	if sourceSessionID != 0 {
+		sessionID = sourceSessionID
+	}
+	_, err := a.DB.Exec(
+		"INSERT INTO knowledge_components (id, title, body, source_task_id, source_session_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+		id, title, body, taskID, sessionID, now, now,
+	)
+	if err != nil {
+		return "", fmt.Errorf("insert knowledge_component: %w", err)
+	}
+	return id, nil
+}
+
+// GetKnowledgeComponent returns a knowledge component by id, or (nil, nil) if not found.
+func (a *App) GetKnowledgeComponent(id string) (*KnowledgeComponent, error) {
+	var kc KnowledgeComponent
+	err := a.DB.QueryRow(
+		"SELECT id, title, body, COALESCE(source_task_id,''), COALESCE(source_session_id,0), created_at, updated_at FROM knowledge_components WHERE id = ?",
+		id,
+	).Scan(&kc.ID, &kc.Title, &kc.Body, &kc.SourceTaskID, &kc.SourceSessionID, &kc.CreatedAt, &kc.UpdatedAt)
+	if err != nil && errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("query knowledge_component: %w", err)
+	}
+	return &kc, nil
+}
+
+// ListKnowledgeComponents returns knowledge components ordered by created_at descending.
+func (a *App) ListKnowledgeComponents(limit int) ([]KnowledgeComponent, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	rows, err := a.DB.Query(
+		"SELECT id, title, body, COALESCE(source_task_id,''), COALESCE(source_session_id,0), created_at, updated_at FROM knowledge_components ORDER BY created_at DESC LIMIT ?",
+		limit,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("query knowledge_components: %w", err)
+	}
+	defer rows.Close()
+	var components []KnowledgeComponent
+	for rows.Next() {
+		var kc KnowledgeComponent
+		if err := rows.Scan(&kc.ID, &kc.Title, &kc.Body, &kc.SourceTaskID, &kc.SourceSessionID, &kc.CreatedAt, &kc.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("scan knowledge_component: %w", err)
+		}
+		components = append(components, kc)
+	}
+	return components, rows.Err()
 }

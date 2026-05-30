@@ -161,6 +161,8 @@ func runWithStdin(args []string, stdin io.Reader, stdout, stderr io.Writer, dbPa
 		return runSession(args[2:], stdout, stderr, dbPath)
 	case "confidence":
 		return runConfidence(args[2:], stdout, stderr, dbPath)
+	case "knowledge":
+		return runKnowledge(args[2:], stdout, stderr, dbPath)
 	default:
 		_, _ = fmt.Fprintf(stderr, "unknown subcommand: %q\n", args[1])
 		return 2
@@ -1079,4 +1081,124 @@ func parseSince(s string) (int64, error) {
 		return 0, fmt.Errorf("bad duration %q: %w", s, err)
 	}
 	return time.Now().Add(-d).UnixMilli(), nil
+}
+
+func runKnowledge(args []string, stdout, stderr io.Writer, dbPath string) int {
+	if len(args) < 1 {
+		_, _ = fmt.Fprintln(stderr, "usage: claw-cli knowledge <create|show|list> [args]")
+		return 2
+	}
+	switch args[0] {
+	case "create":
+		return knowledgeCreate(args[1:], stdout, stderr, dbPath)
+	case "show":
+		return knowledgeShow(args[1:], stdout, stderr, dbPath)
+	case "list":
+		return knowledgeList(args[1:], stdout, stderr, dbPath)
+	default:
+		_, _ = fmt.Fprintf(stderr, "unknown knowledge subcommand: %q\n", args[0])
+		return 2
+	}
+}
+
+func knowledgeCreate(args []string, stdout, stderr io.Writer, dbPath string) int {
+	fs := flag.NewFlagSet("knowledge create", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	title := fs.String("title", "", "component title (required)")
+	body := fs.String("body", "", "component body (required)")
+	sourceTaskID := fs.String("source-task-id", "", "optional source task id")
+	var sourceSessionID int64
+	fs.Int64Var(&sourceSessionID, "source-session-id", 0, "optional source session id")
+	dbOverride := fs.String("db", "", "path to study.db")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	if *title == "" || *body == "" {
+		_, _ = fmt.Fprintln(stderr, "--title and --body are required")
+		return 2
+	}
+	resolvedDB, err := resolveDBPath(*dbOverride, dbPath)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return 1
+	}
+	app, err := newAppFromEnv(resolvedDB, false)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return 1
+	}
+	defer func() { _ = app.Close() }()
+	id, err := app.CreateKnowledgeComponent(*title, *body, *sourceTaskID, sourceSessionID)
+	if err != nil {
+		_, _ = fmt.Fprintf(stderr, "error: %v\n", err)
+		return 1
+	}
+	_, _ = fmt.Fprintln(stdout, id)
+	return 0
+}
+
+func knowledgeShow(args []string, stdout, stderr io.Writer, dbPath string) int {
+	fs := flag.NewFlagSet("knowledge show", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	dbOverride := fs.String("db", "", "path to study.db")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	if fs.NArg() < 1 {
+		_, _ = fmt.Fprintln(stderr, "knowledge show: id is required")
+		return 2
+	}
+	id := fs.Arg(0)
+	resolvedDB, err := resolveDBPath(*dbOverride, dbPath)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return 1
+	}
+	app, err := newAppFromEnv(resolvedDB, false)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return 1
+	}
+	defer func() { _ = app.Close() }()
+	kc, err := app.GetKnowledgeComponent(id)
+	if err != nil {
+		_, _ = fmt.Fprintf(stderr, "error: %v\n", err)
+		return 1
+	}
+	if kc == nil {
+		_, _ = fmt.Fprintln(stderr, "not found")
+		return 1
+	}
+	_, _ = fmt.Fprintf(stdout, "%s\t%s\t%s\n", kc.ID, kc.Title, kc.Body)
+	return 0
+}
+
+func knowledgeList(args []string, stdout, stderr io.Writer, dbPath string) int {
+	fs := flag.NewFlagSet("knowledge list", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	limit := fs.Int("limit", 50, "max rows")
+	dbOverride := fs.String("db", "", "path to study.db")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	resolvedDB, err := resolveDBPath(*dbOverride, dbPath)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return 1
+	}
+	app, err := newAppFromEnv(resolvedDB, false)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return 1
+	}
+	defer func() { _ = app.Close() }()
+	components, err := app.ListKnowledgeComponents(*limit)
+	if err != nil {
+		_, _ = fmt.Fprintf(stderr, "error: %v\n", err)
+		return 1
+	}
+	for _, c := range components {
+		_, _ = fmt.Fprintf(stdout, "%s\t%s\n", c.ID, c.Title)
+	}
+	return 0
 }
