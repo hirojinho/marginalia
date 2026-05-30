@@ -10,7 +10,7 @@ import {
 } from './sessions.js';
 import { initChat } from './chat.js';
 import { initPlan, openFullPlan, toggleTopic, openPdfFromDrawer } from './plan.js';
-import { initPdf, openPdf, triggerUpload, switchPdf } from './pdf.js';
+import { initPdf, openPdf, triggerUpload, switchPdf, populateCourseSelect } from './pdf.js';
 import { initPomodoro } from './pomodoro.js';
 import {
   initRail,
@@ -101,6 +101,7 @@ initPomodoro();
   const chatEndpoint = await loadRuntimeEndpoint();
   initChat(chatEndpoint);
   await loadCourses();
+  populateCourseSelect(); // PDF upload dropdown — after courses are merged into courseMeta
   await loadRail();
   // Sidebar starts open, so this is the first view of the plan — position it at
   // the last completed task. rAF lets the freshly-rendered rail lay out first.

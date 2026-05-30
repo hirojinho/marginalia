@@ -2,6 +2,7 @@
 import { apiFetch } from './apiFetch.js';
 import { showErrorBanner } from './errorBanner.js';
 import { escapeHtml } from './dom.js';
+import { courseMeta } from './sessions.js';
 
 const MAX_PDF_BYTES = 50 * 1024 * 1024;
 
@@ -23,13 +24,22 @@ export function getCurrentView() {
   return currentView;
 }
 
-const knownPdfCourses = [
-  { id: 'ce297', name: 'Safety Models and Techniques (CE-297)' },
-  { id: 'ddia', name: 'Designing Data-Intensive Applications' },
-  { id: 'dsa-interview', name: 'DSA Interview Prep' },
-  { id: 'software-arch', name: 'Software Architecture' },
-  { id: 'thesis', name: 'Thesis — Phase 1 Survey' },
-];
+// populateCourseSelect rebuilds the PDF-upload course dropdown from courseMeta
+// (the merged hardcoded + agent-created course map). Without it the options
+// were hardcoded in index.html, so a newly-added course had no way to receive
+// a PDF. Call after loadCourses() has merged the backend courses.
+export function populateCourseSelect() {
+  const select = document.getElementById('pdf-course-select');
+  if (!select) return;
+  const prev = select.value;
+  let html = '<option value="">No course (Library)</option>';
+  for (const id of Object.keys(courseMeta)) {
+    if (id === '') continue; // the "" pseudo-course is the Library option above
+    html += `<option value="${escapeHtml(id)}">${escapeHtml(courseMeta[id].name)}</option>`;
+  }
+  select.innerHTML = html;
+  if (prev) select.value = prev;
+}
 
 export function showView(view) {
   currentView = view;
@@ -123,10 +133,8 @@ function renderPdfEmptyList(pdfs) {
   }
 
   let html = '';
-  for (const [key, group] of Object.entries(groups)) {
-    const courseInfo = knownPdfCourses.find((c) => c.id === key);
-    const groupName = courseInfo ? courseInfo.name : 'Library';
-    html += '<div class="pdf-list-section"><h4>' + escapeHtml(groupName) + '</h4>';
+  for (const [, group] of Object.entries(groups)) {
+    html += '<div class="pdf-list-section"><h4>' + escapeHtml(group.name) + '</h4>';
     for (const pdf of group.pdfs) {
       const progress = pdf.last_page > 1 ? 'p.' + pdf.last_page + ' / ' + pdf.pages : 'Not started';
       html +=

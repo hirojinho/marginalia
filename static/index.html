@@ -95,13 +95,10 @@
             <p>Supported: .pdf files</p>
             <input type="file" id="pdf-file-input" accept=".pdf" />
           </div>
+          <!-- Options populated from courseMeta by pdf.js populateCourseSelect()
+               so agent-created courses become valid upload targets. -->
           <select id="pdf-course-select">
             <option value="">No course (Library)</option>
-            <option value="ce297">Safety Models and Techniques (CE-297)</option>
-            <option value="ddia">Designing Data-Intensive Applications</option>
-            <option value="dsa-interview">DSA Interview Prep</option>
-            <option value="software-arch">Software Architecture</option>
-            <option value="thesis">Thesis — Phase 1 Survey</option>
           </select>
           <div id="pdf-list-container"></div>
         </div>
