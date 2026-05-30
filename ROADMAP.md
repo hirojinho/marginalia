@@ -2,18 +2,20 @@
 
 What's worth building next, in three buckets. Items move down the file as they ship — when something ships it leaves this file and lands in [`CHANGELOG.md`](CHANGELOG.md). Things that won't be done at all live in the "Won't do" section so the reasoning isn't lost.
 
-Last reviewed: 2026-05-27 (Knowledge Component arc designed — see ADR 0007; R4 confidence_log shipped).
+Last reviewed: 2026-05-29 (study-experience redesign designed — ADRs 0009–0012 + plan; agent course-create persistence bug and `/debug/metrics` 500 found).
 
 ## Now
 
-Nothing urgent.
+- **Agent-created courses never reach the UI (persistence bug).** When asked to create a course the agent *designs* it but writes the plan to `data/agent-out/study-plan-<slug>.md` (markdown scratch) instead of (1) creating the `courses` row via `POST /api/courses` and (2) writing `data/plans/<id>.json`. Result: the course silently never appears. Hit 2026-05-29 with the critical-theory course (hotfixed by hand — course row created + 36-task plan imported from the markdown). Real fix is agent-side: the `course-study-path` flow / AGENTS.md must actually call course-creation and write the JSON plan, not drop markdown in `agent-out/`.
 
 ## Next
 
 Cheap, small, ready when there's an excuse to pull them in.
 
 - **Persist reasoning across reloads.** Thinking tokens (SSE `reasoning` events) are rendered during a live turn but not saved — `/chat-v2` only persists the answer text. On page reload, thinking blocks disappear. Fix: store the reasoning content alongside the assistant message (separate DB column or a `messages.reasoning` field); populate the thinking block when loading message history in `static/sessions.js`.
-- **Courses-drawer UX review.** Current courses/sessions management feels poor. Brainstorm pass first — list what's clumsy, what's missing, what should disappear — before touching code. Likely splits into 2–3 small follow-up items.
+- **Study-experience redesign — phased (designed 2026-05-29).** The courses/sessions UX review is *done* and produced decisions: [ADR 0009](docs/adr/0009-session-single-task-spaced-unit.md)–[0012](docs/adr/0012-segmented-active-reading.md) — session = single-task spaced unit (tutor stops, doesn't chain); the **Plan** is the nav spine and a Session is a Task's workspace ([supersedes ADR 0008](docs/adr/0008-sidebar-course-first-launcher.md)); steering moves to a settings UI; segmented position-aware reading. Executable plan: [`docs/superpowers/plans/2026-05-29-study-experience-redesign.md`](docs/superpowers/plans/2026-05-29-study-experience-redesign.md). **Phase 1** (prompt-only: stop-don't-chain + interleaved opener) is cheap and ready; Phase 2 (reading plumbing: fix `pdf_open`, wire session↔pdf↔page, `<reading_state>`) is medium; Phases 3 (IA rebuild) + 4 (settings UI) are larger and each need their own design pass.
+- **Finish making courses data-driven (2026-05-29 hotfix).** `loadCourses()` now merges DB courses (`GET /api/courses`) into the hardcoded `courseMeta` so agent-created courses show, but colors/short-names are still hardcoded and the per-course create flow only knows the original set. Fold into the redesign's plan-rail work or do standalone.
+- **`/debug/metrics` 500s on every window.** `QueryEventSummary` scans `COALESCE(AVG(duration_ms),0)` (a float) into an int64 → `"converting driver.Value type float64 … to int64: invalid syntax"`. The whole metrics page is down. Small deterministic fix (scan into float64, or `CAST(... AS INTEGER)` / round in SQL). Good overnight-pipeline ticket — but **not** `deepseek-v4-flash` (SQL-aggregation/NULL class). Found 2026-05-29; also blocks the `PDF Opens` metric the queued `record-pdf-open-event` ticket feeds.
 - **Phase 2.6 — migration system.** Inline migrations in `agent/db.go` cover the current schema. The first time the schema needs a non-trivial change, replace them with a numbered-migration runner (something `golang-migrate`-shaped or a tiny in-tree version).
 - **Cloudflare Access on top of bearer auth.** Optional second auth layer at the CF edge. Belt-and-suspenders — only worth it if you want zero unauthenticated traffic ever reaching the app.
 
