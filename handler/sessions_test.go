@@ -346,7 +346,7 @@ func TestHandleSessionStatsMissingID(t *testing.T) {
 func TestHandleSessionForTask_GetThenCreate(t *testing.T) {
 	h := newTestHandler(t)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/sessions/for-task?course=ddia&task_id=t-1", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/sessions/for-task?course_id=ddia&task_id=t-1", nil)
 	rec := httptest.NewRecorder()
 	h.handleSessionForTask(rec, req)
 	if rec.Code != http.StatusOK {
@@ -375,12 +375,33 @@ func TestHandleSessionForTask_GetThenCreate(t *testing.T) {
 	req = httptest.NewRequest(http.MethodPost, "/api/sessions/for-task", body)
 	rec = httptest.NewRecorder()
 	h.handleSessionForTask(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("second POST status = %d, want 200", rec.Code)
+	}
 	var second agent.Session
 	if err := json.Unmarshal(rec.Body.Bytes(), &second); err != nil {
 		t.Fatalf("decode second: %v", err)
 	}
 	if second.ID != created.ID {
 		t.Errorf("second POST id = %d, want same as first %d", second.ID, created.ID)
+	}
+}
+
+func TestHandleSessionForTask_MissingParams(t *testing.T) {
+	h := newTestHandler(t)
+	// GET without course_id
+	req := httptest.NewRequest(http.MethodGet, "/api/sessions/for-task?task_id=t-1", nil)
+	rec := httptest.NewRecorder()
+	h.handleSessionForTask(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("GET missing course_id: status = %d, want 400", rec.Code)
+	}
+	// POST without task_id
+	req = httptest.NewRequest(http.MethodPost, "/api/sessions/for-task", strings.NewReader(`{"course_id":"ddia"}`))
+	rec = httptest.NewRecorder()
+	h.handleSessionForTask(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("POST missing task_id: status = %d, want 400", rec.Code)
 	}
 }
 

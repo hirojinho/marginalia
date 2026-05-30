@@ -186,13 +186,13 @@ func (h *Handler) handleSessionMessages(w http.ResponseWriter, r *http.Request) 
 func (h *Handler) handleSessionForTask(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
-		course := r.URL.Query().Get("course")
+		courseID := r.URL.Query().Get("course_id")
 		taskID := r.URL.Query().Get("task_id")
-		if course == "" || taskID == "" {
-			writeError(w, http.StatusBadRequest, "course and task_id are required")
+		if courseID == "" || taskID == "" {
+			writeError(w, http.StatusBadRequest, "course_id and task_id are required")
 			return
 		}
-		s, ok, err := h.App.GetSessionByTask(course, taskID)
+		s, ok, err := h.App.GetSessionByTask(courseID, taskID)
 		if err != nil {
 			writeServerError(w, "get session by task", err)
 			return
