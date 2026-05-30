@@ -343,6 +343,47 @@ func TestHandleSessionStatsMissingID(t *testing.T) {
 	}
 }
 
+func TestHandleSessionForTask_GetThenCreate(t *testing.T) {
+	h := newTestHandler(t)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/sessions/for-task?course=ddia&task_id=t-1", nil)
+	rec := httptest.NewRecorder()
+	h.handleSessionForTask(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET status = %d, want 200", rec.Code)
+	}
+	if got := rec.Body.String(); !strings.Contains(got, `"id":null`) {
+		t.Fatalf("GET body = %s, want {\"id\":null}", got)
+	}
+
+	body := strings.NewReader(`{"course_id":"ddia","task_id":"t-1","topic":"DDIA 3.3"}`)
+	req = httptest.NewRequest(http.MethodPost, "/api/sessions/for-task", body)
+	rec = httptest.NewRecorder()
+	h.handleSessionForTask(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("POST status = %d, want 200", rec.Code)
+	}
+	var created agent.Session
+	if err := json.Unmarshal(rec.Body.Bytes(), &created); err != nil {
+		t.Fatalf("decode created: %v", err)
+	}
+	if created.TaskID == nil || *created.TaskID != "t-1" {
+		t.Fatalf("created.TaskID = %v, want t-1", created.TaskID)
+	}
+
+	body = strings.NewReader(`{"course_id":"ddia","task_id":"t-1","topic":"ignored"}`)
+	req = httptest.NewRequest(http.MethodPost, "/api/sessions/for-task", body)
+	rec = httptest.NewRecorder()
+	h.handleSessionForTask(rec, req)
+	var second agent.Session
+	if err := json.Unmarshal(rec.Body.Bytes(), &second); err != nil {
+		t.Fatalf("decode second: %v", err)
+	}
+	if second.ID != created.ID {
+		t.Errorf("second POST id = %d, want same as first %d", second.ID, created.ID)
+	}
+}
+
 func jsonInt(n int64) string {
 	b, _ := json.Marshal(n)
 	return string(b)

@@ -179,6 +179,72 @@ func (h *Handler) handleSessionMessages(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, http.StatusOK, msgs)
 }
 
+// handleSessionForTask resolves the single Session anchored to a (course,
+// task) pair. GET is a pure lookup ({"id": null} when none). POST is
+// get-or-create — the lazy-creation hook the workspace calls on the first
+// message (ADR 0014). Both require course_id and task_id.
+func (h *Handler) handleSessionForTask(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		course := r.URL.Query().Get("course")
+		taskID := r.URL.Query().Get("task_id")
+		if course == "" || taskID == "" {
+			writeError(w, http.StatusBadRequest, "course and task_id are required")
+			return
+		}
+		s, ok, err := h.App.GetSessionByTask(course, taskID)
+		if err != nil {
+			writeServerError(w, "get session by task", err)
+			return
+		}
+		if !ok {
+			writeJSON(w, http.StatusOK, map[string]interface{}{"id": nil})
+			return
+		}
+		writeJSON(w, http.StatusOK, s)
+
+	case http.MethodPost:
+		var body struct {
+			CourseID string `json:"course_id"`
+			TaskID   string `json:"task_id"`
+			Topic    string `json:"topic"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid json")
+			return
+		}
+		if body.CourseID == "" || body.TaskID == "" {
+			writeError(w, http.StatusBadRequest, "course_id and task_id are required")
+			return
+		}
+		if s, ok, err := h.App.GetSessionByTask(body.CourseID, body.TaskID); err != nil {
+			writeServerError(w, "get session by task", err)
+			return
+		} else if ok {
+			writeJSON(w, http.StatusOK, s)
+			return
+		}
+		s, err := h.App.CreateSessionForTask(body.CourseID, body.TaskID, body.Topic)
+		if err != nil {
+			writeServerError(w, "create session for task", err)
+			return
+		}
+		sid := s.ID
+		if err := h.App.RecordEvent(agent.Event{
+			Kind:      "session_create",
+			SessionID: &sid,
+			CourseID:  s.CourseID,
+			CreatedAt: time.Now().UnixMilli(),
+		}); err != nil {
+			slog.Warn("record session_create event", "err", err)
+		}
+		writeJSON(w, http.StatusOK, s)
+
+	default:
+		methodNotAllowed(w, r, http.MethodGet, http.MethodPost)
+	}
+}
+
 func (h *Handler) getSessionStats(w http.ResponseWriter, r *http.Request) {
 	if methodNotAllowed(w, r, http.MethodGet) {
 		return
