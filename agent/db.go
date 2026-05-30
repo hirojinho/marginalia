@@ -162,6 +162,15 @@ func InitSchema(db *sql.DB) error {
 	    updated_at         INTEGER NOT NULL
 	);
 	CREATE INDEX IF NOT EXISTS idx_knowledge_components_task ON knowledge_components(source_task_id);
+	CREATE TABLE IF NOT EXISTS course_settings (
+		course_id        TEXT PRIMARY KEY,
+		framing          TEXT    NOT NULL DEFAULT '',
+		exam_style       TEXT    NOT NULL DEFAULT '',
+		chunk_pages      INTEGER NOT NULL DEFAULT 8,
+		stop_after_task  INTEGER NOT NULL DEFAULT 1,
+		interleaving     INTEGER NOT NULL DEFAULT 1,
+		updated_at       INTEGER NOT NULL
+	);
 	`
 	if _, err := db.Exec(schema); err != nil {
 		return fmt.Errorf("create schema: %w", err)
