@@ -3,6 +3,7 @@
 - **Status:** Accepted
 - **Date:** 2026-05-29
 - **Supersedes:** the core thesis of [ADR 0008](0008-sidebar-course-first-launcher.md) (the session list as primary navigator)
+- **Data model decided in:** [ADR 0014](0014-phase3-task-anchored-sessions-data-model.md) (this ADR defers it; see Consequences)
 
 ## Context
 

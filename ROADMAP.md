@@ -16,6 +16,7 @@ Cheap, small, ready when there's an excuse to pull them in.
 - **Courses-drawer UX review.** Current courses/sessions management feels poor. Brainstorm pass first — list what's clumsy, what's missing, what should disappear — before touching code. Likely splits into 2–3 small follow-up items.
 - **Phase 2.6 — migration system.** Inline migrations in `agent/db.go` cover the current schema. The first time the schema needs a non-trivial change, replace them with a numbered-migration runner (something `golang-migrate`-shaped or a tiny in-tree version).
 - **Cloudflare Access on top of bearer auth.** Optional second auth layer at the CF edge. Belt-and-suspenders — only worth it if you want zero unauthenticated traffic ever reaching the app.
+- **Harden task-UUID preservation across plan rewrites.** Phase 3 anchors a Session to a plan task's UUID via a soft `sessions.task_id` ref (no FK — plan tasks are JSON, not a table; see ADR 0011/the Phase-3 data-model decision). `ToolRewritePlan` regenerates a task's UUID when its title stops title-matching, which orphans the Session (it falls into the "Detached" bucket). Reduce that: match on a stable slug rather than exact title, and/or have the tutor pass through old IDs on rewrite. Doesn't fully close orphaning (the accepted Phase-3 trade-off is that orphans are *survivable + recoverable*, not impossible) — this just makes it rare. The structural fix (tasks as a DB table + real FK) was considered and rejected for Phase 3 as a multi-day migration touching `claw-cli` and the overnight pipeline.
 
 ### Pedagogy backlog (graded by evidence strength)
 
@@ -35,6 +36,8 @@ Today's session baked the front-half of a learning loop (encoding scaffolds — 
 ## Later
 
 Bigger things, not blocking, would need their own design pass.
+
+- **Declared Task → resource association.** Phase 3 ships *learned* resources: a task auto-opens reading from its Session's `last_pdf_id`, which only exists after the first manual open (see the Phase-3 data-model decision / ADR). The richer version declares the resource up front so a never-opened task knows its PDF and auto-opens on first entry — needs new schema (task→PDF link, in plan JSON or a join) *and* an authoring surface to set it. Belongs with the **Authoring** flow (plan/course creation), not the IA rebuild — design it there.
 
 - **Agent-emitted HTML snippets / interactive templates.** Let the LLM return inline UI fragments — flashcards, quizzes, diagrams, expandable comparison tables, code playgrounds — alongside prose. Needs a sanctioned subset of HTML (sanitized; restricted attributes; no scripts), a new content type in the SSE stream, and a renderer that can hydrate `data-action` hooks into the existing event delegator. Touches model trust boundary: prompt-inject defenses required.
 - **Agent-generated files & downloads (especially PDFs).** Tool that lets the agent build a file (PDF summary, LaTeX export, JSON plan dump, flashcard deck) and surface it to the user as a download link in the chat. Server-side generation (likely `gofpdf` or `chromedp` headless render); files saved to a sandboxed dir under `data/agent-out/`; one-time signed URLs to avoid leaking. Decide auth/cleanup policy.

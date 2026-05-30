@@ -51,8 +51,12 @@ plus its reading state and notes. A Session is *not* a top-level entity the
 learner browses — it is reached **through its Task in the Plan**. Consequences
 that follow from this definition (not implementation, just meaning):
 
-- A Session is anchored to exactly one Task (and so to one Course). Opening a
-  Task opens its Session; a fresh Task creates one on entry.
+- A Session is anchored to exactly one Task (and so to one Course), and a Task
+  has exactly one Session — the relationship is **1:1**. Opening a Task opens its
+  (one) Session; a fresh Task creates it on entry. A Task worked across several
+  days (e.g. a long Read chunked over sittings) keeps appending to that *same*
+  Session — "resume next day" reopens it, it does not spawn a second Session.
+  There is therefore no per-Task list of sittings to browse.
 - There is **no flat session list** to navigate. Past work is reached by
   selecting its (completed) Task in the Plan. The old "archive" framing is
   retired — the Plan *is* the index of one's work.
@@ -65,25 +69,49 @@ that follow from this definition (not implementation, just meaning):
 
 ## Scratch
 
-A space for chats **not tied to any Task** — one-off questions, paper checks,
-an interests review, exploratory threads. Scratch is where ad-hoc work lives so
-the Plan stays a clean record of structured study. (A Scratch chat still earns a
-short auto-title, since it has no Task name to inherit.)
+A space for chats **not tied to any Task** — one-off questions, a paper check
+("help me understand this paper from the ITA masters call"), an interests review
+("find a pattern across my saved interests"), exploratory threads. Scratch is
+where ad-hoc *studying* lives so the Plan stays a clean record of structured
+study. (A Scratch chat still earns a short auto-title, since it has no Task name
+to inherit.)
 
-## Studying vs Steering
+Scratch is **global by default**: its canonical contents are course-*less* (a
+paper in no plan; an interests review that spans every course), so they have no
+Course to sit under. A Scratch chat *may* optionally be tagged to a Course (an
+aside while studying it), but it is never tied to a Task. Scratch is **studying,
+not Authoring or Steering** — building a course/plan is [Authoring](#studying-authoring-and-steering),
+not Scratch.
 
-Two different activities that have been tangled in the same chat surface:
+## Studying, Authoring, and Steering
 
-- **Studying** — engaging with course content through the tutor: recall,
-  prediction, explanation, reading, reflection. This is the learner's cognitive
-  work and the thing a Session is for.
-- **Steering** — adjusting *how the system behaves*: editing the plan, setting a
-  Course's framing (e.g. "exam-prep first, conceptual exam"), changing tutor
-  preferences (pace, chunk size). This is configuration, not learning.
+Three different activities that have been tangled in the same chat surface. They
+differ by *what they touch* and *whether they are generative*:
 
-These are distinct: Steering should not happen *inside* a Studying Session (it
-bloats and pollutes it), and durable Steering changes are owned by the learner
-directly, not produced as a side effect of a chat turn.
+- **Studying** — engaging with course *content* through the tutor: recall,
+  prediction, explanation, reading, reflection. The learner's cognitive work and
+  the thing a Session is for. (Course-less studying is [Scratch](#scratch).)
+- **Authoring** — *generatively designing study structure* with the agent:
+  creating a Course, building a Plan, or designing a new phase/chapter's tasks
+  from an intent ("I'm reading Debord — build me a critical-theory course";
+  "plan chapter 8's tasks from this PDF"). It is conversational **because it is
+  generative** — it needs the agent's help to produce something that did not
+  exist, and would be destroyed by a form. Authoring *produces* the Course/Plan
+  that Studying then moves through.
+- **Steering** — *mechanical, declarative configuration* of how the system
+  behaves: toggling a task done, reordering, renaming, setting a Course's framing
+  ("exam-prep first, conceptual exam"), tutor preferences (pace, chunk size).
+  Not generative; it belongs in a settings/management UI, owned by the learner
+  directly, not produced as a side effect of a chat turn.
+
+The line between Authoring and Steering is **generative design vs. declarative
+config**, not create-vs-edit: designing a new chapter's tasks is Authoring even
+though it edits an existing Plan; ticking a task done is Steering even though it
+changes the Plan too.
+
+Steering should not happen *inside* a Studying Session (it bloats and pollutes
+it). Authoring is its own conversational surface, distinct from both a
+task-anchored Session and from the Steering UI.
 
 ## Authoring principle
 

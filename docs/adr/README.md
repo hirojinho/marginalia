@@ -16,5 +16,8 @@ Numbered, append-only. Once written, an ADR is not edited — to change a decisi
 | [0010](0010-steering-via-settings-ui.md) | Steering is edited via a settings UI to source-of-truth stores | Accepted | 2026-05-29 |
 | [0011](0011-plan-is-navigation-spine.md) | The Plan is the navigation spine; a Session is a Task's workspace | Accepted | 2026-05-29 |
 | [0012](0012-segmented-active-reading.md) | Segmented active reading with a position-aware tutor | Accepted | 2026-05-29 |
+| [0014](0014-phase3-task-anchored-sessions-data-model.md) | Phase 3 data model: task-anchored Sessions, Scratch, clean-break migration | Accepted | 2026-05-30 |
+
+> 0013 (`feat/wander`) is intentionally absent here — it lives on the Wander branch; reconcile this table on merge.
 
 New ADR? Copy [`template.md`](template.md), pick the next number, link it from the table above.
