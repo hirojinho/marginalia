@@ -9,7 +9,9 @@ const SELECTED_COURSE_KEY = 'claw-study:railCourse';
 let selectedCourse = localStorage.getItem(SELECTED_COURSE_KEY) || 'ce297';
 let currentPlan = null; // JSONPlan for selectedCourse, or null
 let sessionsByTaskId = {}; // task_id -> session (has-work lookup)
-let otherSessions = []; // task_id-less sessions (Scratch stub)
+let scratchSessions = []; // task_id-less, not archived (live Scratch)
+let archivedSessions = []; // task_id-less, archived (pre-redesign — "Before the redesign")
+let detachedSessions = []; // task_id set but absent from the current course's plan (orphaned)
 let pendingTask = null; // {courseId, taskId, title} when a task is open with no session yet
 
 export function getSelectedCourse() {
@@ -32,11 +34,32 @@ export async function loadRailData() {
     ]);
     currentPlan = planResp.ok ? await planResp.json() : null;
     const sessions = await sessResp.json();
+    // Task ids present in the currently-selected course's plan.
+    const planTaskIds = new Set();
+    if (currentPlan) {
+      walkTasks(currentPlan, (n) => {
+        if (n.kind === 'task') planTaskIds.add(n.task.id);
+      });
+    }
     sessionsByTaskId = {};
-    otherSessions = [];
+    scratchSessions = [];
+    archivedSessions = [];
+    detachedSessions = [];
     for (const s of sessions || []) {
-      if (s.task_id) sessionsByTaskId[s.task_id] = s;
-      else otherSessions.push(s);
+      if (s.task_id) {
+        if (planTaskIds.has(s.task_id)) {
+          sessionsByTaskId[s.task_id] = s; // has-work for a current plan task
+        } else if (s.course_id === selectedCourse) {
+          detachedSessions.push(s); // anchored to this course, but the task is gone
+        }
+        // task-anchored sessions of OTHER courses are not shown on this rail
+      } else {
+        // task-less = Scratch family; show global (no course) + this course's
+        const inScope = !s.course_id || s.course_id === selectedCourse;
+        if (!inScope) continue;
+        if (s.archived) archivedSessions.push(s);
+        else scratchSessions.push(s);
+      }
     }
   } catch (err) {
     console.error('Failed to load rail data', err);
@@ -107,13 +130,32 @@ function renderCourseSwitcher() {
   return `<select id="rail-course-select" class="rail-course-select" data-action="noop">${opts}</select>`;
 }
 
+function renderSessionLine(s) {
+  return `<div class="rail-other-item" data-action="switch-session" data-session-id="${s.id}">${escapeHtml(s.topic || 'Untitled')}</div>`;
+}
+
 function renderOther() {
-  if (!otherSessions.length) return '';
-  let html = '<div class="rail-other"><div class="rail-other-label">Other chats</div>';
-  for (const s of otherSessions) {
-    html += `<div class="rail-other-item" data-action="switch-session" data-session-id="${s.id}">${escapeHtml(s.topic || 'Untitled')}</div>`;
+  let html = '';
+  if (scratchSessions.length) {
+    html += '<div class="rail-bucket"><div class="rail-other-label">Scratch</div>';
+    for (const s of scratchSessions) html += renderSessionLine(s);
+    html += '</div>';
   }
-  return html + '</div>';
+  if (detachedSessions.length) {
+    html +=
+      '<div class="rail-bucket"><div class="rail-other-label">Detached' +
+      ` <span class="rail-bucket-hint">task removed from plan</span></div>`;
+    for (const s of detachedSessions) html += renderSessionLine(s);
+    html += '</div>';
+  }
+  if (archivedSessions.length) {
+    html +=
+      '<details class="rail-bucket rail-archive"><summary class="rail-other-label">' +
+      `Before the redesign <span class="rail-bucket-hint">${archivedSessions.length}</span></summary>`;
+    for (const s of archivedSessions) html += renderSessionLine(s);
+    html += '</details>';
+  }
+  return html;
 }
 
 export function initRail() {

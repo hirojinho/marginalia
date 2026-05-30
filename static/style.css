@@ -1354,3 +1354,21 @@ header small {
   border-bottom: 1px solid var(--border);
   background: var(--bg-sunken);
 }
+.rail-bucket {
+  margin-top: 18px;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+.rail-bucket-hint {
+  font-weight: 400;
+  color: var(--text-tertiary);
+  text-transform: none;
+  letter-spacing: 0;
+}
+.rail-archive > summary {
+  cursor: pointer;
+  list-style: revert;
+}
+.rail-archive[open] > summary {
+  margin-bottom: 4px;
+}
