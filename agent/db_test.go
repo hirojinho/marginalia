@@ -621,3 +621,72 @@ func TestCreateAndGetSessionByTask(t *testing.T) {
 		t.Errorf("unexpected session for task-uuid-2")
 	}
 }
+
+func TestMigratePhase3Sessions(t *testing.T) {
+	a := newMemoryApp(t)
+
+	realID := mustSession(t, a, "ce297", "Ch.8 Event Tree Analysis")
+	verifierID := mustSession(t, a, "verifier-stats", "stats-verifier")
+	smokeID := mustSession(t, a, "ce297", "phase5 smoke v3")
+	emptyID := mustSession(t, a, "ddia", "General")
+	if err := a.SaveMessage(realID, "user", "hello"); err != nil {
+		t.Fatalf("seed message: %v", err)
+	}
+
+	n, err := a.MigratePhase3Sessions()
+	if err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	if n == 0 {
+		t.Fatalf("expected migration to touch rows, got 0")
+	}
+
+	assertHidden := func(id int64, want bool) {
+		var hidden int
+		if err := a.DB.QueryRow("SELECT hidden FROM sessions WHERE id = ?", id).Scan(&hidden); err != nil {
+			t.Fatalf("scan hidden %d: %v", id, err)
+		}
+		if (hidden == 1) != want {
+			t.Errorf("session %d hidden=%d, want hidden=%v", id, hidden, want)
+		}
+	}
+	assertArchived := func(id int64, want bool) {
+		var archived int
+		if err := a.DB.QueryRow("SELECT archived FROM sessions WHERE id = ?", id).Scan(&archived); err != nil {
+			t.Fatalf("scan archived %d: %v", id, err)
+		}
+		if (archived == 1) != want {
+			t.Errorf("session %d archived=%d, want archived=%v", id, archived, want)
+		}
+	}
+
+	assertHidden(verifierID, true)
+	assertHidden(smokeID, true)
+	assertHidden(emptyID, true)
+	assertHidden(realID, false)
+	assertArchived(realID, true)
+	assertArchived(verifierID, false)
+
+	freshID := mustSession(t, a, "ddia", "new scratch")
+	if err := a.SaveMessage(freshID, "user", "post-migration"); err != nil {
+		t.Fatalf("seed fresh message: %v", err)
+	}
+	again, err := a.MigratePhase3Sessions()
+	if err != nil {
+		t.Fatalf("second migrate: %v", err)
+	}
+	if again != 0 {
+		t.Errorf("second migration touched %d rows, want 0 (guard failed)", again)
+	}
+	assertArchived(freshID, false)
+}
+
+// mustSession creates a session or fails the test.
+func mustSession(t *testing.T, a *App, course, topic string) int64 {
+	t.Helper()
+	s, err := a.CreateSession(course, topic)
+	if err != nil {
+		t.Fatalf("create session (%s/%s): %v", course, topic, err)
+	}
+	return s.ID
+}

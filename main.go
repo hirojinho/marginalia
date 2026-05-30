@@ -121,6 +121,11 @@ func main() {
 	}()
 
 	app.LoadActiveSessionID()
+	if n, err := app.MigratePhase3Sessions(); err != nil {
+		slog.Warn("phase3 session migration", "err", err)
+	} else if n > 0 {
+		slog.Info("phase3 session migration applied", "rows", n)
+	}
 
 	llm := agent.NewLLMClient(cfg.APIKey, cfg.APIURL, cfg.Model)
 

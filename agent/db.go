@@ -199,6 +199,55 @@ func InitSchema(db *sql.DB) error {
 	return nil
 }
 
+// MigratePhase3Sessions runs the one-time ADR-0014 clean-break migration:
+// hide provably-synthetic sessions, then archive the remaining pre-redesign
+// task-less sessions. Guarded by the "phase3_session_migration" meta flag so
+// Scratch chats created later are never archived. Returns rows changed.
+func (a *App) MigratePhase3Sessions() (int64, error) {
+	done, err := a.getMetaInt("phase3_session_migration")
+	if err != nil {
+		return 0, fmt.Errorf("read migration flag: %w", err)
+	}
+	if done != 0 {
+		return 0, nil
+	}
+
+	var changed int64
+
+	// 1. Hide synthetic / junk: verifier output, smoke tests, smoke courses,
+	//    and any zero-message session.
+	hideRes, err := a.DB.Exec(`
+		UPDATE sessions SET hidden = 1
+		WHERE hidden = 0 AND (
+			course_id = 'verifier-stats'
+			OR topic LIKE 'phase5 smoke%'
+			OR course_id LIKE 'postship-smoke-%'
+			OR id NOT IN (SELECT DISTINCT session_id FROM messages)
+		)`)
+	if err != nil {
+		return 0, fmt.Errorf("hide synthetic sessions: %w", err)
+	}
+	if n, _ := hideRes.RowsAffected(); n > 0 {
+		changed += n
+	}
+
+	// 2. Archive remaining pre-redesign, task-less, visible sessions.
+	archRes, err := a.DB.Exec(`
+		UPDATE sessions SET archived = 1
+		WHERE hidden = 0 AND archived = 0 AND task_id IS NULL`)
+	if err != nil {
+		return 0, fmt.Errorf("archive pre-redesign sessions: %w", err)
+	}
+	if n, _ := archRes.RowsAffected(); n > 0 {
+		changed += n
+	}
+
+	if err := a.setMetaInt("phase3_session_migration", 1); err != nil {
+		return 0, fmt.Errorf("set migration flag: %w", err)
+	}
+	return changed, nil
+}
+
 // ---------- Courses ----------
 
 // ListCourses returns all courses ordered by creation time.
