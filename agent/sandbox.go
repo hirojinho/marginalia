@@ -205,6 +205,14 @@ func (sm *SandboxManager) writeAgentsMD(path, clawCLIPath string, sessionID int6
 		"**Never write settings into AGENTS.md, notes, or any file** — only this tool persists them. The change takes effect next turn.\n"
 	content = append(content, []byte(steerTool)...)
 
+	// How to create a course conversationally (Authoring; ADR 0014).
+	createCourse := "\n## Creating a course\n\n" +
+		"If Eduardo starts studying a subject that is not already one of his courses, create it before saving any plan or memory for it:\n" +
+		"```\nclaw-cli course create --id <kebab-case-slug> --name \"<display name>\" [--framing \"<how to teach it>\"] [--exam-style \"<assessment style>\"]\n```\n" +
+		"Pick a stable kebab-case id (lowercase letters, digits, hyphens) — ids are permanent. " +
+		"This only registers the course; build the study plan with the course-study-path skill as usual.\n"
+	content = append(content, []byte(createCourse)...)
+
 	// Pedagogical rules go last so they sit closest to the user message in
 	// the assembled context — maximum LLM weight. Rules 6/9/10 reflect the
 	// course's Steering settings (ADR 0010/0016).
