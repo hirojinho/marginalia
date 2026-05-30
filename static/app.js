@@ -12,7 +12,14 @@ import { initChat } from './chat.js';
 import { initPlan, openFullPlan, toggleTopic, openPdfFromDrawer } from './plan.js';
 import { initPdf, openPdf, triggerUpload, switchPdf } from './pdf.js';
 import { initPomodoro } from './pomodoro.js';
-import { initRail, loadRail, openTask, toggleTask, restoreReading } from './rail.js';
+import {
+  initRail,
+  loadRail,
+  openTask,
+  toggleTask,
+  restoreReading,
+  scrollRailToLastChecked,
+} from './rail.js';
 
 installErrorBanner();
 
@@ -61,7 +68,14 @@ document.addEventListener('click', function (e) {
 
 // Sidebar toggle (header)
 document.getElementById('sidebar-toggle').addEventListener('click', function () {
-  document.getElementById('session-sidebar').classList.toggle('collapsed');
+  const sidebar = document.getElementById('session-sidebar');
+  const wasCollapsed = sidebar.classList.contains('collapsed');
+  sidebar.classList.toggle('collapsed');
+  // On open, jump to where the learner left off. Wait out the 0.2s width
+  // transition so the list has reflowed to its final width before we measure.
+  if (wasCollapsed) {
+    setTimeout(scrollRailToLastChecked, 220);
+  }
 });
 
 async function loadRuntimeEndpoint() {
@@ -88,6 +102,9 @@ initPomodoro();
   initChat(chatEndpoint);
   await loadCourses();
   await loadRail();
+  // Sidebar starts open, so this is the first view of the plan — position it at
+  // the last completed task. rAF lets the freshly-rendered rail lay out first.
+  requestAnimationFrame(scrollRailToLastChecked);
   const active = await loadActiveSession();
   if (active && active.id) {
     await loadSessionMessages();

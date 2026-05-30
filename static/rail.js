@@ -121,6 +121,23 @@ export function renderRail() {
   container.innerHTML = html;
 }
 
+// Scroll the rail so the last completed task is in view — where the learner
+// left off. Falls back to the next (first incomplete) task, then does nothing
+// if the plan is empty. Positions the target about a third down the list so the
+// next task below it is also visible. Called when the sidebar is opened, not on
+// every render (so toggling a task doesn't yank the scroll).
+export function scrollRailToLastChecked() {
+  const container = document.getElementById('session-list');
+  if (!container) return;
+  const done = container.querySelectorAll('.rail-task.done');
+  const target = done.length ? done[done.length - 1] : container.querySelector('.rail-task.next');
+  if (!target) return;
+  const containerRect = container.getBoundingClientRect();
+  const targetRect = target.getBoundingClientRect();
+  const delta = targetRect.top - containerRect.top - container.clientHeight / 3;
+  container.scrollTop = Math.max(0, container.scrollTop + delta);
+}
+
 function renderCourseSwitcher() {
   let opts = '';
   for (const id of Object.keys(courseMeta)) {
