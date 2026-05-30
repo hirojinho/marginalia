@@ -28,7 +28,7 @@ document.addEventListener('click', function (e) {
       break;
     case 'delete-session':
       e.stopPropagation();
-      deleteSession(parseInt(el.dataset.sessionId, 10));
+      deleteSession(parseInt(el.dataset.sessionId, 10)).then(() => loadRail());
       break;
     case 'open-full-plan':
       openFullPlan(el.dataset.courseId);

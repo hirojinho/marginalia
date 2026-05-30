@@ -1,6 +1,7 @@
-// Session list: course accordion, create/load/switch/delete/rename, session pill.
+// Session state + data ops: course metadata, active-session tracking, message
+// loading, the session pill, switch/delete. The left-rail navigator lives in
+// rail.js (ADR 0011); this module no longer renders a session list.
 import { apiFetch } from './apiFetch.js';
-import { showErrorBanner } from './errorBanner.js';
 import { escapeHtml, renderContent } from './dom.js';
 
 export const courseMeta = {
@@ -17,10 +18,9 @@ export const courseMeta = {
 const FALLBACK_COURSE_COLORS = ['#0D9488', '#DB2777', '#CA8A04', '#4F46E5', '#0891B2'];
 
 let activeSessionId = null;
-let allSessions = [];
 
 // Merge courses from the backend into courseMeta so agent-created courses
-// (which aren't in the hardcoded map) show up in the sidebar.
+// (which aren't in the hardcoded map) show up in the rail switcher.
 export async function loadCourses() {
   try {
     const resp = await apiFetch('/api/courses');
@@ -41,31 +41,11 @@ export async function loadCourses() {
   }
 }
 
-const EXPANDED_KEY = 'claw-study:expandedCourse';
-
-function getExpandedCourse() {
-  return localStorage.getItem(EXPANDED_KEY); // string courseId, '' for General, or null
-}
-function setExpandedCourse(courseId) {
-  if (courseId === null) localStorage.removeItem(EXPANDED_KEY);
-  else localStorage.setItem(EXPANDED_KEY, courseId);
-}
-
 export function getActiveSessionId() {
   return activeSessionId;
 }
 export function setActiveSessionId(id) {
   activeSessionId = id;
-}
-
-export async function loadSessions() {
-  try {
-    const resp = await apiFetch('/api/sessions');
-    allSessions = await resp.json();
-    renderSessionList();
-  } catch (err) {
-    console.error('Failed to load sessions', err);
-  }
 }
 
 export async function loadActiveSession() {
@@ -79,70 +59,10 @@ export async function loadActiveSession() {
       activeSessionId = null;
       updateSessionPill(null);
     }
-    highlightActiveSession();
   } catch {
     activeSessionId = null;
     updateSessionPill(null);
   }
-}
-
-function renderSessionList() {
-  const container = document.getElementById('session-list');
-
-  // Group sessions by course, newest-first within each course.
-  const byCourse = {};
-  for (const s of allSessions) {
-    const key = s.course_id || '';
-    (byCourse[key] = byCourse[key] || []).push(s);
-  }
-  for (const key of Object.keys(byCourse)) {
-    byCourse[key].sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
-  }
-
-  // Which course is expanded: the stored choice, else the active session's
-  // course, else none (all collapsed).
-  let expanded = getExpandedCourse();
-  if (expanded === null) {
-    const active = allSessions.find((s) => s.id === activeSessionId);
-    if (active) expanded = active.course_id || '';
-  }
-
-  // Always show every defined course (so '+' can launch into any).
-  const order = Object.keys(courseMeta);
-
-  let html = '';
-  for (const key of order) {
-    const meta = courseMeta[key];
-    const sessions = byCourse[key] || [];
-    const isExpanded = expanded === key;
-    html += `<div class="course-group${isExpanded ? ' expanded' : ''}" data-course="${key}">
-      <div class="course-header" data-action="toggle-course" data-course="${key}">
-        <span class="course-chevron">&#x25B6;</span>
-        <span class="course-dot" style="background:${meta.color}"></span>
-        <span class="course-name">${escapeHtml(meta.name)}</span>
-        <span class="course-count">${sessions.length || ''}</span>
-        <span class="course-add" data-action="create-in-course" data-course="${key}" title="New session">&#x2b;</span>
-      </div>
-      <div class="course-sessions">`;
-    if (sessions.length === 0) {
-      html += `<div class="course-empty-hint">No sessions yet — + to start</div>`;
-    } else {
-      for (const s of sessions) {
-        const isActive = s.id === activeSessionId;
-        html += `<div class="session-item${isActive ? ' active' : ''}" data-session-id="${s.id}" data-action="switch-session">
-          <div style="display:flex;justify-content:space-between;align-items:center;">
-            <div class="session-topic-wrap">
-              <span class="session-topic" data-action="start-rename" data-session-id="${s.id}">${escapeHtml(s.topic || 'Untitled')}</span>
-              <span class="session-rename-btn" data-action="start-rename" data-session-id="${s.id}" title="Rename">&#x270E;</span>
-            </div>
-            <span class="session-delete" data-action="delete-session" data-session-id="${s.id}" title="Delete">&#x2715;</span>
-          </div>
-        </div>`;
-      }
-    }
-    html += `</div></div>`;
-  }
-  container.innerHTML = html;
 }
 
 export async function switchSession(id) {
@@ -153,10 +73,8 @@ export async function switchSession(id) {
       body: JSON.stringify({ id: id }),
     });
     activeSessionId = id;
-    highlightActiveSession();
-    updateSessionPill(allSessions.find((s) => s.id === id) || { id: id, topic: 'Session' });
     await loadSessionMessages();
-    await loadSessions();
+    await loadActiveSession();
   } catch (err) {
     console.error('Failed to switch session', err);
   }
@@ -209,12 +127,6 @@ export function clearWorkspace() {
   document.getElementById('messages').innerHTML = '';
 }
 
-function highlightActiveSession() {
-  document.querySelectorAll('.session-item').forEach((el) => {
-    el.classList.toggle('active', parseInt(el.dataset.sessionId) === activeSessionId);
-  });
-}
-
 function updateSessionPill(session) {
   const pill = document.getElementById('session-pill');
   if (!session || !session.id) {
@@ -226,26 +138,6 @@ function updateSessionPill(session) {
   pill.innerHTML = `<span class="pill-dot" style="background:${meta.color}"></span>${escapeHtml(session.topic || meta.name)}`;
 }
 
-export async function createSessionInCourse(courseId) {
-  try {
-    const resp = await fetch('/api/sessions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ course_id: courseId, topic: '' }),
-    });
-    if (!resp.ok) throw new Error('HTTP ' + resp.status);
-    const session = await resp.json();
-    setExpandedCourse(courseId); // keep the course we just created in open
-    activeSessionId = session.id;
-    await loadActiveSession();
-    await loadSessions();
-    document.getElementById('messages').innerHTML = '';
-  } catch (err) {
-    console.error('Failed to create session', err);
-    showErrorBanner('Failed to create session: ' + err.message);
-  }
-}
-
 export async function deleteSession(id) {
   if (!confirm('Delete this session and its chat history?')) return;
   try {
@@ -255,82 +147,8 @@ export async function deleteSession(id) {
       document.getElementById('messages').innerHTML = '';
       updateSessionPill(null);
     }
-    await loadSessions();
     await loadActiveSession();
   } catch (err) {
     console.error('Failed to delete session', err);
   }
-}
-
-function startRenameSession(id) {
-  const session = allSessions.find((s) => s.id === id);
-  if (!session) return;
-  const wrap = document.querySelector(
-    `.session-topic-wrap [data-session-id="${id}"].session-topic`,
-  );
-  if (!wrap) return;
-  const parent = wrap.closest('.session-topic-wrap');
-  const input = document.createElement('input');
-  input.type = 'text';
-  input.className = 'session-topic-input';
-  input.value = session.topic || '';
-  input.maxLength = 200;
-  parent.replaceWith(input);
-  input.focus();
-  input.select();
-
-  async function commit() {
-    const newTopic = input.value.trim();
-    if (newTopic && newTopic !== session.topic) {
-      try {
-        await fetch('/api/sessions?id=' + id, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ topic: newTopic }),
-        });
-        session.topic = newTopic;
-        if (id === activeSessionId) updateSessionPill(session);
-      } catch (err) {
-        console.error('Failed to rename session', err);
-      }
-    }
-    renderSessionList();
-  }
-
-  input.addEventListener('keydown', function (e) {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      commit();
-    }
-    if (e.key === 'Escape') {
-      renderSessionList();
-    }
-  });
-  input.addEventListener('blur', commit);
-}
-
-export function initSessionsUI() {
-  document.getElementById('session-list').addEventListener('click', function (e) {
-    const renameEl = e.target.closest('[data-action="start-rename"]');
-    if (renameEl) {
-      e.stopPropagation();
-      startRenameSession(parseInt(renameEl.dataset.sessionId, 10));
-      return;
-    }
-    const addEl = e.target.closest('[data-action="create-in-course"]');
-    if (addEl) {
-      e.stopPropagation();
-      createSessionInCourse(addEl.dataset.course);
-      return;
-    }
-    // switch-session and delete-session are handled by the document-level
-    // dispatcher in app.js — do NOT re-bind them here (would double-fire).
-    const headerEl = e.target.closest('[data-action="toggle-course"]');
-    if (headerEl) {
-      const course = headerEl.dataset.course;
-      setExpandedCourse(getExpandedCourse() === course ? null : course);
-      renderSessionList();
-      return;
-    }
-  });
 }
