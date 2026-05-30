@@ -21,7 +21,7 @@ import (
 
 const defaultUserID = "eduardo"
 
-// courseIDRe is the kebab-case rule shared with POST /api/courses (handler/courses.go).
+// courseIDRe mirrors the kebab-case rule enforced by POST /api/courses (handler/courses.go).
 var courseIDRe = regexp.MustCompile(`^[a-z0-9-]+$`)
 
 // resolveStudyRoot returns CLAW_STUDY_ROOT or empty.
@@ -626,14 +626,14 @@ func courseCreate(args []string, stdout, stderr io.Writer, dbPath string) int {
 	_, _ = fmt.Fprintf(stdout, "Created course %q (id: %s)\n", *name, *id)
 	if *framing != "" {
 		if err := app.SetCourseSetting(*id, "framing", *framing); err != nil {
-			_, _ = fmt.Fprintln(stderr, err)
+			_, _ = fmt.Fprintf(stderr, "course %s created, but failed to set framing: %v\n", *id, err)
 			return 1
 		}
 		_, _ = fmt.Fprintf(stdout, "set framing for course %s\n", *id)
 	}
 	if *examStyle != "" {
 		if err := app.SetCourseSetting(*id, "exam_style", *examStyle); err != nil {
-			_, _ = fmt.Fprintln(stderr, err)
+			_, _ = fmt.Fprintf(stderr, "course %s created, but failed to set exam_style: %v\n", *id, err)
 			return 1
 		}
 		_, _ = fmt.Fprintf(stdout, "set exam_style for course %s\n", *id)
