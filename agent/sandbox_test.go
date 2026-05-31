@@ -208,8 +208,8 @@ func TestWriteAgentsMDAuthoringFrame(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read: %v", err)
 	}
-	if !strings.Contains(string(body), "course create --session") {
-		t.Fatalf("authoring frame missing the create+retag instruction:\n%s", body)
+	if !strings.Contains(string(body), "course create --session 101") {
+		t.Fatalf("authoring frame missing the create+retag instruction with session id:\n%s", body)
 	}
 	path2, err := sm.Create(102, "", "ce297", "", "study")
 	if err != nil {
@@ -221,5 +221,16 @@ func TestWriteAgentsMDAuthoringFrame(t *testing.T) {
 	}
 	if strings.Contains(string(body2), "course create --session") {
 		t.Fatalf("study session should not have the authoring frame:\n%s", body2)
+	}
+	path3, err := sm.Create(103, "", "", "", "scratch")
+	if err != nil {
+		t.Fatalf("create scratch: %v", err)
+	}
+	body3, err := os.ReadFile(filepath.Join(path3, "AGENTS.md"))
+	if err != nil {
+		t.Fatalf("read3: %v", err)
+	}
+	if strings.Contains(string(body3), "course create --session") {
+		t.Fatalf("scratch session should not have the authoring frame:\n%s", body3)
 	}
 }

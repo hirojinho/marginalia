@@ -281,7 +281,7 @@ func authoringFrameSection(mode string, sessionID int64) []byte {
 		"This is not a study session — Eduardo wants to design a course/plan with you, generatively. " +
 		"Use the `course-study-path` skill: grill the intent, research the resources, and build the study plan.\n\n" +
 		"When the course is ready, create it (this also re-tags THIS chat to the new course):\n" +
-		"```\nclaw-cli course create --session " + fmt.Sprintf("%d", sessionID) + " --id <kebab-slug> --name \"<display name>\"\n```\n" +
+		"```\nclaw-cli course create --session " + strconv.FormatInt(sessionID, 10) + " --id <kebab-slug> --name \"<display name>\"\n```\n" +
 		"Then seed the plan's tasks (read it back, edit JSON, submit the whole plan):\n" +
 		"```\nclaw-cli plan rewrite --course <kebab-slug> --plan-file <tmp.json>\n```\n" +
 		"Pick a stable kebab-case id (ids are permanent). Keep task `id`s stable on later edits. " +
