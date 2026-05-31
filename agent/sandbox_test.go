@@ -211,6 +211,12 @@ func TestWriteAgentsMDAuthoringFrame(t *testing.T) {
 	if !strings.Contains(string(body), "course create --session 101") {
 		t.Fatalf("authoring frame missing the create+retag instruction with session id:\n%s", body)
 	}
+	if strings.Contains(string(body), "Pedagogical Rules (MANDATORY") {
+		t.Fatalf("course-less authoring must NOT carry pedagogy rules:\n%s", body)
+	}
+	if strings.Contains(string(body), "Course settings (Steering)") {
+		t.Fatalf("course-less authoring must NOT carry steering tool section:\n%s", body)
+	}
 	path2, err := sm.Create(102, "", "ce297", "", "study")
 	if err != nil {
 		t.Fatalf("create study: %v", err)
