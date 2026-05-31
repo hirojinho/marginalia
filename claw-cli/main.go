@@ -640,6 +640,7 @@ func courseCreate(args []string, stdout, stderr io.Writer, dbPath string) int {
 	name := fs.String("name", "", "course display name (required)")
 	framing := fs.String("framing", "", "optional initial framing (course_settings)")
 	examStyle := fs.String("exam-style", "", "optional initial exam_style (course_settings)")
+	session := fs.Int64("session", 0, "optional session id to re-tag to the new course (Authoring)")
 	dbOverride := fs.String("db", "", "path to study.db")
 	if err := fs.Parse(args); err != nil {
 		return 2
@@ -681,6 +682,13 @@ func courseCreate(args []string, stdout, stderr io.Writer, dbPath string) int {
 			return 1
 		}
 		_, _ = fmt.Fprintf(stdout, "set exam_style for course %s\n", *id)
+	}
+	if *session > 0 {
+		if err := app.UpdateSessionCourse(*session, *id); err != nil {
+			_, _ = fmt.Fprintf(stderr, "course %s created, but failed to re-tag session %d: %v\n", *id, *session, err)
+			return 1
+		}
+		_, _ = fmt.Fprintf(stdout, "re-tagged session %d to course %s\n", *session, *id)
 	}
 	return 0
 }

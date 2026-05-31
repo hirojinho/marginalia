@@ -541,6 +541,21 @@ func (a *App) UpdateSessionTopic(id int64, topic string) error {
 	return nil
 }
 
+// UpdateSessionCourse re-tags session id to a course and bumps updated_at.
+// Used when an Authoring session creates the course it was designing (ADR 0018).
+func (a *App) UpdateSessionCourse(id int64, courseID string) error {
+	now := time.Now().Format(time.RFC3339)
+	res, err := a.DB.Exec("UPDATE sessions SET course_id = ?, updated_at = ? WHERE id = ?", courseID, now, id)
+	if err != nil {
+		return fmt.Errorf("update session course: %w", err)
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		return fmt.Errorf("session %d not found", id)
+	}
+	return nil
+}
+
 // UpdateSessionPDF records which PDF the session is reading and the page
 // reached, and bumps updated_at. Lets the tutor know the learner's reading
 // position (ADR 0012).

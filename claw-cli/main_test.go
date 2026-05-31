@@ -835,3 +835,34 @@ func TestPlanRewriteMissingFileExits1(t *testing.T) {
 		t.Fatalf("expected a read error, stderr: %s", errb.String())
 	}
 }
+
+func TestCourseCreateWithSessionRetags(t *testing.T) {
+	dbPath := newTempDB(t)
+	var sid int64
+	func() {
+		app := openApp(t, dbPath)
+		defer func() { _ = app.Close() }()
+		s, err := app.CreateSession("", "Design a new course", "authoring")
+		if err != nil {
+			t.Fatalf("create session: %v", err)
+		}
+		sid = s.ID
+	}()
+	var out, errb bytes.Buffer
+	code := run([]string{
+		"clawcli", "course", "create", "--id", "retag-course", "--name", "Retag",
+		"--session", strconv.FormatInt(sid, 10),
+	}, &out, &errb, dbPath)
+	if code != 0 {
+		t.Fatalf("create exit %d, stderr: %s", code, errb.String())
+	}
+	app := openApp(t, dbPath)
+	defer func() { _ = app.Close() }()
+	s, err := app.GetSession(sid)
+	if err != nil {
+		t.Fatalf("get session: %v", err)
+	}
+	if s.CourseID != "retag-course" {
+		t.Fatalf("session not re-tagged, course_id = %q", s.CourseID)
+	}
+}
