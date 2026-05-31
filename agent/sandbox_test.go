@@ -234,3 +234,43 @@ func TestWriteAgentsMDAuthoringFrame(t *testing.T) {
 		t.Fatalf("scratch session should not have the authoring frame:\n%s", body3)
 	}
 }
+
+func TestWriteAgentsMDExistingCourseAuthoringFrame(t *testing.T) {
+	sm := NewSandboxManager(t.TempDir())
+	path, err := sm.Create(201, "", "ce297", "", "authoring")
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	body, err := os.ReadFile(filepath.Join(path, "AGENTS.md"))
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	s := string(body)
+	if !strings.Contains(s, "plan rewrite --course ce297") {
+		t.Fatalf("existing-course authoring frame should reference plan rewrite for the course:\n%s", s)
+	}
+	if strings.Contains(s, "course create --session") {
+		t.Fatalf("existing-course authoring must NOT tell the agent to create a course:\n%s", s)
+	}
+	if strings.Contains(s, "Pedagogical Rules (MANDATORY") {
+		t.Fatalf("authoring session must NOT carry the study pedagogy rules:\n%s", s)
+	}
+	if strings.Contains(s, "Course settings (Steering)") {
+		t.Fatalf("authoring session must NOT carry the steering tool section:\n%s", s)
+	}
+}
+
+func TestWriteAgentsMDStudyKeepsPedagogy(t *testing.T) {
+	sm := NewSandboxManager(t.TempDir())
+	path, err := sm.Create(202, "", "ce297", "", "study")
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	body, err := os.ReadFile(filepath.Join(path, "AGENTS.md"))
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	if !strings.Contains(string(body), "Pedagogical Rules (MANDATORY") {
+		t.Fatalf("study session must still carry the pedagogy rules (gating over-reached):\n%s", body)
+	}
+}

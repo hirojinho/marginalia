@@ -154,7 +154,7 @@ func (sm *SandboxManager) writeAgentsMD(path, clawCLIPath string, sessionID int6
 		"Read the relevant `SKILL.md` before acting — the description above is a trigger hint, not the full instruction set. User instructions in conversation always override skill defaults.\n"
 	content = append(content, []byte(skillsSection)...)
 
-	if course != "" {
+	if course != "" && mode != "authoring" {
 		planSection := fmt.Sprintf(
 			"\n## Study plan — JSON is the only source of truth\n\nThe canonical plan for course %q lives in `data/plans/%s.json` and is rendered by the UI. **The markdown plans (`study-plan.md`) were retired 2026-05-14 — do NOT read or write any `study-plan.md` file, even if a path appears in your conversation history.** Those files no longer reflect reality.\n\n**Before answering any question about plan tasks, status, or progress, run:**\n```\nclaw-cli plan status --course %s\n```\nThis prints the authoritative current state with a `#N` linear index per task. To mark a task done/undone, run:\n```\nclaw-cli plan toggle --course %s --task <N>\n```\nNever answer plan questions from memory, and never edit a markdown plan file.\n\n**Editing the plan (it is a live document).** When Eduardo asks to restructure it — split one task into several, add, rename, reorder, or remove tasks — edit it directly. Read the full plan JSON:\n```\nclaw-cli plan show --course %s\n```\nEdit that JSON, write the whole plan to a temp file, then submit it:\n```\nclaw-cli plan rewrite --course %s --plan-file <tmp.json>\n```\n**Keep each task's existing `id`** on tasks that continue existing work — a renamed or split-from task keeps its `id` so its session stays attached; leave `id` empty only for genuinely new tasks (they get fresh UUIDs). Make the change, confirm in one line, and resume the study work — do not turn a study session into a plan-editing conversation, and do not restructure unasked.\n",
 			course, course, course, course, course, course,
@@ -174,6 +174,24 @@ func (sm *SandboxManager) writeAgentsMD(path, clawCLIPath string, sessionID int6
 		sessionID,
 	)
 	content = append(content, []byte(pdfSection)...)
+
+	if mode != "authoring" {
+		content = append(content, sm.studyTuningSections(course)...)
+	}
+
+	content = append(content, authoringFrameSection(mode, course, sessionID)...)
+
+	if err := os.WriteFile(path, content, 0644); err != nil {
+		return fmt.Errorf("write agents.md: %w", err)
+	}
+	return nil
+}
+
+// studyTuningSections returns the study-oriented AGENTS.md sections (Steering
+// framing, the settings tool, the create-course note, and the pedagogy rules).
+// Emitted only for non-authoring sessions (ADR 0018 §Design.4).
+func (sm *SandboxManager) studyTuningSections(course string) []byte {
+	var content []byte //nolint:prealloc // size not statically known; built from many appends
 
 	// Resolve per-course Steering settings (ADR 0010/0016). Nil provider or
 	// missing row → behavior-preserving defaults.
@@ -234,12 +252,7 @@ func (sm *SandboxManager) writeAgentsMD(path, clawCLIPath string, sessionID int6
 		"Once per study session, surface the oldest 1–2 entries from the course's `interests.md` (path is in the course profile section above). Ask: \"Do you want to spend 20 min on this now, or close it?\" Closure is a real option — the log should not become psychic debt. Skip this prompt if the session is clearly tactical (planning, debugging, single-task focus).\n"
 	content = append(content, []byte(pedagogySection)...)
 
-	content = append(content, authoringFrameSection(mode, sessionID)...)
-
-	if err := os.WriteFile(path, content, 0644); err != nil {
-		return fmt.Errorf("write agents.md: %w", err)
-	}
-	return nil
+	return content
 }
 
 // courseArgOrPlaceholder returns the course id, or a placeholder for
@@ -271,20 +284,30 @@ func steeringFramingSection(course string, settings CourseSettings) []byte {
 }
 
 // authoringFrameSection returns the Authoring-mode block for AGENTS.md, or
-// nil when mode is not "authoring". Extracted to keep writeAgentsMD's
-// cyclomatic complexity within the lint budget.
-func authoringFrameSection(mode string, sessionID int64) []byte {
+// nil when mode is not "authoring". Branches on whether a course is already
+// set (extend plan) or not (create a new course). Extracted to keep
+// writeAgentsMD's cyclomatic complexity within the lint budget (ADR 0018).
+func authoringFrameSection(mode, course string, sessionID int64) []byte {
 	if mode != "authoring" {
 		return nil
 	}
-	frame := "\n## You are in an Authoring session (designing a course)\n\n" +
-		"This is not a study session — Eduardo wants to design a course/plan with you, generatively. " +
-		"Use the `course-study-path` skill: grill the intent, research the resources, and build the study plan.\n\n" +
-		"When the course is ready, create it (this also re-tags THIS chat to the new course):\n" +
-		"```\nclaw-cli course create --session " + strconv.FormatInt(sessionID, 10) + " --id <kebab-slug> --name \"<display name>\"\n```\n" +
-		"Then seed the plan's tasks (read it back, edit JSON, submit the whole plan):\n" +
-		"```\nclaw-cli plan rewrite --course <kebab-slug> --plan-file <tmp.json>\n```\n" +
-		"Pick a stable kebab-case id (ids are permanent). Keep task `id`s stable on later edits. " +
-		"Confirm what you created in one or two lines and ask Eduardo to review.\n"
+	if course == "" {
+		frame := "\n## You are in an Authoring session (designing a course)\n\n" +
+			"This is not a study session — Eduardo wants to design a course/plan with you, generatively. " +
+			"Use the `course-study-path` skill: grill the intent, research the resources, and build the study plan.\n\n" +
+			"When the course is ready, create it (this also re-tags THIS chat to the new course):\n" +
+			"```\nclaw-cli course create --session " + strconv.FormatInt(sessionID, 10) + " --id <kebab-slug> --name \"<display name>\"\n```\n" +
+			"Then seed the plan's tasks (read it back, edit JSON, submit the whole plan):\n" +
+			"```\nclaw-cli plan rewrite --course <kebab-slug> --plan-file <tmp.json>\n```\n" +
+			"Pick a stable kebab-case id (ids are permanent). Keep task `id`s stable on later edits. " +
+			"Confirm what you created in one or two lines and ask Eduardo to review.\n"
+		return []byte(frame)
+	}
+	frame := "\n## You are in an Authoring session (designing this course's plan)\n\n" +
+		"This is not a study session — Eduardo wants to design or extend the plan for course `" + course + "`, generatively. " +
+		"Use the `course-study-path` skill: grill the intent, research the resources, and shape the tasks. **Do NOT create a course — `" + course + "` already exists.**\n\n" +
+		"Read the current plan, edit the JSON, and submit the whole plan:\n" +
+		"```\nclaw-cli plan show --course " + course + "\nclaw-cli plan rewrite --course " + course + " --plan-file <tmp.json>\n```\n" +
+		"Keep each task's existing `id` on tasks that continue existing work (so their sessions stay attached); leave `id` empty only for genuinely new tasks. Confirm what you changed in one or two lines and ask Eduardo to review.\n"
 	return []byte(frame)
 }
