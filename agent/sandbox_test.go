@@ -12,7 +12,7 @@ func TestSandboxManagerCreateBuildsStructure(t *testing.T) {
 	vaultRoot := t.TempDir()
 	sm := NewSandboxManager(vaultRoot)
 
-	path, err := sm.Create(42, "", "", "")
+	path, err := sm.Create(42, "", "", "", "study")
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -38,11 +38,11 @@ func TestSandboxManagerCreateBuildsStructure(t *testing.T) {
 func TestSandboxManagerCreateIsIdempotent(t *testing.T) {
 	sm := NewSandboxManager(t.TempDir())
 
-	path1, err := sm.Create(7, "", "", "")
+	path1, err := sm.Create(7, "", "", "", "study")
 	if err != nil {
 		t.Fatalf("first Create: %v", err)
 	}
-	path2, err := sm.Create(7, "", "", "")
+	path2, err := sm.Create(7, "", "", "", "study")
 	if err != nil {
 		t.Fatalf("second Create: %v", err)
 	}
@@ -53,7 +53,7 @@ func TestSandboxManagerCreateIsIdempotent(t *testing.T) {
 
 func TestSandboxManagerPathMatchesCreate(t *testing.T) {
 	sm := NewSandboxManager(t.TempDir())
-	path, err := sm.Create(99, "", "", "")
+	path, err := sm.Create(99, "", "", "", "study")
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -64,7 +64,7 @@ func TestSandboxManagerPathMatchesCreate(t *testing.T) {
 
 func TestSandboxManagerDeleteRemovesDir(t *testing.T) {
 	sm := NewSandboxManager(t.TempDir())
-	path, _ := sm.Create(5, "", "", "")
+	path, _ := sm.Create(5, "", "", "", "study")
 
 	if err := sm.Delete(5); err != nil {
 		t.Fatalf("Delete: %v", err)
@@ -85,8 +85,8 @@ func TestSandboxManagerSweepRemovesStale(t *testing.T) {
 	sm := NewSandboxManager(t.TempDir())
 
 	// Create two sandboxes.
-	_, _ = sm.Create(1, "", "", "")
-	_, _ = sm.Create(2, "", "", "")
+	_, _ = sm.Create(1, "", "", "", "study")
+	_, _ = sm.Create(2, "", "", "", "study")
 
 	// Back-date AGENTS.md for sandbox 1 to simulate staleness.
 	staleTime := time.Now().Add(-8 * 24 * time.Hour)
@@ -115,7 +115,7 @@ func TestSandboxManagerSweepRemovesStale(t *testing.T) {
 
 func TestSandboxManagerSweepKeepsFresh(t *testing.T) {
 	sm := NewSandboxManager(t.TempDir())
-	_, _ = sm.Create(3, "", "", "")
+	_, _ = sm.Create(3, "", "", "", "study")
 
 	removed, err := sm.Sweep(7)
 	if err != nil {
@@ -143,7 +143,7 @@ func TestWriteAgentsMDParameterizesSteering(t *testing.T) {
 			ChunkPages: 6, StopAfterTask: false, Interleaving: false,
 		}
 	}
-	dir, err := sm.Create(1, "", "ce297", "eduardo")
+	dir, err := sm.Create(1, "", "ce297", "eduardo", "study")
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -160,7 +160,7 @@ func TestWriteAgentsMDParameterizesSteering(t *testing.T) {
 
 func TestWriteAgentsMDUsesDefaultsWhenNoProvider(t *testing.T) {
 	sm := NewSandboxManager(t.TempDir()) // Settings nil → defaults
-	dir, err := sm.Create(2, "", "ce297", "eduardo")
+	dir, err := sm.Create(2, "", "ce297", "eduardo", "study")
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -177,7 +177,7 @@ func TestWriteAgentsMDUsesDefaultsWhenNoProvider(t *testing.T) {
 
 func TestWriteAgentsMDIncludesPDFSection(t *testing.T) {
 	sm := NewSandboxManager(t.TempDir())
-	path, err := sm.Create(42, "", "", "")
+	path, err := sm.Create(42, "", "", "", "study")
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -195,5 +195,31 @@ func TestWriteAgentsMDIncludesPDFSection(t *testing.T) {
 		if !strings.Contains(body, want) {
 			t.Errorf("AGENTS.md missing %q", want)
 		}
+	}
+}
+
+func TestWriteAgentsMDAuthoringFrame(t *testing.T) {
+	sm := NewSandboxManager(t.TempDir())
+	path, err := sm.Create(101, "", "", "", "authoring")
+	if err != nil {
+		t.Fatalf("create authoring: %v", err)
+	}
+	body, err := os.ReadFile(filepath.Join(path, "AGENTS.md"))
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	if !strings.Contains(string(body), "course create --session") {
+		t.Fatalf("authoring frame missing the create+retag instruction:\n%s", body)
+	}
+	path2, err := sm.Create(102, "", "ce297", "", "study")
+	if err != nil {
+		t.Fatalf("create study: %v", err)
+	}
+	body2, err := os.ReadFile(filepath.Join(path2, "AGENTS.md"))
+	if err != nil {
+		t.Fatalf("read2: %v", err)
+	}
+	if strings.Contains(string(body2), "course create --session") {
+		t.Fatalf("study session should not have the authoring frame:\n%s", body2)
 	}
 }

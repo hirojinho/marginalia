@@ -82,6 +82,7 @@ func (h *Handler) handleChatV2(w http.ResponseWriter, r *http.Request) {
 		h.App.Config.ClawCLIPath,
 		sess.CourseID,
 		h.App.Config.UserID,
+		sess.Mode,
 	)
 	if err != nil {
 		writeServerError(w, "create sandbox", err)

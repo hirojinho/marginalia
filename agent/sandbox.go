@@ -43,7 +43,7 @@ func (sm *SandboxManager) Path(sessionID int64) string {
 // If the sandbox already exists, AGENTS.md mtime is updated (so the
 // sweep treats it as recently used) and the path is returned as-is.
 // clawCLIPath may be empty; if so, a placeholder AGENTS.md is written.
-func (sm *SandboxManager) Create(sessionID int64, clawCLIPath, course, userID string) (string, error) {
+func (sm *SandboxManager) Create(sessionID int64, clawCLIPath, course, userID, mode string) (string, error) {
 	sandboxDir := sm.Path(sessionID)
 
 	agentsMD := filepath.Join(sandboxDir, "AGENTS.md")
@@ -63,7 +63,7 @@ func (sm *SandboxManager) Create(sessionID int64, clawCLIPath, course, userID st
 		}
 	}
 
-	if err := sm.writeAgentsMD(agentsMD, clawCLIPath, sessionID, course, userID); err != nil {
+	if err := sm.writeAgentsMD(agentsMD, clawCLIPath, sessionID, course, userID, mode); err != nil {
 		return "", err
 	}
 
@@ -114,7 +114,7 @@ func (sm *SandboxManager) Sweep(maxIdleDays int) (int, error) {
 // writeAgentsMD generates AGENTS.md for the sandbox. If clawCLIPath is
 // set, it runs claw-cli memory load to produce the content; otherwise it
 // writes a minimal placeholder so Pi can still boot.
-func (sm *SandboxManager) writeAgentsMD(path, clawCLIPath string, sessionID int64, course, userID string) error {
+func (sm *SandboxManager) writeAgentsMD(path, clawCLIPath string, sessionID int64, course, userID, mode string) error {
 	var content []byte
 
 	if clawCLIPath != "" && userID != "" {
@@ -183,18 +183,7 @@ func (sm *SandboxManager) writeAgentsMD(path, clawCLIPath string, sessionID int6
 	}
 
 	// Framing / exam-style section — only when the learner has set something.
-	if course != "" && (settings.Framing != "" || settings.ExamStyle != "") {
-		var fb strings.Builder
-		fb.WriteString("\n## How to teach this course\n\n")
-		fb.WriteString("The learner's Steering settings for this course (set via the settings UI or by his explicit request). Honor them:\n\n")
-		if settings.Framing != "" {
-			fmt.Fprintf(&fb, "- **Framing / goal:** %s\n", settings.Framing)
-		}
-		if settings.ExamStyle != "" {
-			fmt.Fprintf(&fb, "- **Exam style:** %s\n", settings.ExamStyle)
-		}
-		content = append(content, []byte(fb.String())...)
-	}
+	content = append(content, steeringFramingSection(course, settings)...)
 
 	// Tool section: how to change a setting conversationally (ADR 0016).
 	steerTool := "\n## Course settings (Steering) — change via tool, never via files\n\n" +
@@ -245,6 +234,8 @@ func (sm *SandboxManager) writeAgentsMD(path, clawCLIPath string, sessionID int6
 		"Once per study session, surface the oldest 1–2 entries from the course's `interests.md` (path is in the course profile section above). Ask: \"Do you want to spend 20 min on this now, or close it?\" Closure is a real option — the log should not become psychic debt. Skip this prompt if the session is clearly tactical (planning, debugging, single-task focus).\n"
 	content = append(content, []byte(pedagogySection)...)
 
+	content = append(content, authoringFrameSection(mode, sessionID)...)
+
 	if err := os.WriteFile(path, content, 0644); err != nil {
 		return fmt.Errorf("write agents.md: %w", err)
 	}
@@ -258,4 +249,42 @@ func courseArgOrPlaceholder(course string) string {
 		return "<course-id — ask which course>"
 	}
 	return course
+}
+
+// steeringFramingSection returns the "How to teach this course" block when
+// the course has a framing or exam_style setting, or nil otherwise. Extracted
+// to keep writeAgentsMD's cyclomatic complexity within the lint budget.
+func steeringFramingSection(course string, settings CourseSettings) []byte {
+	if course == "" || (settings.Framing == "" && settings.ExamStyle == "") {
+		return nil
+	}
+	var fb strings.Builder
+	fb.WriteString("\n## How to teach this course\n\n")
+	fb.WriteString("The learner's Steering settings for this course (set via the settings UI or by his explicit request). Honor them:\n\n")
+	if settings.Framing != "" {
+		fmt.Fprintf(&fb, "- **Framing / goal:** %s\n", settings.Framing)
+	}
+	if settings.ExamStyle != "" {
+		fmt.Fprintf(&fb, "- **Exam style:** %s\n", settings.ExamStyle)
+	}
+	return []byte(fb.String())
+}
+
+// authoringFrameSection returns the Authoring-mode block for AGENTS.md, or
+// nil when mode is not "authoring". Extracted to keep writeAgentsMD's
+// cyclomatic complexity within the lint budget.
+func authoringFrameSection(mode string, sessionID int64) []byte {
+	if mode != "authoring" {
+		return nil
+	}
+	frame := "\n## You are in an Authoring session (designing a course)\n\n" +
+		"This is not a study session — Eduardo wants to design a course/plan with you, generatively. " +
+		"Use the `course-study-path` skill: grill the intent, research the resources, and build the study plan.\n\n" +
+		"When the course is ready, create it (this also re-tags THIS chat to the new course):\n" +
+		"```\nclaw-cli course create --session " + fmt.Sprintf("%d", sessionID) + " --id <kebab-slug> --name \"<display name>\"\n```\n" +
+		"Then seed the plan's tasks (read it back, edit JSON, submit the whole plan):\n" +
+		"```\nclaw-cli plan rewrite --course <kebab-slug> --plan-file <tmp.json>\n```\n" +
+		"Pick a stable kebab-case id (ids are permanent). Keep task `id`s stable on later edits. " +
+		"Confirm what you created in one or two lines and ask Eduardo to review.\n"
+	return []byte(frame)
 }

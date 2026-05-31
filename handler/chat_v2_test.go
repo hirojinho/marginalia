@@ -103,7 +103,7 @@ func TestDeleteSessionRemovesSandbox(t *testing.T) {
 	}
 
 	sandboxPath := h.App.Sandbox.Path(sess.ID)
-	if _, err := h.App.Sandbox.Create(sess.ID, "", "", ""); err != nil {
+	if _, err := h.App.Sandbox.Create(sess.ID, "", "", "", "study"); err != nil {
 		t.Fatalf("Create sandbox: %v", err)
 	}
 
