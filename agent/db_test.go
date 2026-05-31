@@ -750,6 +750,23 @@ func TestMigrateSessionModeBackfills(t *testing.T) {
 	if n != 0 {
 		t.Fatalf("second run should change 0 rows, changed %d", n)
 	}
+
+	// Guard: a task-less authoring row created AFTER the migration flag is set
+	// must survive a re-run (the flag short-circuits the backfill).
+	now2 := "2026-05-30T01:00:00Z"
+	if _, err := db.Exec("INSERT INTO sessions (course_id, topic, mode, created_at, updated_at) VALUES ('c','authoringy','authoring',?,?)", now2, now2); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := app.MigrateSessionMode(); err != nil {
+		t.Fatalf("third migrate: %v", err)
+	}
+	var authMode string
+	if err := db.QueryRow("SELECT mode FROM sessions WHERE topic = 'authoringy'").Scan(&authMode); err != nil {
+		t.Fatal(err)
+	}
+	if authMode != "authoring" {
+		t.Fatalf("authoring row clobbered after re-run, got %q", authMode)
+	}
 }
 
 func TestGetSessionReturnsMode(t *testing.T) {
