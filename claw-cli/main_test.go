@@ -836,6 +836,21 @@ func TestPlanRewriteMissingFileExits1(t *testing.T) {
 	}
 }
 
+func TestCourseCreateWithMissingSessionExits1(t *testing.T) {
+	dbPath := newTempDB(t)
+	var out, errb bytes.Buffer
+	code := run([]string{
+		"clawcli", "course", "create", "--id", "orphan-course", "--name", "Orphan",
+		"--session", "99999",
+	}, &out, &errb, dbPath)
+	if code != 1 {
+		t.Fatalf("want exit 1 for missing session, got %d (stderr: %s)", code, errb.String())
+	}
+	if !strings.Contains(errb.String(), "not found") {
+		t.Fatalf("expected 'not found' in stderr, got: %s", errb.String())
+	}
+}
+
 func TestCourseCreateWithSessionRetags(t *testing.T) {
 	dbPath := newTempDB(t)
 	var sid int64

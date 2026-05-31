@@ -549,7 +549,10 @@ func (a *App) UpdateSessionCourse(id int64, courseID string) error {
 	if err != nil {
 		return fmt.Errorf("update session course: %w", err)
 	}
-	n, _ := res.RowsAffected()
+	n, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("rows affected: %w", err)
+	}
 	if n == 0 {
 		return fmt.Errorf("session %d not found", id)
 	}
