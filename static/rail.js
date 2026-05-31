@@ -1,10 +1,17 @@
 // Plan-spine rail: the selected course's plan (phases → tasks) is the left-rail
 // navigator. Tasks resolve to Sessions via /api/sessions/for-task (lazy).
 import { apiFetch } from './apiFetch.js';
-import { courseMeta, setActiveSessionId, loadSessionMessages, clearWorkspace } from './sessions.js';
+import {
+  courseMeta,
+  setActiveSessionId,
+  loadSessionMessages,
+  clearWorkspace,
+  switchSession,
+} from './sessions.js';
 import { escapeHtml } from './dom.js';
 import { openPdf, showView, setCurrentPdfId } from './pdf.js';
 import { openCourseSettings } from './settings.js';
+import { showErrorBanner } from './errorBanner.js';
 
 const SELECTED_COURSE_KEY = 'claw-study:railCourse';
 
@@ -149,6 +156,7 @@ function renderCourseSwitcher() {
   return (
     `<div class="rail-course-row">` +
     `<select id="rail-course-select" class="rail-course-select" data-action="noop">${opts}</select>` +
+    `<button class="rail-settings-btn" data-action="new-course" title="Design a new course" aria-label="Design a new course">+</button>` +
     `<button class="rail-settings-btn" data-action="open-settings" title="Course settings" aria-label="Course settings">&#9881;</button>` +
     `</div>`
   );
@@ -180,6 +188,33 @@ function renderOther() {
     html += '</details>';
   }
   return html;
+}
+
+export async function startNewCourseAuthoring() {
+  try {
+    const resp = await apiFetch('/api/sessions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        course_id: '',
+        task_id: '',
+        mode: 'authoring',
+        topic: 'Design a new course',
+      }),
+    });
+    if (!resp.ok) {
+      const text = await resp.text();
+      showErrorBanner('Failed to start authoring session: ' + text);
+      return;
+    }
+    const session = await resp.json();
+    await switchSession(session.id);
+    await loadRail();
+    const input = document.getElementById('message-input');
+    if (input) input.focus();
+  } catch (err) {
+    showErrorBanner('Failed to start authoring session: ' + err.message);
+  }
 }
 
 export function initRail() {

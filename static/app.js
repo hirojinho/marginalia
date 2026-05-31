@@ -19,6 +19,7 @@ import {
   toggleTask,
   restoreReading,
   scrollRailToLastChecked,
+  startNewCourseAuthoring,
 } from './rail.js';
 
 installErrorBanner();
@@ -60,6 +61,9 @@ document.addEventListener('click', function (e) {
       break;
     case 'open-task':
       openTask(el.dataset.taskId);
+      break;
+    case 'new-course':
+      startNewCourseAuthoring();
       break;
     case 'noop':
       break;
