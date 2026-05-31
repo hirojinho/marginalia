@@ -709,3 +709,70 @@ func mustSession(t *testing.T, a *App, course, topic string) int64 {
 	}
 	return s.ID
 }
+
+func TestMigrateSessionModeBackfills(t *testing.T) {
+	db, err := OpenDB(":memory:")
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer func() { _ = db.Close() }()
+	if err := InitSchema(db); err != nil {
+		t.Fatalf("init: %v", err)
+	}
+	app := NewApp(Config{VaultRoot: t.TempDir()}, db)
+	now := "2026-05-30T00:00:00Z"
+	if _, err := db.Exec("INSERT INTO sessions (course_id, topic, created_at, updated_at) VALUES ('c','scratchy',?,?)", now, now); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec("INSERT INTO sessions (course_id, task_id, topic, created_at, updated_at) VALUES ('c','t1','studyy',?,?)", now, now); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := app.MigrateSessionMode(); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	var scratchMode, studyMode string
+	if err := db.QueryRow("SELECT mode FROM sessions WHERE task_id IS NULL").Scan(&scratchMode); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.QueryRow("SELECT mode FROM sessions WHERE task_id = 't1'").Scan(&studyMode); err != nil {
+		t.Fatal(err)
+	}
+	if scratchMode != "scratch" {
+		t.Fatalf("task-less row should be scratch, got %q", scratchMode)
+	}
+	if studyMode != "study" {
+		t.Fatalf("task row should stay study, got %q", studyMode)
+	}
+	n, err := app.MigrateSessionMode()
+	if err != nil {
+		t.Fatalf("second migrate: %v", err)
+	}
+	if n != 0 {
+		t.Fatalf("second run should change 0 rows, changed %d", n)
+	}
+}
+
+func TestGetSessionReturnsMode(t *testing.T) {
+	db, err := OpenDB(":memory:")
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer func() { _ = db.Close() }()
+	if err := InitSchema(db); err != nil {
+		t.Fatalf("init: %v", err)
+	}
+	app := NewApp(Config{VaultRoot: t.TempDir()}, db)
+	now := "2026-05-30T00:00:00Z"
+	res, err := db.Exec("INSERT INTO sessions (course_id, topic, mode, created_at, updated_at) VALUES ('c','t','authoring',?,?)", now, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	id, _ := res.LastInsertId()
+	s, err := app.GetSession(id)
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	if s.Mode != "authoring" {
+		t.Fatalf("expected mode authoring, got %q", s.Mode)
+	}
+}

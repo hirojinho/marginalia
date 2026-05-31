@@ -187,6 +187,7 @@ func InitSchema(db *sql.DB) error {
 		"ALTER TABLE sessions ADD COLUMN task_id TEXT",
 		"ALTER TABLE sessions ADD COLUMN archived INTEGER NOT NULL DEFAULT 0",
 		"ALTER TABLE sessions ADD COLUMN hidden INTEGER NOT NULL DEFAULT 0",
+		"ALTER TABLE sessions ADD COLUMN mode TEXT NOT NULL DEFAULT 'study'",
 	}
 	for _, m := range migrations {
 		if _, err := db.Exec(m); err != nil && !strings.Contains(err.Error(), "duplicate column") && !strings.Contains(err.Error(), "no such column") {
@@ -253,6 +254,29 @@ func (a *App) MigratePhase3Sessions() (int64, error) {
 
 	if err := a.setMetaInt("phase3_session_migration", 1); err != nil {
 		return 0, fmt.Errorf("set migration flag: %w", err)
+	}
+	return changed, nil
+}
+
+// MigrateSessionMode backfills the sessions.mode column added 2026-05-30:
+// task-less rows that still carry the column default ('study') become 'scratch'.
+// Guarded by the "session_mode_migration" meta flag so authoring sessions
+// (task-less, mode='authoring') created later are never reset. Returns rows changed.
+func (a *App) MigrateSessionMode() (int64, error) {
+	done, err := a.getMetaInt("session_mode_migration")
+	if err != nil {
+		return 0, fmt.Errorf("read mode migration flag: %w", err)
+	}
+	if done != 0 {
+		return 0, nil
+	}
+	res, err := a.DB.Exec("UPDATE sessions SET mode = 'scratch' WHERE task_id IS NULL AND mode = 'study'")
+	if err != nil {
+		return 0, fmt.Errorf("backfill scratch mode: %w", err)
+	}
+	changed, _ := res.RowsAffected()
+	if err := a.setMetaInt("session_mode_migration", 1); err != nil {
+		return 0, fmt.Errorf("set mode migration flag: %w", err)
 	}
 	return changed, nil
 }
@@ -385,7 +409,7 @@ func (a *App) GetSessionByTask(courseID, taskID string) (Session, bool, error) {
 }
 
 func (a *App) ListSessions() ([]Session, error) {
-	rows, err := a.DB.Query("SELECT id, course_id, task_id, topic, created_at, updated_at, last_pdf_id, last_page, archived FROM sessions WHERE hidden = 0 ORDER BY updated_at DESC")
+	rows, err := a.DB.Query("SELECT id, course_id, task_id, topic, created_at, updated_at, last_pdf_id, last_page, archived, mode FROM sessions WHERE hidden = 0 ORDER BY updated_at DESC")
 	if err != nil {
 		return nil, fmt.Errorf("query sessions: %w", err)
 	}
@@ -394,7 +418,7 @@ func (a *App) ListSessions() ([]Session, error) {
 	var sessions []Session
 	for rows.Next() {
 		var s Session
-		if err := rows.Scan(&s.ID, &s.CourseID, &s.TaskID, &s.Topic, &s.CreatedAt, &s.UpdatedAt, &s.LastPdfID, &s.LastPage, &s.Archived); err != nil {
+		if err := rows.Scan(&s.ID, &s.CourseID, &s.TaskID, &s.Topic, &s.CreatedAt, &s.UpdatedAt, &s.LastPdfID, &s.LastPage, &s.Archived, &s.Mode); err != nil {
 			return nil, fmt.Errorf("scan session: %w", err)
 		}
 		if s.LastPdfID != nil {
@@ -413,9 +437,9 @@ func (a *App) ListSessions() ([]Session, error) {
 func (a *App) GetSession(id int64) (Session, error) {
 	var s Session
 	err := a.DB.QueryRow(
-		"SELECT id, course_id, task_id, topic, created_at, updated_at, last_pdf_id, last_page, archived FROM sessions WHERE id = ?",
+		"SELECT id, course_id, task_id, topic, created_at, updated_at, last_pdf_id, last_page, archived, mode FROM sessions WHERE id = ?",
 		id,
-	).Scan(&s.ID, &s.CourseID, &s.TaskID, &s.Topic, &s.CreatedAt, &s.UpdatedAt, &s.LastPdfID, &s.LastPage, &s.Archived)
+	).Scan(&s.ID, &s.CourseID, &s.TaskID, &s.Topic, &s.CreatedAt, &s.UpdatedAt, &s.LastPdfID, &s.LastPage, &s.Archived, &s.Mode)
 	if err != nil {
 		return Session{}, err
 	}

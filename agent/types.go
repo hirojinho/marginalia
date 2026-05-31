@@ -90,6 +90,7 @@ type Session struct {
 	LastPdfID *int64  `json:"last_pdf_id"`
 	LastPage  int     `json:"last_page"`
 	Archived  bool    `json:"archived"`
+	Mode      string  `json:"mode"`
 	PdfName   string  `json:"pdf_name,omitempty"`
 	Summary   string  `json:"summary"`
 	SummaryAt int     `json:"summary_at"`
