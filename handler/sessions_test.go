@@ -47,6 +47,9 @@ func TestHandleSessionsCreateThenList(t *testing.T) {
 	if created.ID == 0 || created.CourseID != "ce297" || created.Topic != "STPA" {
 		t.Fatalf("unexpected created session: %+v", created)
 	}
+	if created.Mode != "scratch" {
+		t.Fatalf("expected default mode scratch, got %q", created.Mode)
+	}
 
 	req2 := httptest.NewRequest(http.MethodGet, "/api/sessions", nil)
 	rr2 := httptest.NewRecorder()

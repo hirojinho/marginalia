@@ -341,6 +341,9 @@ func (a *App) CreateSession(courseID, topic, mode string) (Session, error) {
 	if mode == "" {
 		mode = "scratch"
 	}
+	if mode != "study" && mode != "scratch" && mode != "authoring" {
+		return Session{}, fmt.Errorf("invalid session mode %q (want study|scratch|authoring)", mode)
+	}
 	now := time.Now().Format(time.RFC3339)
 	res, err := a.DB.Exec(
 		"INSERT INTO sessions (course_id, topic, mode, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
