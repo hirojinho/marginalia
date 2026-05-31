@@ -66,6 +66,7 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("/debug/version", h.versionHandler)
 	mux.HandleFunc("/debug/metrics", h.handleDebugMetrics)
 	mux.HandleFunc("/debug/schema", h.schemaHandler)
+	mux.HandleFunc("/debug/tools", h.toolsHandler)
 }
 
 // ---------- helpers ----------

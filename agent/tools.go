@@ -182,6 +182,19 @@ func GetTools() []ToolDef {
 			},
 		}},
 		{Type: "function", Function: ToolFunc{
+			Name:        "knowledge_create",
+			Description: "Capture a discrete knowledge component. The body MUST be the LEARNER's own words, passed through verbatim — the agent must never author or rephrase it. Propose a SHORT title and ask the learner to state the idea; then call this tool with the learner's verbatim body.",
+			Parameters: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"title":         map[string]interface{}{"type": "string", "description": "Short, atomic title for the knowledge component (one idea, nothing removable)."},
+					"body":          map[string]interface{}{"type": "string", "description": "The learner's own words — verbatim. Never authored by the agent."},
+					"source_task_id": map[string]interface{}{"type": "string", "description": "Plan task UUID this component was captured from."},
+				},
+				"required": []string{"title", "body"},
+			},
+		}},
+		{Type: "function", Function: ToolFunc{
 			Name:        "rag_search",
 			Description: "Search the knowledge corpus using semantic similarity. Use this when you need to find relevant context for a topic or concept.",
 			Parameters: map[string]interface{}{
@@ -240,6 +253,8 @@ func (a *App) ExecuteTool(name string, args json.RawMessage) string {
 		return a.ToolCreateCourse(args)
 	case "log_confidence":
 		return a.ToolLogConfidence(args)
+	case "knowledge_create":
+		return a.ToolKnowledgeCreate(args)
 	}
 	return "unknown tool: " + name
 }

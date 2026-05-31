@@ -98,9 +98,50 @@ func TestGetTools_NotEmpty(t *testing.T) {
 	for _, td := range tools {
 		names[td.Function.Name] = true
 	}
-	for _, want := range []string{"read_file", "save_note", "update_plan", "pdf_extract", "rag_search", "web_fetch", "study_skill", "search_files", "list_files"} {
+	for _, want := range []string{"read_file", "save_note", "update_plan", "pdf_extract", "rag_search", "web_fetch", "study_skill", "search_files", "list_files", "knowledge_create"} {
 		if !names[want] {
 			t.Fatalf("missing tool %q", want)
 		}
+	}
+}
+
+func TestToolKnowledgeCreate_Success(t *testing.T) {
+	a := newMemoryApp(t)
+	payload := `{"title":"Atomic Note","body":"Learner wrote this.","source_task_id":"task-abc"}`
+	out := a.ExecuteTool("knowledge_create", json.RawMessage(payload))
+	if !strings.HasPrefix(out, "created knowledge component") {
+		t.Fatalf("unexpected output: %q", out)
+	}
+	// Retrieve the component to confirm it was stored.
+	// Extract the ID from the output string: "created knowledge component <id> (\"Atomic Note\")"
+	start := len("created knowledge component ")
+	end := strings.IndexByte(out[start:], ' ') + start
+	id := out[start:end]
+	kc, err := a.GetKnowledgeComponent(id)
+	if err != nil {
+		t.Fatalf("GetKnowledgeComponent: %v", err)
+	}
+	if kc == nil {
+		t.Fatal("knowledge component not found")
+	}
+	if kc.Title != "Atomic Note" {
+		t.Fatalf("title = %q, want Atomic Note", kc.Title)
+	}
+	if kc.Body != "Learner wrote this." {
+		t.Fatalf("body = %q, want Learner wrote this.", kc.Body)
+	}
+}
+
+func TestToolKnowledgeCreate_MissingFields(t *testing.T) {
+	a := newMemoryApp(t)
+	// Missing title
+	out := a.ExecuteTool("knowledge_create", json.RawMessage(`{"body":"text"}`))
+	if !strings.HasPrefix(out, "error:") {
+		t.Fatalf("expected error for missing title, got: %q", out)
+	}
+	// Missing body
+	out = a.ExecuteTool("knowledge_create", json.RawMessage(`{"title":"t"}`))
+	if !strings.HasPrefix(out, "error:") {
+		t.Fatalf("expected error for missing body, got: %q", out)
 	}
 }

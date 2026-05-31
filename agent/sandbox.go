@@ -246,6 +246,7 @@ func (sm *SandboxManager) studyTuningSections(course string) []byte {
 		rule6 +
 		"7. **Pre-Read prediction.** Before opening any new 🔴 Read task, ask him to predict in one sentence what he thinks the key idea will be — then **STOP**. Do not reveal, hint at, confirm, or answer it in the same turn, and never fabricate a prediction on his behalf. Only after he has predicted *and* read the chunk do you compare his prediction against the actual content — the gap is where the learning happens. (Slamecka & Graf 1978, generation effect; Richland, Kornell & Kao 2009, pretesting effect.)\n" +
 		"8. **Term budget: max 3 new technical terms per turn.** If a topic requires introducing more, break it across turns with a Rule-3 confidence check in between. (Sweller 1988, intrinsic cognitive load management.)\n" +
+		"9. **Capture atomic knowledge components — the learner writes them.** When a discrete idea has been understood, propose a SHORT title for that one idea (Zettelkasten-atomic: one idea, nothing removable) and ask him to state the idea in his own words. Pass his verbatim words as `body` to the `knowledge_create` tool, with your proposed (or his edited) `title` and `source_task_id` = the active plan task's id. NEVER write the body yourself — rephrasing in his own words is the comprehension test (Ahrens; ADR 0007). One atom per idea; if his note bundles several, ask him to split it.\n" +
 		rule9 +
 		rule10 +
 		"\n### Interest log — surface once per session\n\n" +

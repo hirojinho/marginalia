@@ -60,6 +60,41 @@ func TestVersionHandlerMethodNotAllowed(t *testing.T) {
 	}
 }
 
+func TestToolsHandler(t *testing.T) {
+	h := newTestHandler(t)
+	req := httptest.NewRequest(http.MethodGet, "/debug/tools", nil)
+	rr := httptest.NewRecorder()
+	h.toolsHandler(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d, body=%s", rr.Code, rr.Body.String())
+	}
+	var got map[string][]string
+	if err := json.NewDecoder(rr.Body).Decode(&got); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	tools := got["tools"]
+	found := map[string]bool{}
+	for _, name := range tools {
+		found[name] = true
+	}
+	if !found["knowledge_create"] {
+		t.Fatalf("knowledge_create not in tools: %v", tools)
+	}
+	if !found["log_confidence"] {
+		t.Fatalf("log_confidence not in tools: %v", tools)
+	}
+}
+
+func TestToolsHandlerMethodNotAllowed(t *testing.T) {
+	h := newTestHandler(t)
+	req := httptest.NewRequest(http.MethodPost, "/debug/tools", nil)
+	rr := httptest.NewRecorder()
+	h.toolsHandler(rr, req)
+	if rr.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("status = %d, want 405", rr.Code)
+	}
+}
+
 func TestSchemaHandler(t *testing.T) {
 	h := newTestHandler(t)
 	req := httptest.NewRequest(http.MethodGet, "/debug/schema?table=confidence_log", nil)
