@@ -48,6 +48,7 @@ func (h *Handler) createSession(w http.ResponseWriter, r *http.Request) {
 		CourseID string `json:"course_id"`
 		TaskID   string `json:"task_id"`
 		Topic    string `json:"topic"`
+		Mode     string `json:"mode"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid json")
@@ -70,7 +71,7 @@ func (h *Handler) createSession(w http.ResponseWriter, r *http.Request) {
 	if body.TaskID != "" {
 		s, err = h.App.CreateSessionForTask(body.CourseID, body.TaskID, body.Topic)
 	} else {
-		s, err = h.App.CreateSession(body.CourseID, body.Topic)
+		s, err = h.App.CreateSession(body.CourseID, body.Topic, body.Mode)
 	}
 	if err != nil {
 		writeServerError(w, "create session", err)

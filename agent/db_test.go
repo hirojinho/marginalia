@@ -84,7 +84,7 @@ func TestSessionExistsLifecycle(t *testing.T) {
 		t.Fatal("expected non-existent session")
 	}
 
-	s, err := a.CreateSession("ce297", "STPA")
+	s, err := a.CreateSession("ce297", "STPA", "scratch")
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
@@ -104,7 +104,7 @@ func TestSessionExistsLifecycle(t *testing.T) {
 
 func TestDeleteSessionClearsActive(t *testing.T) {
 	a := newMemoryApp(t)
-	s, err := a.CreateSession("ce297", "STPA")
+	s, err := a.CreateSession("ce297", "STPA", "scratch")
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
@@ -124,7 +124,7 @@ func TestDeleteSessionClearsActive(t *testing.T) {
 
 func TestUpdateSessionPDF(t *testing.T) {
 	a := newMemoryApp(t)
-	s, err := a.CreateSession("ce297", "STPA")
+	s, err := a.CreateSession("ce297", "STPA", "scratch")
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
@@ -151,7 +151,7 @@ func TestUpdateSessionPDF(t *testing.T) {
 
 func TestSaveAssistantMessagePersistsReasoning(t *testing.T) {
 	a := newMemoryApp(t)
-	s, err := a.CreateSession("ce297", "STPA")
+	s, err := a.CreateSession("ce297", "STPA", "scratch")
 	if err != nil {
 		t.Fatalf("create session: %v", err)
 	}
@@ -177,7 +177,7 @@ func TestSaveAssistantMessagePersistsReasoning(t *testing.T) {
 
 func TestSaveMessageDoesNotSetReasoning(t *testing.T) {
 	a := newMemoryApp(t)
-	s, err := a.CreateSession("ce297", "STPA")
+	s, err := a.CreateSession("ce297", "STPA", "scratch")
 	if err != nil {
 		t.Fatalf("create session: %v", err)
 	}
@@ -358,7 +358,7 @@ func TestPruneOldEventsRemovesOldRows(t *testing.T) {
 
 func TestLogConfidence_ValidRow(t *testing.T) {
 	a := newMemoryApp(t)
-	sess, _ := a.CreateSession("test-course", "test topic")
+	sess, _ := a.CreateSession("test-course", "test topic", "scratch")
 	id, err := a.LogConfidence(sess.ID, "task-uuid-1", 0.75, "tool_call", "pretty confident")
 	if err != nil {
 		t.Fatalf("insert: %v", err)
@@ -403,7 +403,7 @@ func TestLogConfidence_RejectsInvalidSource(t *testing.T) {
 
 func TestGetConfidenceTrajectory_OrderingAndLimit(t *testing.T) {
 	a := newMemoryApp(t)
-	sess, _ := a.CreateSession("test-course", "test topic")
+	sess, _ := a.CreateSession("test-course", "test topic", "scratch")
 	for i := 0; i < 5; i++ {
 		_, err := a.LogConfidence(sess.ID, "kc-ord", 0.5, "tool_call", "")
 		if err != nil {
@@ -427,7 +427,7 @@ func TestGetConfidenceTrajectory_OrderingAndLimit(t *testing.T) {
 
 func TestToolLogConfidence_DispatchedRoundTrip(t *testing.T) {
 	a := newMemoryApp(t)
-	sess, _ := a.CreateSession("test-course", "test topic")
+	sess, _ := a.CreateSession("test-course", "test topic", "scratch")
 	input := `{"knowledge_component_id":"test-kc","value":0.8,"raw":"8/10"}`
 	_ = sess // session set in memory via CreateSession
 	result := a.ToolLogConfidence([]byte(input))
@@ -522,7 +522,7 @@ func TestKnowledgeComponentEmptyTitleOrBodyRejected(t *testing.T) {
 
 func TestSessionTaskIDRoundTrips(t *testing.T) {
 	a := newMemoryApp(t)
-	s, err := a.CreateSession("ce297", "STPA")
+	s, err := a.CreateSession("ce297", "STPA", "scratch")
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
@@ -540,11 +540,11 @@ func TestSessionTaskIDRoundTrips(t *testing.T) {
 
 func TestListSessionsExcludesHidden(t *testing.T) {
 	a := newMemoryApp(t)
-	visible, err := a.CreateSession("ce297", "real work")
+	visible, err := a.CreateSession("ce297", "real work", "scratch")
 	if err != nil {
 		t.Fatalf("create visible: %v", err)
 	}
-	hidden, err := a.CreateSession("verifier-stats", "stats-verifier")
+	hidden, err := a.CreateSession("verifier-stats", "stats-verifier", "scratch")
 	if err != nil {
 		t.Fatalf("create hidden: %v", err)
 	}
@@ -703,7 +703,7 @@ func TestMigratePhase3Sessions(t *testing.T) {
 // mustSession creates a session or fails the test.
 func mustSession(t *testing.T, a *App, course, topic string) int64 {
 	t.Helper()
-	s, err := a.CreateSession(course, topic)
+	s, err := a.CreateSession(course, topic, "scratch")
 	if err != nil {
 		t.Fatalf("create session (%s/%s): %v", course, topic, err)
 	}
@@ -791,5 +791,31 @@ func TestGetSessionReturnsMode(t *testing.T) {
 	}
 	if s.Mode != "authoring" {
 		t.Fatalf("expected mode authoring, got %q", s.Mode)
+	}
+}
+
+func TestCreateSessionPersistsMode(t *testing.T) {
+	db, err := OpenDB(":memory:")
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer func() { _ = db.Close() }()
+	if err := InitSchema(db); err != nil {
+		t.Fatalf("init: %v", err)
+	}
+	app := NewApp(Config{VaultRoot: t.TempDir()}, db)
+	s, err := app.CreateSession("", "Design a new course", "authoring")
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	if s.Mode != "authoring" {
+		t.Fatalf("returned session mode = %q, want authoring", s.Mode)
+	}
+	got, err := app.GetSession(s.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Mode != "authoring" {
+		t.Fatalf("persisted mode = %q, want authoring", got.Mode)
 	}
 }

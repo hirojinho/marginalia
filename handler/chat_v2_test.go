@@ -31,7 +31,7 @@ func TestChatV2RejectsMissingSessionID(t *testing.T) {
 
 func TestChatV2RejectsMissingMessage(t *testing.T) {
 	h := newTestHandler(t)
-	sess, err := h.App.CreateSession("ce297", "test")
+	sess, err := h.App.CreateSession("ce297", "test", "scratch")
 	if err != nil {
 		t.Fatalf("CreateSession: %v", err)
 	}
@@ -57,7 +57,7 @@ func TestChatV2RejectsMethodNotPost(t *testing.T) {
 
 func TestChatV2ReturnsPiUnconfiguredWhenNoPiPath(t *testing.T) {
 	h := newTestHandler(t) // Config.PiPath is empty by default
-	sess, err := h.App.CreateSession("ce297", "test")
+	sess, err := h.App.CreateSession("ce297", "test", "scratch")
 	if err != nil {
 		t.Fatalf("CreateSession: %v", err)
 	}
@@ -73,7 +73,7 @@ func TestChatV2ReturnsPiUnconfiguredWhenNoPiPath(t *testing.T) {
 
 func TestChatV2CreatesSandboxBeforeCheckingPi(t *testing.T) {
 	h := newTestHandler(t) // Config.PiPath is empty — will 503
-	sess, err := h.App.CreateSession("ce297", "test")
+	sess, err := h.App.CreateSession("ce297", "test", "scratch")
 	if err != nil {
 		t.Fatalf("CreateSession: %v", err)
 	}
@@ -97,7 +97,7 @@ func TestChatV2CreatesSandboxBeforeCheckingPi(t *testing.T) {
 func TestDeleteSessionRemovesSandbox(t *testing.T) {
 	h := newTestHandler(t)
 
-	sess, err := h.App.CreateSession("ce297", "deletion test")
+	sess, err := h.App.CreateSession("ce297", "deletion test", "scratch")
 	if err != nil {
 		t.Fatalf("CreateSession: %v", err)
 	}

@@ -132,7 +132,7 @@ func TestHandleSessionMessagesRequiresSessionID(t *testing.T) {
 
 func TestHandleSessionMessagesEmptyForNewSession(t *testing.T) {
 	h := newTestHandler(t)
-	s, err := h.App.CreateSession("ce297", "STPA")
+	s, err := h.App.CreateSession("ce297", "STPA", "scratch")
 	if err != nil {
 		t.Fatalf("create session: %v", err)
 	}
@@ -152,7 +152,7 @@ func TestHandleSessionMessagesEmptyForNewSession(t *testing.T) {
 
 func TestHandleSessionMessagesIncludesReasoning(t *testing.T) {
 	h := newTestHandler(t)
-	s, err := h.App.CreateSession("ce297", "STPA")
+	s, err := h.App.CreateSession("ce297", "STPA", "scratch")
 	if err != nil {
 		t.Fatalf("create session: %v", err)
 	}
@@ -261,7 +261,7 @@ func TestHandleSessionStatsEmpty(t *testing.T) {
 func TestHandleSessionStatsWithMessages(t *testing.T) {
 	h := newTestHandler(t)
 
-	s, err := h.App.CreateSession("ce297", "STPA")
+	s, err := h.App.CreateSession("ce297", "STPA", "scratch")
 	if err != nil {
 		t.Fatalf("create session: %v", err)
 	}

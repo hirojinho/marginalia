@@ -332,14 +332,19 @@ func (a *App) CreateCourse(id, name string) error {
 
 // ---------- Sessions ----------
 
-func (a *App) CreateSession(courseID, topic string) (Session, error) {
+// CreateSession inserts a new task-less session with the given mode (scratch or authoring).
+// An empty mode defaults to "scratch"; an empty topic defaults to "General".
+func (a *App) CreateSession(courseID, topic, mode string) (Session, error) {
 	if topic == "" {
 		topic = "General"
 	}
+	if mode == "" {
+		mode = "scratch"
+	}
 	now := time.Now().Format(time.RFC3339)
 	res, err := a.DB.Exec(
-		"INSERT INTO sessions (course_id, topic, created_at, updated_at) VALUES (?, ?, ?, ?)",
-		courseID, topic, now, now,
+		"INSERT INTO sessions (course_id, topic, mode, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+		courseID, topic, mode, now, now,
 	)
 	if err != nil {
 		return Session{}, fmt.Errorf("insert session: %w", err)
@@ -356,6 +361,7 @@ func (a *App) CreateSession(courseID, topic string) (Session, error) {
 		ID:        id,
 		CourseID:  courseID,
 		Topic:     topic,
+		Mode:      mode,
 		CreatedAt: now,
 		UpdatedAt: now,
 		LastPage:  1,

@@ -544,7 +544,7 @@ func TestPDFCurrentSessionHit(t *testing.T) {
 	func() {
 		app := openApp(t, dbPath)
 		defer func() { _ = app.Close() }()
-		sess, err := app.CreateSession("ce297", "topic")
+		sess, err := app.CreateSession("ce297", "topic", "scratch")
 		if err != nil {
 			t.Fatalf("create session: %v", err)
 		}
