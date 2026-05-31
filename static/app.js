@@ -20,6 +20,7 @@ import {
   restoreReading,
   scrollRailToLastChecked,
   startNewCourseAuthoring,
+  startDesignPlan,
 } from './rail.js';
 
 installErrorBanner();
@@ -64,6 +65,9 @@ document.addEventListener('click', function (e) {
       break;
     case 'new-course':
       startNewCourseAuthoring();
+      break;
+    case 'design-plan':
+      startDesignPlan();
       break;
     case 'noop':
       break;

@@ -19,6 +19,7 @@ let selectedCourse = localStorage.getItem(SELECTED_COURSE_KEY) || 'ce297';
 let currentPlan = null; // JSONPlan for selectedCourse, or null
 let sessionsByTaskId = {}; // task_id -> session (has-work lookup)
 let scratchSessions = []; // task_id-less, not archived (live Scratch)
+let designSessions = []; // task-less, mode='authoring' (course design chats)
 let archivedSessions = []; // task_id-less, archived (pre-redesign — "Before the redesign")
 let detachedSessions = []; // task_id set but absent from the current course's plan (orphaned)
 let pendingTask = null; // {courseId, taskId, title} when a task is open with no session yet
@@ -52,6 +53,7 @@ export async function loadRailData() {
     }
     sessionsByTaskId = {};
     scratchSessions = [];
+    designSessions = [];
     archivedSessions = [];
     detachedSessions = [];
     for (const s of sessions || []) {
@@ -62,8 +64,14 @@ export async function loadRailData() {
           detachedSessions.push(s); // anchored to this course, but the task is gone
         }
         // task-anchored sessions of OTHER courses are not shown on this rail
+      } else if (s.mode === 'authoring') {
+        // Authoring (Design) chats are course-specific: a course-tagged one shows
+        // under its course; a course-less (new-course) one shows under General.
+        if (s.course_id === selectedCourse && !s.archived) designSessions.push(s);
+        else if (s.archived && (!s.course_id || s.course_id === selectedCourse))
+          archivedSessions.push(s);
       } else {
-        // task-less = Scratch family; show global (no course) + this course's
+        // task-less scratch = global (no course) + this course's
         const inScope = !s.course_id || s.course_id === selectedCourse;
         if (!inScope) continue;
         if (s.archived) archivedSessions.push(s);
@@ -168,6 +176,13 @@ function renderSessionLine(s) {
 
 function renderOther() {
   let html = '';
+  if (selectedCourse !== '') {
+    html +=
+      '<div class="rail-bucket"><div class="rail-other-label">Design' +
+      ' <button class="rail-design-add" data-action="design-plan" title="Design or extend this course\'s plan" aria-label="Design plan">+</button></div>';
+    for (const s of designSessions) html += renderSessionLine(s);
+    html += '</div>';
+  }
   if (scratchSessions.length) {
     html += '<div class="rail-bucket"><div class="rail-other-label">Scratch</div>';
     for (const s of scratchSessions) html += renderSessionLine(s);
@@ -214,6 +229,36 @@ export async function startNewCourseAuthoring() {
     if (input) input.focus();
   } catch (err) {
     showErrorBanner('Failed to start authoring session: ' + err.message);
+  }
+}
+
+export async function startDesignPlan() {
+  if (!selectedCourse) return;
+  const courseName =
+    (courseMeta[selectedCourse] && courseMeta[selectedCourse].name) || selectedCourse;
+  try {
+    const resp = await apiFetch('/api/sessions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        course_id: selectedCourse,
+        task_id: '',
+        mode: 'authoring',
+        topic: 'Design ' + courseName + ' plan',
+      }),
+    });
+    if (!resp.ok) {
+      const text = await resp.text();
+      showErrorBanner('Failed to start design session: ' + text);
+      return;
+    }
+    const session = await resp.json();
+    await switchSession(session.id);
+    await loadRail();
+    const input = document.getElementById('message-input');
+    if (input) input.focus();
+  } catch (err) {
+    showErrorBanner('Failed to start design session: ' + err.message);
   }
 }
 
