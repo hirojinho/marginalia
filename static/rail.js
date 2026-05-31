@@ -65,11 +65,12 @@ export async function loadRailData() {
         }
         // task-anchored sessions of OTHER courses are not shown on this rail
       } else if (s.mode === 'authoring') {
-        // Authoring (Design) chats are course-specific: a course-tagged one shows
-        // under its course; a course-less (new-course) one shows under General.
-        if (s.course_id === selectedCourse && !s.archived) designSessions.push(s);
-        else if (s.archived && (!s.course_id || s.course_id === selectedCourse))
-          archivedSessions.push(s);
+        // Design chats: a course-tagged one shows under its course; a course-less
+        // (new-course, pre-retag) one shows globally like Scratch until it re-tags.
+        const inScope = !s.course_id || s.course_id === selectedCourse;
+        if (!inScope) continue;
+        if (s.archived) archivedSessions.push(s);
+        else designSessions.push(s);
       } else {
         // task-less scratch = global (no course) + this course's
         const inScope = !s.course_id || s.course_id === selectedCourse;
@@ -176,10 +177,13 @@ function renderSessionLine(s) {
 
 function renderOther() {
   let html = '';
-  if (selectedCourse !== '') {
-    html +=
-      '<div class="rail-bucket"><div class="rail-other-label">Design' +
-      ' <button class="rail-design-add" data-action="design-plan" title="Design or extend this course\'s plan" aria-label="Design plan">+</button></div>';
+  if (selectedCourse !== '' || designSessions.length) {
+    html += '<div class="rail-bucket"><div class="rail-other-label">Design';
+    if (selectedCourse !== '') {
+      html +=
+        ' <button class="rail-settings-btn" data-action="design-plan" title="Design or extend this course\'s plan" aria-label="Design plan">+</button>';
+    }
+    html += '</div>';
     for (const s of designSessions) html += renderSessionLine(s);
     html += '</div>';
   }
