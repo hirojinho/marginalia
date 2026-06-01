@@ -1,6 +1,8 @@
 ---
 name: implement-from-spec
 description: Use when invoked by the overnight pipeline orchestrator with $SPEC_PATH, $WORKTREE_DIR, $TICKET_ID, and $AGENT_BRANCH set. Read the spec, create the agent branch, implement the plan, hand off to the gate. NEVER deploys, NEVER pushes, NEVER touches prod.
+disable-model-invocation: true
+allowed-tools: read write edit bash
 ---
 
 # implement-from-spec
