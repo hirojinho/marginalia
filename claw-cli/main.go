@@ -167,6 +167,8 @@ func runWithStdin(args []string, stdin io.Reader, stdout, stderr io.Writer, dbPa
 		return runConfidence(args[2:], stdout, stderr, dbPath)
 	case "knowledge":
 		return runKnowledge(args[2:], stdout, stderr, dbPath)
+	case "retrieve":
+		return runRetrieve(args[2:], stdout, stderr, dbPath)
 	default:
 		_, _ = fmt.Fprintf(stderr, "unknown subcommand: %q\n", args[1])
 		return 2
@@ -1404,6 +1406,50 @@ func knowledgeList(args []string, stdout, stderr io.Writer, dbPath string) int {
 	}
 	for _, c := range components {
 		_, _ = fmt.Fprintf(stdout, "%s\t%s\n", c.ID, c.Title)
+	}
+	return 0
+}
+
+func runRetrieve(args []string, stdout, stderr io.Writer, dbPath string) int {
+	if len(args) < 1 {
+		_, _ = fmt.Fprintln(stderr, "usage: claw-cli retrieve <due> [args]")
+		return 2
+	}
+	switch args[0] {
+	case "due":
+		return retrieveDue(args[1:], stdout, stderr, dbPath)
+	default:
+		_, _ = fmt.Fprintf(stderr, "unknown retrieve subcommand: %q\n", args[0])
+		return 2
+	}
+}
+
+func retrieveDue(args []string, stdout, stderr io.Writer, dbPath string) int {
+	fs := flag.NewFlagSet("retrieve due", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	limit := fs.Int("limit", 50, "max rows")
+	dbOverride := fs.String("db", "", "path to study.db")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	resolvedDB, err := resolveDBPath(*dbOverride, dbPath)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return 1
+	}
+	app, err := newAppFromEnv(resolvedDB, false)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return 1
+	}
+	defer func() { _ = app.Close() }()
+	items, err := app.GetDueRetrievalItems(time.Now().UnixMilli(), *limit)
+	if err != nil {
+		_, _ = fmt.Fprintf(stderr, "error: %v\n", err)
+		return 1
+	}
+	for _, item := range items {
+		_, _ = fmt.Fprintf(stdout, "%s\t%.2f\n", item.KnowledgeComponentID, item.LastConfidence)
 	}
 	return 0
 }

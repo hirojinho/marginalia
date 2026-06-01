@@ -180,3 +180,51 @@ func TestVersionHandlerUnauthorized(t *testing.T) {
 		t.Fatalf("status = %d, want 200 with valid token", rec2.Code)
 	}
 }
+
+func TestBandHandler(t *testing.T) {
+	tests := []struct {
+		name       string
+		confidence string
+		wantDays   int
+		wantStatus int
+	}{
+		{"low conf", "0.3", 1, http.StatusOK},
+		{"mid conf", "0.5", 3, http.StatusOK},
+		{"high conf", "0.8", 7, http.StatusOK},
+		{"malformed", "abc", 0, http.StatusBadRequest},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := newTestHandler(t)
+			url := "/debug/retrieve-band?confidence=" + tt.confidence
+			req := httptest.NewRequest(http.MethodGet, url, nil)
+			rr := httptest.NewRecorder()
+			h.bandHandler(rr, req)
+			if rr.Code != tt.wantStatus {
+				t.Fatalf("status = %d, want %d", rr.Code, tt.wantStatus)
+			}
+			if tt.wantStatus == http.StatusOK {
+				var resp struct {
+					Confidence   float64 `json:"confidence"`
+					IntervalDays int     `json:"interval_days"`
+				}
+				if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
+					t.Fatalf("decode: %v", err)
+				}
+				if resp.IntervalDays != tt.wantDays {
+					t.Errorf("interval_days = %d, want %d", resp.IntervalDays, tt.wantDays)
+				}
+			}
+		})
+	}
+}
+
+func TestBandHandlerMethodNotAllowed(t *testing.T) {
+	h := newTestHandler(t)
+	req := httptest.NewRequest(http.MethodPost, "/debug/retrieve-band?confidence=0.5", nil)
+	rr := httptest.NewRecorder()
+	h.bandHandler(rr, req)
+	if rr.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("status = %d, want 405", rr.Code)
+	}
+}

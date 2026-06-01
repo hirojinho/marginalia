@@ -819,3 +819,113 @@ func TestCreateSessionPersistsMode(t *testing.T) {
 		t.Fatalf("persisted mode = %q, want authoring", got.Mode)
 	}
 }
+
+func TestRetrievalIntervalDays(t *testing.T) {
+	tests := []struct {
+		confidence float64
+		want       int
+	}{
+		{0.3, 1},
+		{0.4, 3},
+		{0.5, 3},
+		{0.7, 7},
+		{0.8, 7},
+	}
+	for _, tt := range tests {
+		got := RetrievalIntervalDays(tt.confidence)
+		if got != tt.want {
+			t.Errorf("RetrievalIntervalDays(%v) = %d, want %d", tt.confidence, got, tt.want)
+		}
+	}
+}
+
+func TestLogConfidenceUpsertsRetrievalQueue(t *testing.T) {
+	db, err := OpenDB(":memory:")
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer func() { _ = db.Close() }()
+	if err := InitSchema(db); err != nil {
+		t.Fatalf("init: %v", err)
+	}
+	app := NewApp(Config{VaultRoot: t.TempDir()}, db)
+
+	// Create a course and session so the FK on confidence_log(session_id) passes.
+	if err := app.CreateCourse("test-course", "Test Course"); err != nil {
+		t.Fatalf("create course: %v", err)
+	}
+	sess, err := app.CreateSession("test-course", "topic", "study")
+	if err != nil {
+		t.Fatalf("create session: %v", err)
+	}
+
+	// Log confidence for "kc1" — should insert a retrieval_queue row.
+	_, err = app.LogConfidence(sess.ID, "kc1", 0.5, "manual", "")
+	if err != nil {
+		t.Fatalf("log confidence: %v", err)
+	}
+
+	var dueAt int64
+	var lastConf float64
+	err = db.QueryRow("SELECT due_at, last_confidence FROM retrieval_queue WHERE knowledge_component_id = ?", "kc1").Scan(&dueAt, &lastConf)
+	if err != nil {
+		t.Fatalf("query retrieval_queue: %v", err)
+	}
+	if lastConf != 0.5 {
+		t.Errorf("last_confidence = %v, want 0.5", lastConf)
+	}
+
+	// Log confidence again for "kc1" — should update, not duplicate.
+	_, err = app.LogConfidence(sess.ID, "kc1", 0.8, "manual", "")
+	if err != nil {
+		t.Fatalf("log confidence second: %v", err)
+	}
+	var count int
+	err = db.QueryRow("SELECT COUNT(*) FROM retrieval_queue WHERE knowledge_component_id = ?", "kc1").Scan(&count)
+	if err != nil {
+		t.Fatalf("count: %v", err)
+	}
+	if count != 1 {
+		t.Errorf("retrieval_queue rows for kc1 = %d, want 1", count)
+	}
+	err = db.QueryRow("SELECT last_confidence FROM retrieval_queue WHERE knowledge_component_id = ?", "kc1").Scan(&lastConf)
+	if err != nil {
+		t.Fatalf("query: %v", err)
+	}
+	if lastConf != 0.8 {
+		t.Errorf("last_confidence after update = %v, want 0.8", lastConf)
+	}
+}
+
+func TestGetDueRetrievalItems(t *testing.T) {
+	db, err := OpenDB(":memory:")
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer func() { _ = db.Close() }()
+	if err := InitSchema(db); err != nil {
+		t.Fatalf("init: %v", err)
+	}
+	app := NewApp(Config{VaultRoot: t.TempDir()}, db)
+
+	now := time.Now().UnixMilli()
+	// Insert one due item (past due_at) and one not-due item (future due_at).
+	db.Exec("INSERT INTO retrieval_queue (knowledge_component_id, due_at, last_confidence, updated_at) VALUES (?, ?, ?, ?)",
+		"kc-due", now-1000, 0.3, now)
+	db.Exec("INSERT INTO retrieval_queue (knowledge_component_id, due_at, last_confidence, updated_at) VALUES (?, ?, ?, ?)",
+		"kc-notdue", now+86400000, 0.8, now)
+
+	items, err := app.GetDueRetrievalItems(now, 50)
+	if err != nil {
+		t.Fatalf("GetDueRetrievalItems: %v", err)
+	}
+	if len(items) != 1 {
+		t.Fatalf("expected 1 due item, got %d", len(items))
+	}
+	if items[0].KnowledgeComponentID != "kc-due" {
+		t.Errorf("due item = %q, want kc-due", items[0].KnowledgeComponentID)
+	}
+	if items[0].LastConfidence != 0.3 {
+		t.Errorf("last_confidence = %v, want 0.3", items[0].LastConfidence)
+	}
+}

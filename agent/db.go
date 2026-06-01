@@ -74,6 +74,19 @@ func OpenDB(path string) (*sql.DB, error) {
 	return db, nil
 }
 
+// RetrievalIntervalDays maps a confidence value to the next-review interval.
+// Crude banding; replaced by SM-2 in a later ticket.
+func RetrievalIntervalDays(confidence float64) int {
+	switch {
+	case confidence < 0.4:
+		return 1
+	case confidence < 0.7:
+		return 3
+	default:
+		return 7
+	}
+}
+
 // InitSchema creates all tables and applies idempotent migrations.
 func InitSchema(db *sql.DB) error {
 	schema := `
@@ -171,6 +184,13 @@ func InitSchema(db *sql.DB) error {
 		interleaving     INTEGER NOT NULL DEFAULT 1,
 		updated_at       INTEGER NOT NULL DEFAULT 0
 	);
+	CREATE TABLE IF NOT EXISTS retrieval_queue (
+	    knowledge_component_id  TEXT    PRIMARY KEY,
+	    due_at                  INTEGER NOT NULL,
+	    last_confidence         REAL    NOT NULL,
+	    updated_at              INTEGER NOT NULL
+	);
+	CREATE INDEX IF NOT EXISTS idx_retrieval_queue_due ON retrieval_queue(due_at);
 	`
 	if _, err := db.Exec(schema); err != nil {
 		return fmt.Errorf("create schema: %w", err)
@@ -1050,6 +1070,43 @@ func (a *App) GetLastOpenedPDFID() (int64, error) {
 }
 
 // LogConfidence inserts a confidence entry and returns the new row id.
+// UpsertRetrievalItem inserts or updates a retrieval_queue row for the given
+// knowledge component, computing due_at from the confidence banding.
+func (a *App) UpsertRetrievalItem(knowledgeComponentID string, lastConfidence float64) error {
+	now := time.Now().UnixMilli()
+	days := RetrievalIntervalDays(lastConfidence)
+	dueAt := now + int64(days)*86400000
+	_, err := a.DB.Exec(
+		"INSERT INTO retrieval_queue (knowledge_component_id, due_at, last_confidence, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(knowledge_component_id) DO UPDATE SET due_at=excluded.due_at, last_confidence=excluded.last_confidence, updated_at=excluded.updated_at",
+		knowledgeComponentID, dueAt, lastConfidence, now,
+	)
+	return err
+}
+
+// GetDueRetrievalItems returns due items from the retrieval_queue, soonest-due first.
+func (a *App) GetDueRetrievalItems(now int64, limit int) ([]RetrievalItem, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	rows, err := a.DB.Query(
+		"SELECT knowledge_component_id, due_at, last_confidence FROM retrieval_queue WHERE due_at <= ? ORDER BY due_at ASC LIMIT ?",
+		now, limit,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("query due retrieval items: %w", err)
+	}
+	defer rows.Close()
+	var items []RetrievalItem
+	for rows.Next() {
+		var ri RetrievalItem
+		if err := rows.Scan(&ri.KnowledgeComponentID, &ri.DueAt, &ri.LastConfidence); err != nil {
+			return nil, fmt.Errorf("scan retrieval item: %w", err)
+		}
+		items = append(items, ri)
+	}
+	return items, rows.Err()
+}
+
 func (a *App) LogConfidence(sessionID int64, knowledgeComponentID string, value float64, source, rawText string) (int64, error) {
 	if value < 0.0 || value > 1.0 {
 		return 0, fmt.Errorf("value must be in [0.0, 1.0], got %v", value)
@@ -1066,6 +1123,9 @@ func (a *App) LogConfidence(sessionID int64, knowledgeComponentID string, value 
 	)
 	if err != nil {
 		return 0, fmt.Errorf("insert confidence_log: %w", err)
+	}
+	if err := a.UpsertRetrievalItem(knowledgeComponentID, value); err != nil {
+		return 0, fmt.Errorf("upsert retrieval_queue: %w", err)
 	}
 	return res.LastInsertId()
 }

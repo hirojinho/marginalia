@@ -118,6 +118,13 @@ type KnowledgeComponent struct {
 	UpdatedAt       int64  `json:"updated_at"`
 }
 
+// RetrievalItem represents a due review entry from the retrieval_queue.
+type RetrievalItem struct {
+	KnowledgeComponentID string  `json:"knowledge_component_id"`
+	DueAt                int64   `json:"due_at"`
+	LastConfidence       float64 `json:"last_confidence"`
+}
+
 // ExtractPDFPageCount returns the page count parsed from the PDF
 // /Count entry, or 0 if it cannot be determined.
 func ExtractPDFPageCount(data []byte) int {

@@ -165,7 +165,7 @@ func TestWriteAgentsMDUsesDefaultsWhenNoProvider(t *testing.T) {
 		t.Fatalf("Create: %v", err)
 	}
 	md := readAgentsMD(t, dir)
-	for _, want := range []string{"~8 pages", "Chunk by meaning", "Stop-after-task is ON", "interleaved spaced retrieval"} {
+	for _, want := range []string{"~8 pages", "Chunk by meaning", "Stop-after-task is ON", "retrieve due"} {
 		if !strings.Contains(md, want) {
 			t.Errorf("AGENTS.md missing default %q", want)
 		}

@@ -3,6 +3,8 @@ package handler
 import (
 	"net/http"
 	"regexp"
+	"strconv"
+
 	"study-app/agent"
 )
 
@@ -73,4 +75,25 @@ func (h *Handler) toolsHandler(w http.ResponseWriter, r *http.Request) {
 		names = append(names, t.Function.Name)
 	}
 	writeJSON(w, http.StatusOK, map[string][]string{"tools": names})
+}
+
+type retrieveBandResponse struct {
+	Confidence    float64 `json:"confidence"`
+	IntervalDays  int     `json:"interval_days"`
+}
+
+func (h *Handler) bandHandler(w http.ResponseWriter, r *http.Request) {
+	if methodNotAllowed(w, r, http.MethodGet) {
+		return
+	}
+	cStr := r.URL.Query().Get("confidence")
+	c, err := strconv.ParseFloat(cStr, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid confidence parameter")
+		return
+	}
+	writeJSON(w, http.StatusOK, retrieveBandResponse{
+		Confidence:   c,
+		IntervalDays: agent.RetrievalIntervalDays(c),
+	})
 }
