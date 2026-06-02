@@ -881,3 +881,98 @@ func TestCourseCreateWithSessionRetags(t *testing.T) {
 		t.Fatalf("session not re-tagged, course_id = %q", s.CourseID)
 	}
 }
+
+func TestConfidenceLogWritesRowAndQueue(t *testing.T) {
+	dbPath := newTempDB(t)
+	var sessID int64
+	func() {
+		app := openApp(t, dbPath)
+		defer func() { _ = app.Close() }()
+		s, err := app.CreateSession("", "confidence log test", "study")
+		if err != nil {
+			t.Fatalf("create session: %v", err)
+		}
+		sessID = s.ID
+	}()
+	var stdout, stderr bytes.Buffer
+	code := run([]string{
+		"clawcli", "confidence", "log",
+		"--session", strconv.FormatInt(sessID, 10),
+		"--kc", "task-abc",
+		"--value", "0.8",
+		"--raw", "pretty solid",
+	}, &stdout, &stderr, dbPath)
+	if code != 0 {
+		t.Fatalf("exit %d, stderr: %s", code, stderr.String())
+	}
+
+	db, err := agent.OpenDB(dbPath)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer func() { _ = db.Close() }()
+
+	var n int
+	var sess int64
+	var kc, source string
+	var val float64
+	if err := db.QueryRow(`SELECT count(*) FROM confidence_log`).Scan(&n); err != nil || n != 1 {
+		t.Fatalf("confidence_log rows = %d (err %v), want 1", n, err)
+	}
+	if err := db.QueryRow(
+		`SELECT session_id, knowledge_component_id, value, source FROM confidence_log`,
+	).Scan(&sess, &kc, &val, &source); err != nil {
+		t.Fatalf("scan row: %v", err)
+	}
+	if sess != sessID || kc != "task-abc" || val != 0.8 || source != "tool_call" {
+		t.Fatalf("row = (%d,%q,%v,%q)", sess, kc, val, source)
+	}
+
+	var qn int
+	if err := db.QueryRow(
+		`SELECT count(*) FROM retrieval_queue WHERE knowledge_component_id = 'task-abc'`,
+	).Scan(&qn); err != nil || qn != 1 {
+		t.Fatalf("retrieval_queue rows = %d (err %v), want 1", qn, err)
+	}
+}
+
+func TestConfidenceLogRejectsOutOfRange(t *testing.T) {
+	dbPath := newTempDB(t)
+	var sessID int64
+	func() {
+		app := openApp(t, dbPath)
+		defer func() { _ = app.Close() }()
+		s, err := app.CreateSession("", "out of range test", "study")
+		if err != nil {
+			t.Fatalf("create session: %v", err)
+		}
+		sessID = s.ID
+	}()
+	var stdout, stderr bytes.Buffer
+	code := run([]string{
+		"clawcli", "confidence", "log",
+		"--session", strconv.FormatInt(sessID, 10), "--kc", "task-x", "--value", "1.5",
+	}, &stdout, &stderr, dbPath)
+	if code == 0 {
+		t.Fatalf("expected non-zero exit for out-of-range value")
+	}
+	db, _ := agent.OpenDB(dbPath)
+	defer func() { _ = db.Close() }()
+	var n int
+	_ = db.QueryRow(`SELECT count(*) FROM confidence_log`).Scan(&n)
+	if n != 0 {
+		t.Fatalf("confidence_log rows = %d, want 0 (no write on rejection)", n)
+	}
+}
+
+func TestConfidenceLogMissingKCExits2(t *testing.T) {
+	dbPath := newTempDB(t)
+	var stdout, stderr bytes.Buffer
+	code := run([]string{
+		"clawcli", "confidence", "log",
+		"--session", "1", "--value", "0.5",
+	}, &stdout, &stderr, dbPath)
+	if code != 2 {
+		t.Fatalf("exit code: %d, want 2", code)
+	}
+}

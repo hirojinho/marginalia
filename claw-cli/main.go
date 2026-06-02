@@ -1164,10 +1164,12 @@ func noteSave(args []string, stdout, stderr io.Writer, dbPath string) int {
 
 func runConfidence(args []string, stdout, stderr io.Writer, dbPath string) int {
 	if len(args) < 1 {
-		_, _ = fmt.Fprintln(stderr, "usage: claw-cli confidence <trajectory|recent|schema> [args]")
+		_, _ = fmt.Fprintln(stderr, "usage: claw-cli confidence <log|trajectory|recent|schema> [args]")
 		return 2
 	}
 	switch args[0] {
+	case "log":
+		return confidenceLog(args[1:], stdout, stderr, dbPath)
 	case "trajectory":
 		return confidenceTrajectory(args[1:], stdout, stderr, dbPath)
 	case "recent":
@@ -1269,6 +1271,41 @@ func confidenceSchema(stdout, stderr io.Writer, dbPath string) int {
 		return 1
 	}
 	_, _ = fmt.Fprintln(stdout, "OK")
+	return 0
+}
+
+func confidenceLog(args []string, stdout, stderr io.Writer, dbPath string) int {
+	fs := flag.NewFlagSet("confidence log", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	session := fs.Int64("session", 0, "session id (required)")
+	kc := fs.String("kc", "", "knowledge_component_id — the active plan task's id (required)")
+	value := fs.Float64("value", -1, "confidence value in [0.0, 1.0] (required)")
+	raw := fs.String("raw", "", "the user's verbatim reply (optional)")
+	dbOverride := fs.String("db", "", "path to study.db")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	if *session <= 0 || *kc == "" || *value < 0 {
+		_, _ = fmt.Fprintln(stderr, "confidence log: --session (≥1), --kc, and --value are required")
+		return 2
+	}
+	resolvedDB, err := resolveDBPath(*dbOverride, dbPath)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return 1
+	}
+	app, err := newAppFromEnv(resolvedDB, false)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return 1
+	}
+	defer func() { _ = app.Close() }()
+	id, err := app.LogConfidence(*session, *kc, *value, "tool_call", *raw)
+	if err != nil {
+		_, _ = fmt.Fprintf(stderr, "error: %v\n", err)
+		return 1
+	}
+	_, _ = fmt.Fprintf(stdout, "logged confidence %.2f for %s (row %d)\n", *value, *kc, id)
 	return 0
 }
 
