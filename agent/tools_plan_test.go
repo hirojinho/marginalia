@@ -121,7 +121,8 @@ func TestToolUpdatePlan_Toggle(t *testing.T) {
 	a := newMemoryApp(t)
 	writePlan(t, a, samplePlan())
 
-	out := a.ToolUpdatePlan(json.RawMessage(`{"plan_id":"ce297","action":"toggle","task_index":0}`))
+	// force bypasses the mastery gate so this exercises toggle mechanics only
+	out := a.ToolUpdatePlan(json.RawMessage(`{"plan_id":"ce297","action":"toggle","task_index":0,"force":true}`))
 	if !strings.Contains(out, "marked as done") {
 		t.Fatalf("expected toggled-to-done, got %q", out)
 	}
@@ -136,8 +137,8 @@ func TestToolUpdatePlan_SetDoneOnClusterTask(t *testing.T) {
 	a := newMemoryApp(t)
 	writePlan(t, a, samplePlan())
 
-	// indices: 0,1 phase tasks; 2,3 cluster tasks
-	out := a.ToolUpdatePlan(json.RawMessage(`{"plan_id":"ce297","action":"set_done","task_index":3}`))
+	// indices: 0,1 phase tasks; 2,3 cluster tasks. force bypasses the mastery gate.
+	out := a.ToolUpdatePlan(json.RawMessage(`{"plan_id":"ce297","action":"set_done","task_index":3,"force":true}`))
 	if !strings.Contains(out, "cluster") || !strings.Contains(out, "done") {
 		t.Fatalf("got %q", out)
 	}
@@ -352,5 +353,88 @@ func TestRewritePlan_FirstTimeCreate(t *testing.T) {
 	}
 	if loaded.Phases[0].Tasks[0].ID == "" {
 		t.Fatal("task should have a generated UUID")
+	}
+}
+
+// a plan whose tasks carry ids, so the gate can look up confidence by id
+func gatedPlan() *JSONPlan {
+	return &JSONPlan{
+		ID:   "gate-course",
+		Name: "Gate",
+		Phases: []Phase{{
+			Title: "P1",
+			Tasks: []Task{
+				{ID: "t-0", Title: "Task zero", Done: false},
+				{ID: "t-1", Title: "Task one", Done: false},
+			},
+		}},
+	}
+}
+
+func TestMasteryGate_BlocksSetDoneWithoutConfidence(t *testing.T) {
+	a := newMemoryApp(t)
+	writePlan(t, a, gatedPlan())
+	out := a.ToolUpdatePlan(json.RawMessage(`{"plan_id":"gate-course","action":"set_done","task_index":0}`))
+	if !strings.Contains(out, "mastery gate") {
+		t.Fatalf("expected mastery-gate refusal, got %q", out)
+	}
+	if a.LoadPlan("gate-course").Phases[0].Tasks[0].Done {
+		t.Fatalf("task should remain undone after refusal")
+	}
+}
+
+func TestMasteryGate_AllowsWithConfidence(t *testing.T) {
+	a := newMemoryApp(t)
+	writePlan(t, a, gatedPlan())
+	sess, err := a.CreateSession("gate-course", "t", "study")
+	if err != nil {
+		t.Fatalf("session: %v", err)
+	}
+	if _, err := a.LogConfidence(sess.ID, "t-0", 0.8, "manual", ""); err != nil {
+		t.Fatalf("log: %v", err)
+	}
+	out := a.ToolUpdatePlan(json.RawMessage(`{"plan_id":"gate-course","action":"set_done","task_index":0}`))
+	if !strings.Contains(out, "done") || strings.Contains(out, "mastery gate") {
+		t.Fatalf("expected success, got %q", out)
+	}
+	if !a.LoadPlan("gate-course").Phases[0].Tasks[0].Done {
+		t.Fatalf("task should be done")
+	}
+}
+
+func TestMasteryGate_ForceBypasses(t *testing.T) {
+	a := newMemoryApp(t)
+	writePlan(t, a, gatedPlan())
+	out := a.ToolUpdatePlan(json.RawMessage(`{"plan_id":"gate-course","action":"set_done","task_index":1,"force":true}`))
+	if strings.Contains(out, "mastery gate") {
+		t.Fatalf("force should bypass, got %q", out)
+	}
+	if !a.LoadPlan("gate-course").Phases[0].Tasks[1].Done {
+		t.Fatalf("task should be done with force")
+	}
+}
+
+func TestMasteryGate_SetUndoneNotGated(t *testing.T) {
+	a := newMemoryApp(t)
+	p := gatedPlan()
+	p.Phases[0].Tasks[0].Done = true
+	writePlan(t, a, p)
+	out := a.ToolUpdatePlan(json.RawMessage(`{"plan_id":"gate-course","action":"set_undone","task_index":0}`))
+	if strings.Contains(out, "mastery gate") {
+		t.Fatalf("set_undone must never be gated, got %q", out)
+	}
+	if a.LoadPlan("gate-course").Phases[0].Tasks[0].Done {
+		t.Fatalf("task should be undone")
+	}
+}
+
+func TestMasteryGate_EmptyIDAllowed(t *testing.T) {
+	// LoadPlan auto-assigns IDs to empty-id tasks (assignMissingTaskIDs migration),
+	// so an empty-id task never reaches the gate through ToolUpdatePlan. Exercise the
+	// ungateable-empty-id contract directly on the gate helper.
+	a := newMemoryApp(t)
+	task := &Task{ID: "", Title: "no id", Done: false}
+	if refusal := a.masteryGateRefusal("ce297", task, "set_done", false); refusal != "" {
+		t.Fatalf("empty-id task must be ungateable, got %q", refusal)
 	}
 }

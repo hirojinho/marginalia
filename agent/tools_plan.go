@@ -15,6 +15,7 @@ func (a *App) ToolUpdatePlan(args json.RawMessage) string {
 		TaskIndex    int    `json:"task_index"`
 		TaskTitle    string `json:"task_title"`
 		TaskPriority string `json:"task_priority"`
+		Force        bool   `json:"force"`
 	}
 	if err := json.Unmarshal(args, &p); err != nil {
 		return "error: " + err.Error()
@@ -28,7 +29,7 @@ func (a *App) ToolUpdatePlan(args json.RawMessage) string {
 	}
 	switch p.Action {
 	case "toggle", "set_done", "set_undone":
-		return a.applyToggle(plan, p.Action, p.TaskIndex)
+		return a.applyToggle(plan, p.Action, p.TaskIndex, p.Force)
 	case "add_task":
 		return a.applyAddTask(plan, p.TaskTitle, p.TaskPriority)
 	default:
@@ -36,12 +37,38 @@ func (a *App) ToolUpdatePlan(args json.RawMessage) string {
 	}
 }
 
+// masteryGateRefusal returns a non-empty "refused: ..." message when completing
+// task must be blocked (no logged confidence ≥ the course's mastery_threshold),
+// or "" when the action is allowed. Empty-id tasks are ungateable (allowed).
+func (a *App) masteryGateRefusal(planID string, task *Task, action string, force bool) string {
+	if force {
+		return ""
+	}
+	completing := action == "set_done" || (action == "toggle" && !task.Done)
+	if !completing || task.ID == "" {
+		return ""
+	}
+	s, _ := a.GetCourseSettings(planID)
+	ok, err := a.HasConfidenceAtLeast(task.ID, s.MasteryThreshold)
+	if err != nil {
+		return "" // never block on a read error
+	}
+	if !ok {
+		return fmt.Sprintf("refused: mastery gate — task %q has no logged confidence ≥ %.2f. Ask the learner to rate confidence and run `claw-cli confidence log`, or pass --force to override.",
+			task.Title, s.MasteryThreshold)
+	}
+	return ""
+}
+
 // applyToggle walks the plan tasks in sequential order and applies the action to the task at taskIndex.
-func (a *App) applyToggle(plan *JSONPlan, action string, taskIndex int) string {
+func (a *App) applyToggle(plan *JSONPlan, action string, taskIndex int, force bool) string {
 	count := 0
 	for i := range plan.Phases {
 		for j := range plan.Phases[i].Tasks {
 			if count == taskIndex {
+				if refusal := a.masteryGateRefusal(plan.ID, &plan.Phases[i].Tasks[j], action, force); refusal != "" {
+					return refusal
+				}
 				applyAction(&plan.Phases[i].Tasks[j].Done, action)
 				if err := a.SavePlan(plan); err != nil {
 					return "error saving plan: " + err.Error()
@@ -52,9 +79,11 @@ func (a *App) applyToggle(plan *JSONPlan, action string, taskIndex int) string {
 			count++
 		}
 		for k := range plan.Phases[i].Clusters {
-			if msg, found := applyToggleCluster(plan, action, taskIndex, i, k, &count); found {
-				if err := a.SavePlan(plan); err != nil {
-					return "error saving plan: " + err.Error()
+			if msg, found := a.applyToggleCluster(plan, action, taskIndex, i, k, &count, force); found {
+				if !strings.HasPrefix(msg, "refused:") {
+					if err := a.SavePlan(plan); err != nil {
+						return "error saving plan: " + err.Error()
+					}
 				}
 				return msg
 			}
@@ -64,16 +93,16 @@ func (a *App) applyToggle(plan *JSONPlan, action string, taskIndex int) string {
 }
 
 // applyToggleCluster applies the action to a task inside a cluster, if the sequential count matches taskIndex.
-func applyToggleCluster(plan *JSONPlan, action string, taskIndex, phaseIdx, clusterIdx int, count *int) (string, bool) {
+func (a *App) applyToggleCluster(plan *JSONPlan, action string, taskIndex, phaseIdx, clusterIdx int, count *int, force bool) (string, bool) {
 	for j := range plan.Phases[phaseIdx].Clusters[clusterIdx].Tasks {
 		if *count == taskIndex {
-			applyAction(&plan.Phases[phaseIdx].Clusters[clusterIdx].Tasks[j].Done, action)
+			task := &plan.Phases[phaseIdx].Clusters[clusterIdx].Tasks[j]
+			if refusal := a.masteryGateRefusal(plan.ID, task, action, force); refusal != "" {
+				return refusal, true
+			}
+			applyAction(&task.Done, action)
 			return fmt.Sprintf("Task %d %q in cluster %q marked as %s",
-				taskIndex,
-				plan.Phases[phaseIdx].Clusters[clusterIdx].Tasks[j].Title,
-				plan.Phases[phaseIdx].Clusters[clusterIdx].Title,
-				doneState(plan.Phases[phaseIdx].Clusters[clusterIdx].Tasks[j].Done),
-			), true
+				taskIndex, task.Title, plan.Phases[phaseIdx].Clusters[clusterIdx].Title, doneState(task.Done)), true
 		}
 		*count++
 	}
