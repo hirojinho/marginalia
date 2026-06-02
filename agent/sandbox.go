@@ -207,9 +207,10 @@ func (sm *SandboxManager) studyTuningSections(course string) []byte {
 	steerTool := "\n## Course settings (Steering) — change via tool, never via files\n\n" +
 		"Durable course settings live in a database table, surfaced above and in the rules below. " +
 		"If Eduardo asks to change one (\"smaller chunks\", \"stop chaining\", \"exam-prep framing\"), make the change with:\n" +
-		"```\nclaw-cli course settings set --course " + courseArgOrPlaceholder(course) + " --key <framing|exam_style|chunk_pages|stop_after_task|interleaving> --value <value>\n```\n" +
+		"```\nclaw-cli course settings set --course " + courseArgOrPlaceholder(course) + " --key <framing|exam_style|chunk_pages|stop_after_task|interleaving|mastery_threshold> --value <value>\n```\n" +
 		"Then confirm in ONE line and resume what you were doing — do not turn the session into a config conversation. " +
-		"**Never write settings into AGENTS.md, notes, or any file** — only this tool persists them. The change takes effect next turn.\n"
+		"**Never write settings into AGENTS.md, notes, or any file** — only this tool persists them. The change takes effect next turn.\n" +
+		"\n**Mastery gate:** `claw-cli plan toggle` will refuse with a \"mastery gate\" message if the task has no logged confidence ≥ the course's mastery_threshold. The fix is to elicit and log confidence (Rule 3) first; pass `--force` ONLY when Eduardo explicitly says to mark it done anyway.\n"
 	content = append(content, []byte(steerTool)...)
 
 	// How to create a course conversationally (Authoring; ADR 0014).

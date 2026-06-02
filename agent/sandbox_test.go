@@ -310,3 +310,14 @@ func TestWriteAgentsMDStudyKeepsPedagogy(t *testing.T) {
 		t.Fatalf("study session must still carry the pedagogy rules (gating over-reached):\n%s", body)
 	}
 }
+
+func TestAgentsMDMentionsMasteryGate(t *testing.T) {
+	var sm SandboxManager
+	out := string(sm.studyTuningSections("ddia"))
+	if !strings.Contains(out, "mastery_threshold") {
+		t.Fatalf("steering key list must include mastery_threshold")
+	}
+	if !strings.Contains(out, "mastery gate") {
+		t.Fatalf("must explain the plan-toggle mastery gate to the agent")
+	}
+}
