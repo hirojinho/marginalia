@@ -176,13 +176,14 @@ func InitSchema(db *sql.DB) error {
 	);
 	CREATE INDEX IF NOT EXISTS idx_knowledge_components_task ON knowledge_components(source_task_id);
 	CREATE TABLE IF NOT EXISTS course_settings (
-		course_id        TEXT PRIMARY KEY,
-		framing          TEXT    NOT NULL DEFAULT '',
-		exam_style       TEXT    NOT NULL DEFAULT '',
-		chunk_pages      INTEGER NOT NULL DEFAULT 8,
-		stop_after_task  INTEGER NOT NULL DEFAULT 1,
-		interleaving     INTEGER NOT NULL DEFAULT 1,
-		updated_at       INTEGER NOT NULL DEFAULT 0
+		course_id         TEXT PRIMARY KEY,
+		framing           TEXT    NOT NULL DEFAULT '',
+		exam_style        TEXT    NOT NULL DEFAULT '',
+		chunk_pages       INTEGER NOT NULL DEFAULT 8,
+		stop_after_task   INTEGER NOT NULL DEFAULT 1,
+		interleaving      INTEGER NOT NULL DEFAULT 1,
+		mastery_threshold REAL    NOT NULL DEFAULT 0.7,
+		updated_at        INTEGER NOT NULL DEFAULT 0
 	);
 	CREATE TABLE IF NOT EXISTS retrieval_queue (
 	    knowledge_component_id  TEXT    PRIMARY KEY,
@@ -208,6 +209,7 @@ func InitSchema(db *sql.DB) error {
 		"ALTER TABLE sessions ADD COLUMN archived INTEGER NOT NULL DEFAULT 0",
 		"ALTER TABLE sessions ADD COLUMN hidden INTEGER NOT NULL DEFAULT 0",
 		"ALTER TABLE sessions ADD COLUMN mode TEXT NOT NULL DEFAULT 'study'",
+		"ALTER TABLE course_settings ADD COLUMN mastery_threshold REAL NOT NULL DEFAULT 0.7",
 	}
 	for _, m := range migrations {
 		if _, err := db.Exec(m); err != nil && !strings.Contains(err.Error(), "duplicate column") && !strings.Contains(err.Error(), "no such column") {

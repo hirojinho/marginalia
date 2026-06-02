@@ -14,13 +14,14 @@ import (
 // never writes these into generated files — both the settings form and the
 // claw-cli tool go through UpsertCourseSettings / SetCourseSetting.
 type CourseSettings struct {
-	CourseID      string `json:"course_id"`
-	Framing       string `json:"framing"`
-	ExamStyle     string `json:"exam_style"`
-	ChunkPages    int    `json:"chunk_pages"`
-	StopAfterTask bool   `json:"stop_after_task"`
-	Interleaving  bool   `json:"interleaving"`
-	UpdatedAt     int64  `json:"updated_at"`
+	CourseID         string  `json:"course_id"`
+	Framing          string  `json:"framing"`
+	ExamStyle        string  `json:"exam_style"`
+	ChunkPages       int     `json:"chunk_pages"`
+	StopAfterTask    bool    `json:"stop_after_task"`
+	Interleaving     bool    `json:"interleaving"`
+	MasteryThreshold float64 `json:"mastery_threshold"`
+	UpdatedAt        int64   `json:"updated_at"`
 }
 
 // DefaultCourseSettings returns the behavior-preserving defaults that match
@@ -28,10 +29,11 @@ type CourseSettings struct {
 // task, interleaved opener on.
 func DefaultCourseSettings(courseID string) CourseSettings {
 	return CourseSettings{
-		CourseID:      courseID,
-		ChunkPages:    8,
-		StopAfterTask: true,
-		Interleaving:  true,
+		CourseID:         courseID,
+		ChunkPages:       8,
+		StopAfterTask:    true,
+		Interleaving:     true,
+		MasteryThreshold: 0.7,
 	}
 }
 
@@ -46,6 +48,9 @@ func ValidateCourseSettings(s CourseSettings) error {
 	if len(s.ExamStyle) > 4000 {
 		return fmt.Errorf("exam_style too long (max 4000 chars)")
 	}
+	if s.MasteryThreshold < 0.0 || s.MasteryThreshold > 1.0 {
+		return fmt.Errorf("mastery_threshold must be between 0.0 and 1.0, got %v", s.MasteryThreshold)
+	}
 	return nil
 }
 
@@ -56,9 +61,9 @@ func (a *App) GetCourseSettings(courseID string) (CourseSettings, error) {
 	s := DefaultCourseSettings(courseID)
 	var stop, inter int
 	err := a.DB.QueryRow(
-		"SELECT framing, exam_style, chunk_pages, stop_after_task, interleaving, updated_at FROM course_settings WHERE course_id = ?",
+		"SELECT framing, exam_style, chunk_pages, stop_after_task, interleaving, mastery_threshold, updated_at FROM course_settings WHERE course_id = ?",
 		courseID,
-	).Scan(&s.Framing, &s.ExamStyle, &s.ChunkPages, &stop, &inter, &s.UpdatedAt)
+	).Scan(&s.Framing, &s.ExamStyle, &s.ChunkPages, &stop, &inter, &s.MasteryThreshold, &s.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return s, nil
 	}
@@ -84,12 +89,13 @@ func (a *App) UpsertCourseSettings(s CourseSettings) error {
 		inter = 1
 	}
 	_, err := a.DB.Exec(
-		`INSERT INTO course_settings (course_id, framing, exam_style, chunk_pages, stop_after_task, interleaving, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?)
+		`INSERT INTO course_settings (course_id, framing, exam_style, chunk_pages, stop_after_task, interleaving, mastery_threshold, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 		 ON CONFLICT(course_id) DO UPDATE SET
 		   framing=excluded.framing, exam_style=excluded.exam_style, chunk_pages=excluded.chunk_pages,
-		   stop_after_task=excluded.stop_after_task, interleaving=excluded.interleaving, updated_at=excluded.updated_at`,
-		s.CourseID, s.Framing, s.ExamStyle, s.ChunkPages, stop, inter, time.Now().UnixMilli(),
+		   stop_after_task=excluded.stop_after_task, interleaving=excluded.interleaving,
+		   mastery_threshold=excluded.mastery_threshold, updated_at=excluded.updated_at`,
+		s.CourseID, s.Framing, s.ExamStyle, s.ChunkPages, stop, inter, s.MasteryThreshold, time.Now().UnixMilli(),
 	)
 	if err != nil {
 		return fmt.Errorf("upsert course settings: %w", err)
@@ -131,8 +137,14 @@ func (a *App) SetCourseSetting(courseID, key, value string) error {
 			return bErr
 		}
 		s.Interleaving = b
+	case "mastery_threshold":
+		f, convErr := strconv.ParseFloat(strings.TrimSpace(value), 64)
+		if convErr != nil {
+			return fmt.Errorf("mastery_threshold must be a number, got %q", value)
+		}
+		s.MasteryThreshold = f
 	default:
-		return fmt.Errorf("unknown setting key %q (valid: framing, exam_style, chunk_pages, stop_after_task, interleaving)", key)
+		return fmt.Errorf("unknown setting key %q (valid: framing, exam_style, chunk_pages, stop_after_task, interleaving, mastery_threshold)", key)
 	}
 	if err := ValidateCourseSettings(s); err != nil {
 		return err

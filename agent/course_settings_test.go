@@ -79,3 +79,34 @@ func TestValidateCourseSettings(t *testing.T) {
 		t.Fatalf("valid settings rejected: %v", err)
 	}
 }
+
+func TestMasteryThresholdDefaultsTo07(t *testing.T) {
+	s := DefaultCourseSettings("ddia")
+	if s.MasteryThreshold != 0.7 {
+		t.Fatalf("default MasteryThreshold = %v, want 0.7", s.MasteryThreshold)
+	}
+}
+
+func TestSetMasteryThresholdRoundTrips(t *testing.T) {
+	a := newMemoryApp(t)
+	if err := a.SetCourseSetting("ddia", "mastery_threshold", "0.85"); err != nil {
+		t.Fatalf("set: %v", err)
+	}
+	s, err := a.GetCourseSettings("ddia")
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	if s.MasteryThreshold != 0.85 {
+		t.Fatalf("MasteryThreshold = %v, want 0.85", s.MasteryThreshold)
+	}
+}
+
+func TestSetMasteryThresholdRejectsOutOfRange(t *testing.T) {
+	a := newMemoryApp(t)
+	if err := a.SetCourseSetting("ddia", "mastery_threshold", "1.5"); err == nil {
+		t.Fatalf("expected error for 1.5")
+	}
+	if err := a.SetCourseSetting("ddia", "mastery_threshold", "-0.1"); err == nil {
+		t.Fatalf("expected error for -0.1")
+	}
+}
