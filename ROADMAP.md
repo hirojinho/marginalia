@@ -2,7 +2,7 @@
 
 What's worth building next, in three buckets. Items move down the file as they ship — when something ships it leaves this file and lands in [`CHANGELOG.md`](CHANGELOG.md). Things that won't be done at all live in the "Won't do" section so the reasoning isn't lost.
 
-Last reviewed: 2026-05-27 (Knowledge Component arc designed — see ADR 0007; R4 confidence_log shipped).
+Last reviewed: 2026-06-02 (KC arc shipped; R1 retrieval loop shipped; R2 SM-2 queued for tonight; reasoning-persistence already shipped — removed from Next).
 
 ## Now
 
@@ -12,7 +12,6 @@ Nothing urgent.
 
 Cheap, small, ready when there's an excuse to pull them in.
 
-- **Persist reasoning across reloads.** Thinking tokens (SSE `reasoning` events) are rendered during a live turn but not saved — `/chat-v2` only persists the answer text. On page reload, thinking blocks disappear. Fix: store the reasoning content alongside the assistant message (separate DB column or a `messages.reasoning` field); populate the thinking block when loading message history in `static/sessions.js`.
 - **Courses-drawer UX review.** Current courses/sessions management feels poor. Brainstorm pass first — list what's clumsy, what's missing, what should disappear — before touching code. Likely splits into 2–3 small follow-up items.
 - **Phase 2.6 — migration system.** Inline migrations in `agent/db.go` cover the current schema. The first time the schema needs a non-trivial change, replace them with a numbered-migration runner (something `golang-migrate`-shaped or a tiny in-tree version).
 - **Cloudflare Access on top of bearer auth.** Optional second auth layer at the CF edge. Belt-and-suspenders — only worth it if you want zero unauthenticated traffic ever reaching the app.
@@ -20,9 +19,9 @@ Cheap, small, ready when there's an excuse to pull them in.
 
 ### Pedagogy backlog (graded by evidence strength)
 
-Today's session baked the front-half of a learning loop (encoding scaffolds — see pedagogy rules in `CLAUDE.local.md` and `agent/sandbox.go`'s AGENTS.md template). The back half — retrieval, spacing, mastery — is missing. Items below are ranked by evidence weight; **R1 + R2 carry roughly half the total evidence weight of all retrieval-side interventions** (Roediger & Karpicke 2006; Dunlosky et al. 2013).
+Today's session baked the front-half of a learning loop (encoding scaffolds — see pedagogy rules in `CLAUDE.local.md` and `agent/sandbox.go`'s AGENTS.md template). The back half — retrieval, spacing, mastery — is partially built but has a critical signal-quality gap (see Practice-testing gap below). **R1 shipped 2026-06-01; R2 queued for 2026-06-02 overnight.** Items ranked by evidence weight (Roediger & Karpicke 2006; Dunlosky et al. 2013).
 
-- **Knowledge Component arc (designed 2026-05-27 — see [ADR 0007](docs/adr/0007-knowledge-component-as-atomic-note.md) + [CONTEXT.md](CONTEXT.md)).** Reframes the retrieval-side work around a first-class, **learner-authored atomic note** (Zettelkasten/KLI granularity) instead of the task-UUID stand-in. A study task covers several ideas, so the atom must live below the task; and the learner — not the agent — writes the note's body (the app absorbs *management* friction, the learner keeps the *cognitive* labor). The four implementation tickets (rename → `knowledge_components` entity → `knowledge_create` capture tool → retrieval-practice loop) are **authored and queued** in `specs/queue/` (`2026-05-27` … `2026-05-30`), to run in dependency order. What remains here is the deferred follow-on work:
+- **Knowledge Component arc (designed 2026-05-27 — see [ADR 0007](docs/adr/0007-knowledge-component-as-atomic-note.md) + [CONTEXT.md](CONTEXT.md)).** Reframes the retrieval-side work around a first-class, **learner-authored atomic note** (Zettelkasten/KLI granularity) instead of the task-UUID stand-in. A study task covers several ideas, so the atom must live below the task; and the learner — not the agent — writes the note's body (the app absorbs *management* friction, the learner keeps the *cognitive* labor). The four implementation tickets (rename → `knowledge_components` entity → `knowledge_create` capture tool → retrieval-practice loop) have **all shipped** as of 2026-06-01. What remains is the deferred follow-on work:
   - **HTML capture box.** Frontend authoring surface (`requires_visual_approval`) where the learner types the note body into a titled box and submits, posting to the entity's create path. Relates to the *Agent-emitted HTML snippets* item under Later.
   - **Link graph + multi-source provenance.** The synthesis-note feature: links between Knowledge Components, and provenance promoted to its own table (one atom can derive from several sources). Additive over the entity, no rework — see ADR 0007.
   - **Per-concept visual dashboard.** Read-side learning-curve view over confidence + retrieval history. Tracked as the *R-Later — Pedagogy dashboard* item under Later.
@@ -32,6 +31,16 @@ Today's session baked the front-half of a learning loop (encoding scaffolds — 
 - **R6 — Interleaving by default in plan structure.** `course-study-path` skill rule: after every 3–4 new-content tasks, insert a `revisit` task that surfaces an earlier phase's content via retrieval (couples with R1). Rohrer & Taylor (2007); Carvalho & Goldstone (2014). Skill-level change once R1 ships.
 - **R7 — Interest-log activation (full version).** Today shipped a lightweight prompt-only surfacing rule (Rule 6 / Q6). Full version: time-based queue (`interests` table with `surfaced_at`, `closed`, `pursued`), weekly resurfacing of oldest entries with explicit close-or-pursue action, decay if ignored. Berlyne (1960, curiosity as the engine of self-directed learning).
 - **R8 — Bloom-level enforcement at phase boundaries.** Q3 shipped per-task Bloom tags. Full version: a phase cannot be marked complete unless every Bloom level (Apply / Analyze / Evaluate / Create) has been touched at least once. Compile-time check in the plan builder. Anderson & Krathwohl (2001).
+
+### Practice-testing gap (grill-with-docs, 2026-06-02)
+
+Current retrieval relies on **self-reported confidence** (`log_confidence`: 0.0–1.0), which is notoriously miscalibrated — learners routinely overestimate what they know (Dunlosky et al. 2013; Koriat 1997; Kruger & Dunning 1999). The SM-2 scheduler feeds on this uncalibrated signal, which means it may space items too far apart. The practice-testing items below replace confidence with **actual retrieval performance** and add calibration scaffolds.
+
+- **R9 — Practice testing (the biggest gap).** Agent generates a question from a Knowledge Component → learner types an answer → agent grades it (semantic comparison) → score feeds SM-2 schedule. Replaces `log_confidence` with actual performance as the retrieval scheduling signal. Roediger & Karpicke (2006, testing effect: retrieval itself strengthens memory). Depends on KC entity + retrieval loop (shipped). Touches: LLM question generation, answer grading prompt, new `retrieval_probe` table or extending `confidence_log` with `grade` + `correct` columns.
+- **R10 — Pre-testing at session open.** Before reading a task, ask 2–3 questions about the upcoming content. Even wrong answers improve later learning by activating prior knowledge and creating a "fertile void" (Kornell et al. 2009). Agent-level change: `course-study-path` skill rule or `AGENTS.md` in sandbox. Small.
+- **R11 — Free recall at session close.** After finishing a session, prompt "write everything you remember" and compare against the source material to highlight what was missed. One of the highest-impact retrieval strategies (Roediger & Karpicke 2006; Karpicke & Blunt 2011). Agent-level: sandbox prompt rule. Small.
+- **R12 — Elaborative interrogation.** After the learner states a fact, agent systematically follows with "why is this true?" — not a one-off but a pattern. Pressley et al. (1987). Agent-level: sandbox rule. Very small.
+- **R13 — Metacognitive calibration.** After a test question (R9), show the learner their predicted confidence alongside their actual score. Over time this improves calibration — the learner gets better at knowing what they don't know (Koriat 1997). Depends on R9. Needs: confidence prediction capture before answering, comparison UI in retrieval results.
 
 ## Later
 
