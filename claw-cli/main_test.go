@@ -953,10 +953,13 @@ func TestConfidenceLogRejectsOutOfRange(t *testing.T) {
 		"clawcli", "confidence", "log",
 		"--session", strconv.FormatInt(sessID, 10), "--kc", "task-x", "--value", "1.5",
 	}, &stdout, &stderr, dbPath)
-	if code == 0 {
-		t.Fatalf("expected non-zero exit for out-of-range value")
+	if code != 2 {
+		t.Fatalf("exit code: %d, want 2 (out-of-range is a usage error)", code)
 	}
-	db, _ := agent.OpenDB(dbPath)
+	db, err := agent.OpenDB(dbPath)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
 	defer func() { _ = db.Close() }()
 	var n int
 	_ = db.QueryRow(`SELECT count(*) FROM confidence_log`).Scan(&n)

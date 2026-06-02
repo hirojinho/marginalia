@@ -1285,8 +1285,8 @@ func confidenceLog(args []string, stdout, stderr io.Writer, dbPath string) int {
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
-	if *session <= 0 || *kc == "" || *value < 0 {
-		_, _ = fmt.Fprintln(stderr, "confidence log: --session (≥1), --kc, and --value are required")
+	if *session <= 0 || *kc == "" || *value < 0 || *value > 1.0 {
+		_, _ = fmt.Fprintln(stderr, "confidence log: --session (≥1), --kc, and --value in [0.0, 1.0] are required")
 		return 2
 	}
 	resolvedDB, err := resolveDBPath(*dbOverride, dbPath)
