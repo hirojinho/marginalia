@@ -438,3 +438,52 @@ func TestMasteryGate_EmptyIDAllowed(t *testing.T) {
 		t.Fatalf("empty-id task must be ungateable, got %q", refusal)
 	}
 }
+
+func gatedClusterPlan() *JSONPlan {
+	return &JSONPlan{
+		ID:   "gate-cluster",
+		Name: "GateCluster",
+		Phases: []Phase{{
+			Title: "P1",
+			Clusters: []Cluster{{
+				Title: "C1",
+				Tasks: []Task{
+					{ID: "c-0", Title: "Cluster task zero", Done: false},
+				},
+			}},
+		}},
+	}
+}
+
+func TestMasteryGate_BlocksClusterTaskWithoutConfidence(t *testing.T) {
+	a := newMemoryApp(t)
+	writePlan(t, a, gatedClusterPlan())
+	// index 0 is the cluster task (no phase tasks precede it)
+	out := a.ToolUpdatePlan(json.RawMessage(`{"plan_id":"gate-cluster","action":"set_done","task_index":0}`))
+	if !strings.Contains(out, "mastery gate") {
+		t.Fatalf("expected cluster-task mastery-gate refusal, got %q", out)
+	}
+	loaded := a.LoadPlan("gate-cluster")
+	if loaded.Phases[0].Clusters[0].Tasks[0].Done {
+		t.Fatalf("cluster task should remain undone after refusal")
+	}
+}
+
+func TestMasteryGate_AllowsClusterTaskWithConfidence(t *testing.T) {
+	a := newMemoryApp(t)
+	writePlan(t, a, gatedClusterPlan())
+	sess, err := a.CreateSession("gate-cluster", "t", "study")
+	if err != nil {
+		t.Fatalf("session: %v", err)
+	}
+	if _, err := a.LogConfidence(sess.ID, "c-0", 0.9, "manual", ""); err != nil {
+		t.Fatalf("log: %v", err)
+	}
+	out := a.ToolUpdatePlan(json.RawMessage(`{"plan_id":"gate-cluster","action":"set_done","task_index":0}`))
+	if strings.Contains(out, "mastery gate") {
+		t.Fatalf("expected success with confidence, got %q", out)
+	}
+	if !a.LoadPlan("gate-cluster").Phases[0].Clusters[0].Tasks[0].Done {
+		t.Fatalf("cluster task should be done")
+	}
+}

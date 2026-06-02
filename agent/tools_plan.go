@@ -48,7 +48,7 @@ func (a *App) masteryGateRefusal(planID string, task *Task, action string, force
 	if !completing || task.ID == "" {
 		return ""
 	}
-	s, _ := a.GetCourseSettings(planID)
+	s, _ := a.GetCourseSettings(planID) // defaults are safe on error (GetCourseSettings returns behavior-preserving defaults)
 	ok, err := a.HasConfidenceAtLeast(task.ID, s.MasteryThreshold)
 	if err != nil {
 		return "" // never block on a read error
@@ -79,8 +79,8 @@ func (a *App) applyToggle(plan *JSONPlan, action string, taskIndex int, force bo
 			count++
 		}
 		for k := range plan.Phases[i].Clusters {
-			if msg, found := a.applyToggleCluster(plan, action, taskIndex, i, k, &count, force); found {
-				if !strings.HasPrefix(msg, "refused:") {
+			if msg, found, refused := a.applyToggleCluster(plan, action, taskIndex, i, k, &count, force); found {
+				if !refused {
 					if err := a.SavePlan(plan); err != nil {
 						return "error saving plan: " + err.Error()
 					}
@@ -93,20 +93,20 @@ func (a *App) applyToggle(plan *JSONPlan, action string, taskIndex int, force bo
 }
 
 // applyToggleCluster applies the action to a task inside a cluster, if the sequential count matches taskIndex.
-func (a *App) applyToggleCluster(plan *JSONPlan, action string, taskIndex, phaseIdx, clusterIdx int, count *int, force bool) (string, bool) {
+func (a *App) applyToggleCluster(plan *JSONPlan, action string, taskIndex, phaseIdx, clusterIdx int, count *int, force bool) (msg string, found bool, refused bool) {
 	for j := range plan.Phases[phaseIdx].Clusters[clusterIdx].Tasks {
 		if *count == taskIndex {
 			task := &plan.Phases[phaseIdx].Clusters[clusterIdx].Tasks[j]
 			if refusal := a.masteryGateRefusal(plan.ID, task, action, force); refusal != "" {
-				return refusal, true
+				return refusal, true, true
 			}
 			applyAction(&task.Done, action)
 			return fmt.Sprintf("Task %d %q in cluster %q marked as %s",
-				taskIndex, task.Title, plan.Phases[phaseIdx].Clusters[clusterIdx].Title, doneState(task.Done)), true
+				taskIndex, task.Title, plan.Phases[phaseIdx].Clusters[clusterIdx].Title, doneState(task.Done)), true, false
 		}
 		*count++
 	}
-	return "", false
+	return "", false, false
 }
 
 // applyAddTask appends a new task to the last phase of the plan.
