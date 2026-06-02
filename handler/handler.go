@@ -43,7 +43,6 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("/", h.handleIndex)
 	mux.HandleFunc("/static/", h.handleStatic)
 	mux.HandleFunc("/login", h.handleLogin)
-	mux.HandleFunc("/chat", h.handleChat)
 	mux.HandleFunc("/chat-v2", h.handleChatV2)
 	mux.HandleFunc("/api/sessions", h.handleSessions)
 	mux.HandleFunc("/api/sessions/active", h.handleSessionActive)
@@ -61,12 +60,10 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("/pdf/progress/", h.handlePDFProgress)
 	mux.HandleFunc("/pdf/last", h.handlePDFLastOpened)
 	mux.HandleFunc("/pdf/annotations/", h.handlePDFAnnotations)
-	mux.HandleFunc("/api/runtime", h.handleRuntime)
 	mux.HandleFunc("/debug/health", h.handleDebugHealth)
 	mux.HandleFunc("/debug/version", h.versionHandler)
 	mux.HandleFunc("/debug/metrics", h.handleDebugMetrics)
 	mux.HandleFunc("/debug/schema", h.schemaHandler)
-	mux.HandleFunc("/debug/tools", h.toolsHandler)
 	mux.HandleFunc("/debug/retrieve-band", h.bandHandler)
 }
 

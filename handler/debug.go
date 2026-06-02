@@ -65,21 +65,9 @@ func (h *Handler) schemaHandler(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, schemaResponse{Table: table, Columns: cols})
 }
 
-func (h *Handler) toolsHandler(w http.ResponseWriter, r *http.Request) {
-	if methodNotAllowed(w, r, http.MethodGet) {
-		return
-	}
-	tools := agent.GetTools()
-	names := make([]string, 0, len(tools))
-	for _, t := range tools {
-		names = append(names, t.Function.Name)
-	}
-	writeJSON(w, http.StatusOK, map[string][]string{"tools": names})
-}
-
 type retrieveBandResponse struct {
-	Confidence    float64 `json:"confidence"`
-	IntervalDays  int     `json:"interval_days"`
+	Confidence   float64 `json:"confidence"`
+	IntervalDays int     `json:"interval_days"`
 }
 
 func (h *Handler) bandHandler(w http.ResponseWriter, r *http.Request) {

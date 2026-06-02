@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -284,81 +283,6 @@ func (h *Handler) getSessionStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, stats)
-}
-
-// ---------- chat ----------
-
-func (h *Handler) handleChat(w http.ResponseWriter, r *http.Request) {
-	if methodNotAllowed(w, r, http.MethodPost) {
-		return
-	}
-
-	msg := strings.TrimSpace(r.FormValue("message"))
-	if msg == "" {
-		writeError(w, http.StatusBadRequest, "message is required")
-		return
-	}
-	if len(msg) > MaxMessageBytes {
-		writeError(w, http.StatusBadRequest, fmt.Sprintf("message exceeds %d bytes", MaxMessageBytes))
-		return
-	}
-
-	sessionID := h.App.ActiveSessionID()
-	if s := r.FormValue("session_id"); s != "" {
-		if parsed, err := parseInt64(s, "session_id"); err == nil {
-			sessionID = parsed
-		}
-	}
-	if sessionID == 0 {
-		writeError(w, http.StatusBadRequest, "no active session")
-		return
-	}
-
-	flusher, ok := w.(http.Flusher)
-	if !ok {
-		writeError(w, http.StatusInternalServerError, "streaming not supported")
-		return
-	}
-
-	h.App.LockChat()
-	if err := h.App.SaveMessage(sessionID, "user", msg); err != nil {
-		h.App.UnlockChat()
-		writeServerError(w, "save user message", err)
-		return
-	}
-	history, err := h.App.GetSessionHistoryWithSummary(sessionID)
-	h.App.UnlockChat()
-	if err != nil {
-		writeServerError(w, "load history", err)
-		return
-	}
-
-	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Connection", "keep-alive")
-
-	prompt := h.App.GetSessionSystemPrompt(sessionID, h.App.LoadSystemPrompt())
-
-	// Use the request context so the LLM call is cancelled when the
-	// client disconnects.
-	content, err := h.App.ProcessWithTools(r.Context(), h.LLM, history, prompt, w, flusher)
-	if err != nil {
-		slog.Error("process with tools", "session_id", sessionID, "err", err)
-	}
-
-	// Persist whatever content was produced before any error/cancellation.
-	if content != "" {
-		h.App.LockChat()
-		if err := h.App.SaveMessage(sessionID, "assistant", content); err != nil {
-			slog.Error("save assistant message", "session_id", sessionID, "err", err)
-		}
-		h.App.UnlockChat()
-	}
-
-	fmt.Fprintf(w, "event: done\ndata: {}\n\n")
-	flusher.Flush()
-
-	h.maybeGenerateSummary(sessionID)
 }
 
 // maybeGenerateSummary kicks off background summary generation if the

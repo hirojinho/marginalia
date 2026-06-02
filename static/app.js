@@ -86,19 +86,6 @@ document.getElementById('sidebar-toggle').addEventListener('click', function () 
   }
 });
 
-async function loadRuntimeEndpoint() {
-  try {
-    const resp = await fetch('/api/runtime');
-    const data = await resp.json();
-    if (data.mode === 'pi') {
-      return '/chat-v2';
-    }
-    return '/chat';
-  } catch {
-    return '/chat';
-  }
-}
-
 initRail();
 initPlan();
 initPdf();
@@ -106,7 +93,7 @@ initPomodoro();
 
 // Sessions startup
 (async function initApp() {
-  const chatEndpoint = await loadRuntimeEndpoint();
+  const chatEndpoint = '/chat-v2';
   initChat(chatEndpoint);
   await loadCourses();
   populateCourseSelect(); // PDF upload dropdown — after courses are merged into courseMeta
