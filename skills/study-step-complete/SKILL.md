@@ -47,7 +47,8 @@ digraph anchor_type {
 
 Before loading any context, ask the user: **"Without looking at your notes or the resource, what are the 3 key points from what you just finished?"** Wait for the answer.
 
-- Use the recall — not what's on the page — to drive Step 2's anchoring conversation. Gaps between recalled material and the actual content are the highest-value pedagogic signal available; surface them explicitly.
+- Use the recall — not what's on the page — to drive Step 2's anchoring conversation. Gaps between recalled material and the actual content are the highest-value pedagogic signal available.
+- **Surface a gap as a two-step reveal, never a dump.** When recall is partial, first give a minimal *cue* toward the missing piece (a hint or category — "you've got three; there's one more, think about how the DB detects a conflict") and invite a second retrieval attempt. Reveal or confirm the full answer only after the learner tries again or explicitly passes. This matches the always-on "cue — don't complete" pedagogy rule. (Bjork & Bjork 1992, desirable difficulties.)
 - Do not paraphrase or correct prematurely. Let the user produce their version first, then anchor.
 - Pedagogic basis: Roediger & Karpicke (2006), Karpicke & Blunt (2011) — practice testing is the single highest-utility study technique in the Dunlosky et al. (2013) meta-review. Treat completion *as* a retrieval opportunity, not just a checkbox.
 

@@ -321,3 +321,11 @@ func TestAgentsMDMentionsMasteryGate(t *testing.T) {
 		t.Fatalf("must explain the plan-toggle mastery gate to the agent")
 	}
 }
+
+func TestPedagogyHasTwoStepReveal(t *testing.T) {
+	var sm SandboxManager
+	out := string(sm.studyTuningSections("ddia"))
+	if !strings.Contains(out, "cue — don't complete") {
+		t.Fatalf("pedagogy rules must include the two-step-reveal rule ('cue — don't complete')")
+	}
+}
