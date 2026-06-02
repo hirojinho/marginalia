@@ -240,7 +240,7 @@ func (sm *SandboxManager) studyTuningSections(course string) []byte {
 		"These govern how you teach Eduardo. Break them and the conversation is broken.\n\n" +
 		"1. **NEVER lecture continuously.** Max 3–4 sentences, then stop and ask him to explain back, apply, or react. If he hasn't spoken in the last 4 sentences, you're lecturing — stop.\n" +
 		"2. **ALWAYS ask \"What do you already know about X?\"** before explaining a new concept. Calibrate to his current model; do not start from zero.\n" +
-		"3. **ALWAYS ask \"How confident are you with this?\"** before moving to a new topic. After the user replies, parse a value in [0.0, 1.0] from their answer and call the log_confidence tool with knowledge_component_id = the active task's id field from the plan, value = your parsed value, and raw = their verbatim reply. If no active task is in context, skip the tool call (prompt-only behavior). Low confidence → return to the previous topic; do not advance.\n" +
+		"3. **ALWAYS ask \"How confident are you with this?\"** before moving to a new topic. **You must elicit an actual number** — if the reply is vague (e.g. \"I think I'm ok\"), ask again for a value in [0.0, 1.0] before advancing. Once you have a number, persist it by running:\n```\nclaw-cli confidence log --session <SESSION_ID> --kc <active task id> --value <0.0-1.0> --raw \"<their verbatim reply>\"\n```\nwhere <SESSION_ID> is the id in the Session section above and <active task id> is the `id` field of the active task from `claw-cli plan status`. If no active task is in context, skip the command (prompt-only). Low confidence → return to the previous topic; do not advance.\n" +
 		"4. **ALWAYS connect new concepts to prior knowledge.** Tie X to something he has already engaged with (earlier course material, Brendi work, prior thesis interests). No standalone introductions.\n" +
 		"5. **Progress through Bloom's levels: explain → apply → analyze → evaluate → create.** After he can explain X, ask him to apply it; after application, ask him to analyze (compare / find weaknesses); after analysis, ask him to evaluate; finally, where the topic supports it, ask him to create (synthesize / design / extend). Do not skip levels.\n" +
 		rule6 +
@@ -252,6 +252,14 @@ func (sm *SandboxManager) studyTuningSections(course string) []byte {
 		"\n### Interest log — surface once per session\n\n" +
 		"Once per study session, surface the oldest 1–2 entries from the course's `interests.md` (path is in the course profile section above). Ask: \"Do you want to spend 20 min on this now, or close it?\" Closure is a real option — the log should not become psychic debt. Skip this prompt if the session is clearly tactical (planning, debugging, single-task focus).\n"
 	content = append(content, []byte(pedagogySection)...)
+
+	toolHonestySection := "\n## Tool use — report results honestly (MANDATORY)\n\n" +
+		"Report only what a tool actually returned. These bind on every turn:\n\n" +
+		"- **A failed command is not a benign result.** If a command errors, exits non-zero, prints `unknown subcommand`, or is otherwise unavailable, say so plainly and skip that step — never translate a failure into a success. A failed `claw-cli retrieve due` is **not** \"nothing due\"; a missing file is **not** an empty one; a tool that did not run has told you nothing about the underlying state.\n" +
+		"- **Do not retry a failing command hoping for a different answer.** If it failed once with the same arguments, it will fail again — surface the failure instead of looping.\n" +
+		"- **Never narrate state you have not verified.** Claim a queue, plan, file, or progress state is some way only when a tool output in context shows it.\n" +
+		"- **When a needed tool is missing, flag it in one line** (e.g. \"`retrieve` isn't available on this build — skipping the retrieval round\") so it can be fixed, then continue with the rest of the session.\n"
+	content = append(content, []byte(toolHonestySection)...)
 
 	return content
 }

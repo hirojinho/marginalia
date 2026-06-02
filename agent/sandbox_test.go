@@ -175,6 +175,25 @@ func TestWriteAgentsMDUsesDefaultsWhenNoProvider(t *testing.T) {
 	}
 }
 
+func TestWriteAgentsMDIncludesToolHonesty(t *testing.T) {
+	sm := NewSandboxManager(t.TempDir())
+	dir, err := sm.Create(7, "", "ddia", "eduardo", "study")
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	md := readAgentsMD(t, dir)
+	for _, want := range []string{
+		"Tool use — report results honestly (MANDATORY)",
+		"A failed command is not a benign result",
+		"is **not** \"nothing due\"",
+		"Never narrate state you have not verified",
+	} {
+		if !strings.Contains(md, want) {
+			t.Errorf("AGENTS.md missing tool-honesty clause %q", want)
+		}
+	}
+}
+
 func TestWriteAgentsMDIncludesPDFSection(t *testing.T) {
 	sm := NewSandboxManager(t.TempDir())
 	path, err := sm.Create(42, "", "", "", "study")
@@ -195,6 +214,17 @@ func TestWriteAgentsMDIncludesPDFSection(t *testing.T) {
 		if !strings.Contains(body, want) {
 			t.Errorf("AGENTS.md missing %q", want)
 		}
+	}
+}
+
+func TestRule3UsesClawCLIConfidenceLog(t *testing.T) {
+	var sm SandboxManager
+	out := string(sm.studyTuningSections("ddia"))
+	if !strings.Contains(out, "claw-cli confidence log") {
+		t.Fatalf("Rule 3 must instruct running 'claw-cli confidence log'; got:\n%s", out)
+	}
+	if strings.Contains(out, "call the log_confidence tool") {
+		t.Fatalf("Rule 3 still references the unreachable 'log_confidence tool'")
 	}
 }
 
