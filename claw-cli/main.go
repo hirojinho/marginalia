@@ -518,6 +518,7 @@ func planToggle(args []string, stdout, stderr io.Writer, dbPath string) int {
 	fs.SetOutput(stderr)
 	course := fs.String("course", "", "course id / plan id (required)")
 	taskIndex := fs.Int("task", -1, "task index in plan (required, ≥0)")
+	force := fs.Bool("force", false, "bypass the mastery gate (use only on explicit user request)")
 	dbOverride := fs.String("db", "", "path to study.db")
 	if err := fs.Parse(args); err != nil {
 		return 2
@@ -537,10 +538,11 @@ func planToggle(args []string, stdout, stderr io.Writer, dbPath string) int {
 		return 1
 	}
 	defer func() { _ = app.Close() }()
-	argsJSON, _ := json.Marshal(map[string]any{ // Marshal of string/int values cannot fail
+	argsJSON, _ := json.Marshal(map[string]any{ // Marshal of string/int/bool values cannot fail
 		"plan_id":    *course,
 		"action":     "toggle",
 		"task_index": *taskIndex,
+		"force":      *force,
 	})
 	_, _ = fmt.Fprintln(stdout, app.ToolUpdatePlan(argsJSON))
 	return 0

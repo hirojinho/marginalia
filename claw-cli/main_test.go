@@ -979,3 +979,61 @@ func TestConfidenceLogMissingKCExits2(t *testing.T) {
 		t.Fatalf("exit code: %d, want 2", code)
 	}
 }
+
+func TestPlanToggleForceBypassesGate(t *testing.T) {
+	dbPath := newTempDB(t)
+	// The CLI resolves plan files from VAULT_ROOT; pin it to the temp dir so
+	// LoadPlan finds our plan deterministically.
+	vault := filepath.Dir(dbPath)
+	t.Setenv("VAULT_ROOT", vault)
+	plansDir := filepath.Join(vault, "data", "plans")
+	if err := os.MkdirAll(plansDir, 0755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	planJSON := `{"id":"gate-course","name":"Gate","phases":[{"title":"P1","tasks":[{"id":"t-0","title":"Task zero","done":false}]}]}`
+	if err := os.WriteFile(filepath.Join(plansDir, "gate-course.json"), []byte(planJSON), 0644); err != nil {
+		t.Fatalf("write plan: %v", err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := run([]string{
+		"clawcli", "plan", "toggle",
+		"--course", "gate-course", "--task", "0", "--force",
+	}, &stdout, &stderr, dbPath)
+	if code != 0 {
+		t.Fatalf("exit %d, stderr: %s", code, stderr.String())
+	}
+	if strings.Contains(stdout.String(), "mastery gate") {
+		t.Fatalf("force should bypass gate, stdout: %s", stdout.String())
+	}
+	if !strings.Contains(stdout.String(), "done") {
+		t.Fatalf("expected task marked done, stdout: %s", stdout.String())
+	}
+}
+
+func TestPlanToggleWithoutForceHitsGate(t *testing.T) {
+	dbPath := newTempDB(t)
+	vault := filepath.Dir(dbPath)
+	t.Setenv("VAULT_ROOT", vault)
+	plansDir := filepath.Join(vault, "data", "plans")
+	if err := os.MkdirAll(plansDir, 0755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	planJSON := `{"id":"gate-course2","name":"Gate","phases":[{"title":"P1","tasks":[{"id":"t-0","title":"Task zero","done":false}]}]}`
+	if err := os.WriteFile(filepath.Join(plansDir, "gate-course2.json"), []byte(planJSON), 0644); err != nil {
+		t.Fatalf("write plan: %v", err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := run([]string{
+		"clawcli", "plan", "toggle",
+		"--course", "gate-course2", "--task", "0",
+	}, &stdout, &stderr, dbPath)
+	// Gate refusal is a normal tool result (exit 0), not a CLI error.
+	if code != 0 {
+		t.Fatalf("exit %d, stderr: %s", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "mastery gate") {
+		t.Fatalf("expected gate refusal, stdout: %s", stdout.String())
+	}
+}
