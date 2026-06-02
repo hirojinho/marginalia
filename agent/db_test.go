@@ -929,3 +929,35 @@ func TestGetDueRetrievalItems(t *testing.T) {
 		t.Errorf("last_confidence = %v, want 0.3", items[0].LastConfidence)
 	}
 }
+
+func TestHasConfidenceAtLeast(t *testing.T) {
+	a := newMemoryApp(t)
+	sess, err := a.CreateSession("ddia", "t", "study")
+	if err != nil {
+		t.Fatalf("create session: %v", err)
+	}
+
+	ok, err := a.HasConfidenceAtLeast("task-1", 0.7)
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+	if ok {
+		t.Fatalf("expected false with no confidence logged")
+	}
+
+	if _, err := a.LogConfidence(sess.ID, "task-1", 0.5, "manual", ""); err != nil {
+		t.Fatalf("log 0.5: %v", err)
+	}
+	ok, _ = a.HasConfidenceAtLeast("task-1", 0.7)
+	if ok {
+		t.Fatalf("expected false at 0.5 < 0.7")
+	}
+
+	if _, err := a.LogConfidence(sess.ID, "task-1", 0.8, "manual", ""); err != nil {
+		t.Fatalf("log 0.8: %v", err)
+	}
+	ok, _ = a.HasConfidenceAtLeast("task-1", 0.7)
+	if !ok {
+		t.Fatalf("expected true at latest 0.8 ≥ 0.7")
+	}
+}

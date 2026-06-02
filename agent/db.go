@@ -1156,6 +1156,16 @@ func (a *App) GetConfidenceTrajectory(knowledgeComponentID string, limit int) ([
 	return pts, rows.Err()
 }
 
+// HasConfidenceAtLeast reports whether the most recent logged confidence for
+// knowledgeComponentID is ≥ threshold. Returns false when none is logged.
+func (a *App) HasConfidenceAtLeast(knowledgeComponentID string, threshold float64) (bool, error) {
+	pts, err := a.GetConfidenceTrajectory(knowledgeComponentID, 1)
+	if err != nil {
+		return false, err
+	}
+	return len(pts) > 0 && pts[0].Value >= threshold, nil
+}
+
 // GetRecentConfidence returns confidence entries created since sinceMs, most recent first.
 func (a *App) GetRecentConfidence(sinceMs int64, limit int) ([]ConfidencePoint, error) {
 	if limit <= 0 {
