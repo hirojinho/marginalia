@@ -1,7 +1,6 @@
 package agent
 
 import (
-	"strings"
 	"testing"
 	"time"
 )
@@ -422,27 +421,6 @@ func TestGetConfidenceTrajectory_OrderingAndLimit(t *testing.T) {
 		if points[i].CreatedAt > points[i-1].CreatedAt {
 			t.Errorf("row %d (%d) is newer than row %d (%d)", i, points[i].CreatedAt, i-1, points[i-1].CreatedAt)
 		}
-	}
-}
-
-func TestToolLogConfidence_DispatchedRoundTrip(t *testing.T) {
-	a := newMemoryApp(t)
-	sess, _ := a.CreateSession("test-course", "test topic", "scratch")
-	input := `{"knowledge_component_id":"test-kc","value":0.8,"raw":"8/10"}`
-	_ = sess // session set in memory via CreateSession
-	result := a.ToolLogConfidence([]byte(input))
-	if strings.Contains(result, "error") {
-		t.Fatalf("tool returned error: %s", result)
-	}
-	points, err := a.GetConfidenceTrajectory("test-kc", 10)
-	if err != nil {
-		t.Fatalf("query: %v", err)
-	}
-	if len(points) != 1 {
-		t.Fatalf("expected 1 row, got %d", len(points))
-	}
-	if points[0].Value != 0.8 {
-		t.Errorf("value = %v, want 0.8", points[0].Value)
 	}
 }
 

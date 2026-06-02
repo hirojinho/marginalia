@@ -3,7 +3,6 @@ package agent
 import (
 	"encoding/json"
 	"fmt"
-	"log/slog"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -111,59 +110,6 @@ func readDirAsCorpus(dir, sourcePrefix string) string {
 		fmt.Fprintf(&b, "\n\n--- %s%s ---\n%s", sourcePrefix, strings.TrimSuffix(f.Name(), ".md"), string(data))
 	}
 	return b.String()
-}
-
-// GetSessionSystemPrompt builds the per-session system prompt by
-// appending course-specific interests, the most recent fleeting note
-// (for ce297), and a PDF excerpt if one is associated with the
-// session.
-func (a *App) GetSessionSystemPrompt(sessionID int64, basePrompt string) string {
-	if sessionID == 0 {
-		return basePrompt
-	}
-	courseID, topic, err := a.GetSessionCourseAndTopic(sessionID)
-	if err != nil {
-		return basePrompt
-	}
-	if courseID == "" {
-		return basePrompt + "\n\n---\n\nYou are in a general study session (no specific course)."
-	}
-
-	courseName := a.AppCourseName(courseID)
-	extra := "\n\n---\n\nYou are in a study session for **" + courseName + "** (course ID: " + courseID + ")."
-	if topic != "" && topic != "General" {
-		extra += " Topic: " + topic + "."
-	}
-
-	if data := readFileWithLog(a.VaultPath("data", "courses", courseID, "interests.md")); data != "" {
-		extra += "\n\n" + courseName + " interests:\n" + data
-	}
-
-	if courseID == "ce297" {
-		fleetingGlob := a.VaultPath("data", "courses", "ce297", "fleeting", "*.md")
-		if matches, _ := filepath.Glob(fleetingGlob); len(matches) > 0 {
-			lastFleeting := matches[len(matches)-1]
-			if data, err := os.ReadFile(lastFleeting); err == nil {
-				extra += "\n\nLatest fleeting note:\n" + string(data)
-			} else {
-				slog.Info("fleeting note unread", "path", lastFleeting)
-			}
-		}
-	}
-
-	if pdfID, _ := a.GetSessionLastPDFID(sessionID); pdfID > 0 {
-		cachePath := a.VaultPath("data", "pdf-texts", fmt.Sprintf("%d.txt", pdfID))
-		if data, err := os.ReadFile(cachePath); err == nil {
-			text := string(data)
-			if len(text) > 2000 {
-				text = text[:2000] + "\n...[truncated, use pdf_extract for full content]"
-			}
-			pdfName, _ := a.PDFOriginalName(pdfID)
-			extra += fmt.Sprintf("\n\n---\n\nCurrent PDF: **%s**\n\nExcerpt:\n%s", pdfName, text)
-		}
-	}
-
-	return basePrompt + extra
 }
 
 // ---------- Skill prompt templates ----------

@@ -6,6 +6,18 @@ import (
 	"testing"
 )
 
+func TestCourseName(t *testing.T) {
+	if got := CourseName("ce297"); !strings.Contains(got, "CE-297") {
+		t.Fatalf("ce297 got %q", got)
+	}
+	if got := CourseName("ddia"); got == "" {
+		t.Fatalf("ddia should be known")
+	}
+	if got := CourseName("unknown-course-xyz"); got != "" {
+		t.Fatalf("unknown should be empty, got %q", got)
+	}
+}
+
 func TestParsePageSelection(t *testing.T) {
 	tests := []struct {
 		name  string
