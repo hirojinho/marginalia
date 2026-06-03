@@ -329,3 +329,28 @@ func TestPedagogyHasTwoStepReveal(t *testing.T) {
 		t.Fatalf("pedagogy rules must include the two-step-reveal rule ('cue — don't complete')")
 	}
 }
+
+func TestRule3ScoresRetrievalNotSelfRating(t *testing.T) {
+	var sm SandboxManager
+	out := string(sm.studyTuningSections("ddia"))
+	if strings.Contains(out, "How confident are you") {
+		t.Fatalf("Rule 3 must NOT ask for a self-rating")
+	}
+	if !strings.Contains(out, "key idea-units") {
+		t.Fatalf("Rule 3 must instruct scoring the recall by key idea-units")
+	}
+	if !strings.Contains(out, "claw-cli confidence log") {
+		t.Fatalf("Rule 3 must still log via claw-cli confidence log")
+	}
+}
+
+func TestRule6RecallMandatoryWhenQueueEmpty(t *testing.T) {
+	var sm SandboxManager
+	out := string(sm.studyTuningSections("ddia"))
+	if !strings.Contains(out, "does NOT license skipping") {
+		t.Fatalf("Rule 6 must make an empty queue NOT a license to skip the recall")
+	}
+	if !strings.Contains(out, "most recent completed task") {
+		t.Fatalf("Rule 6 must keep the most-recent-completed-task fallback")
+	}
+}

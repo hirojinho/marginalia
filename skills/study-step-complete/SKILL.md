@@ -49,6 +49,7 @@ Before loading any context, ask the user: **"Without looking at your notes or th
 
 - Use the recall — not what's on the page — to drive Step 2's anchoring conversation. Gaps between recalled material and the actual content are the highest-value pedagogic signal available.
 - **Surface a gap as a two-step reveal, never a dump.** When recall is partial, first give a minimal *cue* toward the missing piece (a hint or category — "you've got three; there's one more, think about how the DB detects a conflict") and invite a second retrieval attempt. Reveal or confirm the full answer only after the learner tries again or explicitly passes. This matches the always-on "cue — don't complete" pedagogy rule. (Bjork & Bjork 1992, desirable difficulties.)
+- **Score the recall, don't ask him to.** After he recalls, identify the section's key idea-units yourself and log `value = idea-units he produced ÷ total` via `claw-cli confidence log --session <id> --kc <task id> --value <0.0-1.0> --raw "<his recall>"` — the same value the mastery gate and scheduler consume. Never ask him to self-rate a confidence number; the score is your measurement of his retrieval (Karpicke & Blunt 2011).
 - Do not paraphrase or correct prematurely. Let the user produce their version first, then anchor.
 - Pedagogic basis: Roediger & Karpicke (2006), Karpicke & Blunt (2011) — practice testing is the single highest-utility study technique in the Dunlosky et al. (2013) meta-review. Treat completion *as* a retrieval opportunity, not just a checkbox.
 
