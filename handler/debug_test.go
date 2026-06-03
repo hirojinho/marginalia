@@ -150,12 +150,12 @@ func TestBandHandler(t *testing.T) {
 	tests := []struct {
 		name       string
 		confidence string
-		wantDays   int
+		wantGrade  int
 		wantStatus int
 	}{
-		{"low conf", "0.3", 1, http.StatusOK},
+		{"low conf", "0.3", 2, http.StatusOK},
 		{"mid conf", "0.5", 3, http.StatusOK},
-		{"high conf", "0.8", 7, http.StatusOK},
+		{"high conf", "0.8", 4, http.StatusOK},
 		{"malformed", "abc", 0, http.StatusBadRequest},
 	}
 	for _, tt := range tests {
@@ -171,13 +171,13 @@ func TestBandHandler(t *testing.T) {
 			if tt.wantStatus == http.StatusOK {
 				var resp struct {
 					Confidence   float64 `json:"confidence"`
-					IntervalDays int     `json:"interval_days"`
+					Grade      int     `json:"grade"`
 				}
 				if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
 					t.Fatalf("decode: %v", err)
 				}
-				if resp.IntervalDays != tt.wantDays {
-					t.Errorf("interval_days = %d, want %d", resp.IntervalDays, tt.wantDays)
+				if resp.Grade != tt.wantGrade {
+					t.Errorf("grade = %d, want %d", resp.Grade, tt.wantGrade)
 				}
 			}
 		})

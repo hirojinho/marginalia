@@ -66,8 +66,8 @@ func (h *Handler) schemaHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 type retrieveBandResponse struct {
-	Confidence   float64 `json:"confidence"`
-	IntervalDays int     `json:"interval_days"`
+	Confidence float64 `json:"confidence"`
+	Grade      int     `json:"grade"`
 }
 
 func (h *Handler) bandHandler(w http.ResponseWriter, r *http.Request) {
@@ -81,7 +81,7 @@ func (h *Handler) bandHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, retrieveBandResponse{
-		Confidence:   c,
-		IntervalDays: agent.RetrievalIntervalDays(c),
+		Confidence: c,
+		Grade:      agent.ConfidenceToGrade(c),
 	})
 }
