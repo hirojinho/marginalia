@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -74,17 +75,57 @@ func OpenDB(path string) (*sql.DB, error) {
 	return db, nil
 }
 
-// RetrievalIntervalDays maps a confidence value to the next-review interval.
-// Crude banding; replaced by SM-2 in a later ticket.
-func RetrievalIntervalDays(confidence float64) int {
+// ConfidenceToGrade maps a 0.0–1.0 confidence value to an SM-2 grade 0–5.
+func ConfidenceToGrade(confidence float64) int {
 	switch {
-	case confidence < 0.4:
-		return 1
-	case confidence < 0.7:
+	case confidence >= 0.9:
+		return 5
+	case confidence >= 0.7:
+		return 4
+	case confidence >= 0.5:
 		return 3
+	case confidence >= 0.3:
+		return 2
+	case confidence >= 0.1:
+		return 1
 	default:
-		return 7
+		return 0
 	}
+}
+
+// SM2NextInterval computes the SM-2 schedule given the grade, current repetition
+// count, easiness factor, and current interval in milliseconds.
+func SM2NextInterval(grade int, n int, ef float64, intervalMs int64) (nextIntervalMs int64, nextN int, nextEf float64) {
+	if grade < 3 {
+		// Reset: grade < 3 means the learner forgot.
+		return 86400000, 0, ef
+	}
+
+	// grade >= 3: expanding interval.
+	switch {
+	case n == 0:
+		nextIntervalMs = 86400000
+		nextN = 1
+	case n == 1:
+		nextIntervalMs = 6 * 86400000
+		nextN = 2
+	default:
+		intervalDays := float64(intervalMs) / 86400000.0
+		nextIntervalMs = int64(math.Ceil(intervalDays*ef)) * 86400000
+		nextN = n + 1
+	}
+
+	// Update EF via SM-2 formula (for grade >= 3).
+	// nextEf = ef + (0.1 - (5.0 - grade) * (0.08 + (5.0 - grade) * 0.02))
+	nextEf = ef + (0.1 - (5.0-float64(grade))*(0.08+(5.0-float64(grade))*0.02))
+	if nextEf < 1.3 {
+		nextEf = 1.3
+	}
+	if nextEf > 2.5 {
+		nextEf = 2.5
+	}
+
+	return nextIntervalMs, nextN, nextEf
 }
 
 // InitSchema creates all tables and applies idempotent migrations.
@@ -210,6 +251,9 @@ func InitSchema(db *sql.DB) error {
 		"ALTER TABLE sessions ADD COLUMN hidden INTEGER NOT NULL DEFAULT 0",
 		"ALTER TABLE sessions ADD COLUMN mode TEXT NOT NULL DEFAULT 'study'",
 		"ALTER TABLE course_settings ADD COLUMN mastery_threshold REAL NOT NULL DEFAULT 0.7",
+		"ALTER TABLE retrieval_queue ADD COLUMN n INTEGER NOT NULL DEFAULT 0",
+		"ALTER TABLE retrieval_queue ADD COLUMN ef REAL NOT NULL DEFAULT 2.5",
+		"ALTER TABLE retrieval_queue ADD COLUMN interval_ms INTEGER NOT NULL DEFAULT 0",
 	}
 	for _, m := range migrations {
 		if _, err := db.Exec(m); err != nil && !strings.Contains(err.Error(), "duplicate column") && !strings.Contains(err.Error(), "no such column") {
@@ -1071,16 +1115,40 @@ func (a *App) GetLastOpenedPDFID() (int64, error) {
 	return a.getMetaInt("last_opened_pdf")
 }
 
-// LogConfidence inserts a confidence entry and returns the new row id.
 // UpsertRetrievalItem inserts or updates a retrieval_queue row for the given
-// knowledge component, computing due_at from the confidence banding.
+// knowledge component, computing due_at via SM-2 expanding intervals.
 func (a *App) UpsertRetrievalItem(knowledgeComponentID string, lastConfidence float64) error {
 	now := time.Now().UnixMilli()
-	days := RetrievalIntervalDays(lastConfidence)
-	dueAt := now + int64(days)*86400000
-	_, err := a.DB.Exec(
-		"INSERT INTO retrieval_queue (knowledge_component_id, due_at, last_confidence, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(knowledge_component_id) DO UPDATE SET due_at=excluded.due_at, last_confidence=excluded.last_confidence, updated_at=excluded.updated_at",
-		knowledgeComponentID, dueAt, lastConfidence, now,
+
+	grade := ConfidenceToGrade(lastConfidence)
+
+	// Read current SM-2 state, defaulting to 0, 2.5, 0 if no row exists.
+	var n int
+	var ef float64
+	var intervalMs int64
+	err := a.DB.QueryRow(
+		"SELECT n, ef, interval_ms FROM retrieval_queue WHERE knowledge_component_id = ?",
+		knowledgeComponentID,
+	).Scan(&n, &ef, &intervalMs)
+	if errors.Is(err, sql.ErrNoRows) {
+		n = 0
+		ef = 2.5
+		intervalMs = 0
+	} else if err != nil {
+		return fmt.Errorf("read retrieval_queue state: %w", err)
+	}
+
+	nextIntervalMs, nextN, nextEf := SM2NextInterval(grade, n, ef, intervalMs)
+	dueAt := now + nextIntervalMs
+
+	_, err = a.DB.Exec(
+		`INSERT INTO retrieval_queue (knowledge_component_id, due_at, last_confidence, n, ef, interval_ms, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?)
+		 ON CONFLICT(knowledge_component_id) DO UPDATE SET
+		   due_at=excluded.due_at, last_confidence=excluded.last_confidence,
+		   n=excluded.n, ef=excluded.ef, interval_ms=excluded.interval_ms,
+		   updated_at=excluded.updated_at`,
+		knowledgeComponentID, dueAt, lastConfidence, nextN, nextEf, nextIntervalMs, now,
 	)
 	return err
 }
@@ -1091,7 +1159,7 @@ func (a *App) GetDueRetrievalItems(now int64, limit int) ([]RetrievalItem, error
 		limit = 50
 	}
 	rows, err := a.DB.Query(
-		"SELECT knowledge_component_id, due_at, last_confidence FROM retrieval_queue WHERE due_at <= ? ORDER BY due_at ASC LIMIT ?",
+		"SELECT knowledge_component_id, due_at, last_confidence, n, ef, interval_ms FROM retrieval_queue WHERE due_at <= ? ORDER BY due_at ASC LIMIT ?",
 		now, limit,
 	)
 	if err != nil {
@@ -1101,7 +1169,7 @@ func (a *App) GetDueRetrievalItems(now int64, limit int) ([]RetrievalItem, error
 	var items []RetrievalItem
 	for rows.Next() {
 		var ri RetrievalItem
-		if err := rows.Scan(&ri.KnowledgeComponentID, &ri.DueAt, &ri.LastConfidence); err != nil {
+		if err := rows.Scan(&ri.KnowledgeComponentID, &ri.DueAt, &ri.LastConfidence, &ri.N, &ri.Ef, &ri.IntervalMs); err != nil {
 			return nil, fmt.Errorf("scan retrieval item: %w", err)
 		}
 		items = append(items, ri)

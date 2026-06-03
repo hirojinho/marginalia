@@ -123,6 +123,9 @@ type RetrievalItem struct {
 	KnowledgeComponentID string  `json:"knowledge_component_id"`
 	DueAt                int64   `json:"due_at"`
 	LastConfidence       float64 `json:"last_confidence"`
+	N                    int     `json:"n"`
+	Ef                   float64 `json:"ef"`
+	IntervalMs           int64   `json:"interval_ms"`
 }
 
 // ExtractPDFPageCount returns the page count parsed from the PDF

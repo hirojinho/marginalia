@@ -798,23 +798,107 @@ func TestCreateSessionPersistsMode(t *testing.T) {
 	}
 }
 
-func TestRetrievalIntervalDays(t *testing.T) {
+func TestConfidenceToGrade(t *testing.T) {
 	tests := []struct {
 		confidence float64
 		want       int
 	}{
-		{0.3, 1},
-		{0.4, 3},
+		{1.0, 5},
+		{0.95, 5},
+		{0.9, 5},
+		{0.8, 4},
+		{0.7, 4},
+		{0.6, 3},
 		{0.5, 3},
-		{0.7, 7},
-		{0.8, 7},
+		{0.4, 2},
+		{0.3, 2},
+		{0.2, 1},
+		{0.1, 1},
+		{0.05, 0},
+		{0.0, 0},
 	}
 	for _, tt := range tests {
-		got := RetrievalIntervalDays(tt.confidence)
+		got := ConfidenceToGrade(tt.confidence)
 		if got != tt.want {
-			t.Errorf("RetrievalIntervalDays(%v) = %d, want %d", tt.confidence, got, tt.want)
+			t.Errorf("ConfidenceToGrade(%v) = %d, want %d", tt.confidence, got, tt.want)
 		}
 	}
+}
+
+func TestSM2NextInterval(t *testing.T) {
+	t.Run("first retrieval (n=0, grade=4) -> 1d, n=1", func(t *testing.T) {
+		intervalMs, n, ef := SM2NextInterval(4, 0, 2.5, 0)
+		if intervalMs != 86400000 {
+			t.Errorf("interval = %d, want 86400000", intervalMs)
+		}
+		if n != 1 {
+			t.Errorf("n = %d, want 1", n)
+		}
+		if ef != 2.5 {
+			t.Errorf("ef = %f, want 2.5", ef)
+		}
+	})
+
+	t.Run("second retrieval (n=1, grade=4) -> 6d, n=2", func(t *testing.T) {
+		intervalMs, n, ef := SM2NextInterval(4, 1, 2.5, 86400000)
+		if intervalMs != 6*86400000 {
+			t.Errorf("interval = %d, want %d", intervalMs, 6*86400000)
+		}
+		if n != 2 {
+			t.Errorf("n = %d, want 2", n)
+		}
+		if ef != 2.5 {
+			t.Errorf("ef = %f, want 2.5", ef)
+		}
+	})
+
+	t.Run("third retrieval (n=2, interval=6d, grade=4) -> ~15d, n=3, EF updated", func(t *testing.T) {
+		intervalMs, n, ef := SM2NextInterval(4, 2, 2.5, 6*86400000)
+		// SM-2: ef' = 2.5 + (0.1 - (5-4)*(0.08 + (5-4)*0.02)) = 2.5 + (0.1 - 1*0.1) = 2.5
+		// interval = ceil(6 * 2.5) = 15 days
+		expectedInterval := int64(15 * 86400000)
+		if intervalMs != expectedInterval {
+			t.Errorf("interval = %d, want %d", intervalMs, expectedInterval)
+		}
+		if n != 3 {
+			t.Errorf("n = %d, want 3", n)
+		}
+		if ef != 2.5 {
+			t.Errorf("ef = %f, want 2.5", ef)
+		}
+	})
+
+	t.Run("forgetting (grade=2) -> n=0, interval=1d, EF unchanged", func(t *testing.T) {
+		intervalMs, n, ef := SM2NextInterval(2, 2, 2.5, 6*86400000)
+		if intervalMs != 86400000 {
+			t.Errorf("interval = %d, want 86400000", intervalMs)
+		}
+		if n != 0 {
+			t.Errorf("n = %d, want 0", n)
+		}
+		if ef != 2.5 {
+			t.Errorf("ef = %f, want 2.5 (unchanged)", ef)
+		}
+	})
+
+	t.Run("EF floor: repeated grade=5 does not drop below 1.3", func(t *testing.T) {
+		// Grade 5: ef' = ef + (0.1 - (5-5)*(0.08 + (5-5)*0.02)) = ef + 0.1
+		// Start with ef=1.3, add 0.1 repeatedly but we want to test
+		// that a low-grade series doesn't go below 1.3.
+		// Start with a very low ef (1.0) and grade=5 (which adds 0.1), should clamp to 1.3.
+		_, _, ef := SM2NextInterval(5, 2, 1.0, 86400000)
+		if ef < 1.3 {
+			t.Errorf("ef = %f, want >= 1.3", ef)
+		}
+	})
+
+	t.Run("EF ceiling: high EF does not exceed 2.5", func(t *testing.T) {
+		// Start with ef=2.5, grade=4: ef' = 2.5 + (0.1 - (5-4)*(0.08+(5-4)*0.02)) = 2.5 + 0.0 = 2.5
+		_, _, ef := SM2NextInterval(4, 2, 2.5, 86400000)
+		if ef > 2.5 {
+			t.Errorf("ef = %f, want <= 2.5", ef)
+		}
+	})
 }
 
 func TestLogConfidenceUpsertsRetrievalQueue(t *testing.T) {
@@ -837,7 +921,7 @@ func TestLogConfidenceUpsertsRetrievalQueue(t *testing.T) {
 		t.Fatalf("create session: %v", err)
 	}
 
-	// Log confidence for "kc1" — should insert a retrieval_queue row.
+	// Log confidence for "kc1" (0.5 -> grade 3) — should insert a retrieval_queue row.
 	_, err = app.LogConfidence(sess.ID, "kc1", 0.5, "manual", "")
 	if err != nil {
 		t.Fatalf("log confidence: %v", err)
@@ -845,15 +929,27 @@ func TestLogConfidenceUpsertsRetrievalQueue(t *testing.T) {
 
 	var dueAt int64
 	var lastConf float64
-	err = db.QueryRow("SELECT due_at, last_confidence FROM retrieval_queue WHERE knowledge_component_id = ?", "kc1").Scan(&dueAt, &lastConf)
+	var n int
+	var ef float64
+	var intervalMs int64
+	err = db.QueryRow("SELECT due_at, last_confidence, n, ef, interval_ms FROM retrieval_queue WHERE knowledge_component_id = ?", "kc1").Scan(&dueAt, &lastConf, &n, &ef, &intervalMs)
 	if err != nil {
 		t.Fatalf("query retrieval_queue: %v", err)
 	}
 	if lastConf != 0.5 {
 		t.Errorf("last_confidence = %v, want 0.5", lastConf)
 	}
+	if n != 1 {
+		t.Errorf("n = %d, want 1 (first retrieval with grade=3)", n)
+	}
+	if ef != 2.36 {
+		t.Errorf("ef = %f, want 2.36 (grade=3 updates EF to 2.36)", ef)
+	}
+	if intervalMs != 86400000 {
+		t.Errorf("interval_ms = %d, want 86400000 (1 day)", intervalMs)
+	}
 
-	// Log confidence again for "kc1" — should update, not duplicate.
+	// Log confidence again for "kc1" with higher confidence — should update, not duplicate.
 	_, err = app.LogConfidence(sess.ID, "kc1", 0.8, "manual", "")
 	if err != nil {
 		t.Fatalf("log confidence second: %v", err)
@@ -866,12 +962,22 @@ func TestLogConfidenceUpsertsRetrievalQueue(t *testing.T) {
 	if count != 1 {
 		t.Errorf("retrieval_queue rows for kc1 = %d, want 1", count)
 	}
-	err = db.QueryRow("SELECT last_confidence FROM retrieval_queue WHERE knowledge_component_id = ?", "kc1").Scan(&lastConf)
+	err = db.QueryRow("SELECT last_confidence, n, ef, interval_ms FROM retrieval_queue WHERE knowledge_component_id = ?", "kc1").Scan(&lastConf, &n, &ef, &intervalMs)
 	if err != nil {
 		t.Fatalf("query: %v", err)
 	}
 	if lastConf != 0.8 {
 		t.Errorf("last_confidence after update = %v, want 0.8", lastConf)
+	}
+	// Second retrieval: n=1, grade=4 (0.8 confidence), so next n=2, interval=6d, EF unchanged (grade 4 delta = 0)
+	if n != 2 {
+		t.Errorf("n after second retrieval = %d, want 2", n)
+	}
+	if intervalMs != 6*86400000 {
+		t.Errorf("interval_ms after second retrieval = %d, want %d", intervalMs, 6*86400000)
+	}
+	if ef != 2.36 {
+		t.Errorf("ef after second retrieval = %f, want 2.36", ef)
 	}
 }
 
@@ -888,10 +994,10 @@ func TestGetDueRetrievalItems(t *testing.T) {
 
 	now := time.Now().UnixMilli()
 	// Insert one due item (past due_at) and one not-due item (future due_at).
-	db.Exec("INSERT INTO retrieval_queue (knowledge_component_id, due_at, last_confidence, updated_at) VALUES (?, ?, ?, ?)",
-		"kc-due", now-1000, 0.3, now)
-	db.Exec("INSERT INTO retrieval_queue (knowledge_component_id, due_at, last_confidence, updated_at) VALUES (?, ?, ?, ?)",
-		"kc-notdue", now+86400000, 0.8, now)
+	db.Exec("INSERT INTO retrieval_queue (knowledge_component_id, due_at, last_confidence, n, ef, interval_ms, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+		"kc-due", now-1000, 0.3, 0, 2.5, 0, now)
+	db.Exec("INSERT INTO retrieval_queue (knowledge_component_id, due_at, last_confidence, n, ef, interval_ms, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+		"kc-notdue", now+86400000, 0.8, 0, 2.5, 0, now)
 
 	items, err := app.GetDueRetrievalItems(now, 50)
 	if err != nil {
