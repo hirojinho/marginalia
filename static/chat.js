@@ -103,6 +103,7 @@ export function initChat(chatEndpoint) {
     currentAssistantMsg.classList.add('token-cursor');
     let currentSegmentType = null;
     let currentSegmentEl = null;
+    let currentTextEl = null; // inner .answer-text — survives tool panels
     let rawAnswer = '';
     let rawThinking = '';
     const activeToolPanels = new Map();
@@ -111,8 +112,12 @@ export function initChat(chatEndpoint) {
       if (currentSegmentType !== 'answer') {
         const seg = document.createElement('div');
         seg.className = 'answer-segment';
+        const text = document.createElement('div');
+        text.className = 'answer-text';
+        seg.appendChild(text);
         currentAssistantMsg.appendChild(seg);
         currentSegmentEl = seg;
+        currentTextEl = text;
         currentSegmentType = 'answer';
         rawAnswer = '';
       }
@@ -152,34 +157,43 @@ export function initChat(chatEndpoint) {
                 const details = document.createElement('details');
                 details.className = 'thinking-inline';
                 details.innerHTML =
-                  '<summary>Thinking</summary><div class="thinking-content"></div>';
+                  '<summary>Thinking</summary><div class="thinking-content"><div class="thinking-text"></div></div>';
                 currentAssistantMsg.appendChild(details);
                 currentSegmentEl = details.querySelector('.thinking-content');
                 currentSegmentType = 'reasoning';
                 rawThinking = '';
               }
               rawThinking += payload.delta ?? '';
-              currentSegmentEl.innerHTML = renderMarkdown(rawThinking);
+              const thinkingTextEl = currentSegmentEl?.querySelector('.thinking-text');
+              if (thinkingTextEl) thinkingTextEl.innerHTML = renderMarkdown(rawThinking);
               scrollToBottom();
             } else if (eventType === 'token') {
               if (currentSegmentType !== 'answer') {
                 const seg = document.createElement('div');
                 seg.className = 'answer-segment';
+                const text = document.createElement('div');
+                text.className = 'answer-text';
+                seg.appendChild(text);
                 currentAssistantMsg.appendChild(seg);
                 currentSegmentEl = seg;
+                currentTextEl = text;
                 currentSegmentType = 'answer';
                 rawAnswer = '';
               }
               currentAssistantMsg.classList.remove('token-cursor');
               rawAnswer += payload.delta ?? '';
-              currentSegmentEl.innerHTML = renderMarkdown(rawAnswer);
+              if (currentTextEl) currentTextEl.innerHTML = renderMarkdown(rawAnswer);
               currentAssistantMsg.classList.add('token-cursor');
               scrollToBottom();
             } else if (eventType === 'tool_start') {
               ensureAnswerSegment();
               const panel = createToolPanel(payload.name, payload.input_summary);
               activeToolPanels.set(payload.name, panel);
-              currentSegmentEl.appendChild(panel.el);
+              if (currentTextEl) {
+                currentTextEl.after(panel.el);
+              } else {
+                currentSegmentEl.appendChild(panel.el);
+              }
               scrollToBottom();
             } else if (eventType === 'tool_end') {
               const panel = activeToolPanels.get(payload.name);
