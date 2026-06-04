@@ -1487,6 +1487,10 @@ func retrieveDue(args []string, stdout, stderr io.Writer, dbPath string) int {
 		_, _ = fmt.Fprintf(stderr, "error: %v\n", err)
 		return 1
 	}
+	if len(items) == 0 {
+		_, _ = fmt.Fprintln(stdout, "No items due. REMINDER (Pedagogical Rule 6b): an empty queue does NOT license skipping the session-open recall — if any task in this course is already completed, you MUST still open with a scored free-recall of the most recent completed task before any pre-read prediction.")
+		return 0
+	}
 	for _, item := range items {
 		_, _ = fmt.Fprintf(stdout, "%s\t%.2f\n", item.KnowledgeComponentID, item.LastConfidence)
 	}
