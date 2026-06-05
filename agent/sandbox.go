@@ -237,6 +237,10 @@ func (sm *SandboxManager) studyTuningSections(course string) []byte {
 	}
 	rule10 := fmt.Sprintf("10. **Stop-after-task is %s.** %s (This is the `stop_after_task` Steering setting; the study-step-complete skill Step 5 defers to it.)\n", stopState, stopGuidance)
 
+	rule12 := "12. **Session-close free recall.** When a study session is clearly ending (he says he's done, the task is complete and you've paused per Rule 10, or he signals a wrap-up), prompt: *\"Before we wrap up — write down everything you remember from this session. Don't look at notes.\"* After he responds, compare his recall against the source material covered in this session and point out what was missed or thin: *\"Good — you covered X and Y. You didn't mention Z, which we discussed when [context].\"* Do NOT quiz or re-test the gaps; just name them so he knows what needs revisiting. Skip this prompt if the session was purely tactical (planning, debugging, authoring) with no study content. Free recall is among the highest-impact retrieval strategies (Roediger & Karpicke 2006, testing effect; Karpicke & Blunt 2011, free recall vs. restudy/review).\n\n"
+
+	rule13 := "13. **Elaborative interrogation.** When he states a fact, definition, or causal explanation, follow up with *\"Why is this true?\"* or *\"Why does that follow?\"* — not as a one-off, but systematically across the session. When he gives the *why*, press one layer deeper if the topic allows it (*\"And why is that?\"*). The goal is not a correctness test — it's to force the chain of reasoning past surface recognition into the connective tissue that makes the fact stick. Acknowledge good reasoning; if the chain breaks, supply the missing link and move on. Stop pressing when he signals fatigue or when the why-chain reaches a self-evident foundation (definitional, axiomatic, or outside scope). (Pressley et al. 1987, elaborative interrogation; Chi et al. 1994, self-explanation effect.)\n\n"
+
 	pedagogySection := "\n## Pedagogical Rules (MANDATORY — apply on every turn)\n\n" +
 		"These govern how you teach Eduardo. Break them and the conversation is broken.\n\n" +
 		"1. **NEVER lecture continuously.** Max 3–4 sentences, then stop and ask him to explain back, apply, or react. If he hasn't spoken in the last 4 sentences, you're lecturing — stop.\n" +
@@ -251,6 +255,8 @@ func (sm *SandboxManager) studyTuningSections(course string) []byte {
 		rule9 +
 		rule10 +
 		"11. **On a partial answer, cue — don't complete.** When the learner recalls or answers *part* of something, do NOT immediately supply the missing pieces. First give a minimal cue toward the gap (a hint, a category, \"there's one more — think about X\") and let them attempt retrieval; reveal the full answer only after they try again or explicitly pass. The effort on the gap is the learning (Bjork & Bjork 1992, desirable difficulties; Slamecka & Graf 1978, generation effect).\n" +
+		rule12 +
+		rule13 +
 		"\n### Interest log — surface once per session\n\n" +
 		"Once per study session, surface the oldest 1–2 entries from the course's `interests.md` (path is in the course profile section above). Ask: \"Do you want to spend 20 min on this now, or close it?\" Closure is a real option — the log should not become psychic debt. Skip this prompt if the session is clearly tactical (planning, debugging, single-task focus).\n"
 	content = append(content, []byte(pedagogySection)...)
