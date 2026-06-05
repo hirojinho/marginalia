@@ -105,14 +105,19 @@ changes.
 
 ```bash
 # 1. No session-close free recall rule exists.
-grep -q 'Session-close free recall' agent/sandbox.go \
-  && echo "FAIL: pre-baseline 1 — Rule 12 already exists in sandbox.go" \
-  || echo "PASS: pre-baseline 1 — no session-close rule yet"
+if grep -q 'Session-close free recall' agent/sandbox.go; then
+  echo "PRE-FAIL: Rule 12 already exists on main (spec already shipped?)"
+  exit 0
+fi
 
 # 2. No elaborative interrogation rule exists.
-grep -q 'Elaborative interrogation' agent/sandbox.go \
-  && echo "FAIL: pre-baseline 2 — Rule 13 already exists in sandbox.go" \
-  || echo "PASS: pre-baseline 2 — no elaborative interrogation yet"
+if grep -q 'Elaborative interrogation' agent/sandbox.go; then
+  echo "PRE-FAIL: Rule 13 already exists on main (spec already shipped?)"
+  exit 0
+fi
+
+# Both rules absent — fix needed. Exit non-zero to signal pre-baseline failure.
+exit 1
 ```
 
 ### Post-acceptance (must PASS after implementation)

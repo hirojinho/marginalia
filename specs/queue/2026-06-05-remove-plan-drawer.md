@@ -78,25 +78,28 @@ exclusive to `plan.js`.
 ### Pre-baseline (must FAIL on current main)
 
 ```bash
-# 1. plan.js still exists.
-test -f static/plan.js \
-  && echo "PASS: pre-baseline 1 — plan.js exists" \
-  || echo "FAIL: pre-baseline 1 — already deleted"
+# All four conditions must be true on main for the fix to be needed.
+# If any condition is false (already cleaned up), exit 0 (already shipped).
+# If all conditions are true (fix needed), exit 1 (pre-baseline failure).
 
-# 2. plan.js is imported in app.js.
-grep -q "from './plan.js'" static/app.js \
-  && echo "PASS: pre-baseline 2 — app.js imports plan.js" \
-  || echo "FAIL: pre-baseline 2 — import already removed"
-
-# 3. Drawer HTML elements still exist.
-grep -q 'id="drawer"' static/index.html \
-  && echo "PASS: pre-baseline 3 — drawer div exists" \
-  || echo "FAIL: pre-baseline 3 — already removed"
-
-# 4. Drawer CSS still exists.
-grep -q '#drawer {' static/style.css \
-  && echo "PASS: pre-baseline 4 — drawer CSS exists" \
-  || echo "FAIL: pre-baseline 4 — already removed"
+if ! test -f static/plan.js; then
+  echo "PRE-FAIL: plan.js already deleted (spec already shipped?)"
+  exit 0
+fi
+if ! grep -q "from './plan.js'" static/app.js; then
+  echo "PRE-FAIL: plan.js import already removed (spec already shipped?)"
+  exit 0
+fi
+if ! grep -q 'id="drawer"' static/index.html; then
+  echo "PRE-FAIL: drawer div already removed (spec already shipped?)"
+  exit 0
+fi
+if ! grep -q '#drawer {' static/style.css; then
+  echo "PRE-FAIL: drawer CSS already removed (spec already shipped?)"
+  exit 0
+fi
+# All conditions present — fix needed.
+exit 1
 ```
 
 ### Post-acceptance (must PASS after implementation)

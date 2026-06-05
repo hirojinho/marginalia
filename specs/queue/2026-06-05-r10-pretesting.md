@@ -83,9 +83,12 @@ pass without changes.
 
 ```bash
 # No pre-testing rule exists in the sandbox template.
-grep -q 'pretesting\|pre-testing\|fertile void\|Kornell.*2009.*pretesting' agent/sandbox.go \
-  && echo "FAIL: pre-baseline 1 — pre-testing text already exists in sandbox.go" \
-  || echo "PASS: pre-baseline 1 — no pre-testing rule yet"
+if grep -q 'pretesting\|pre-testing\|fertile void\|Kornell.*2009.*pretesting' agent/sandbox.go; then
+  echo "PRE-FAIL: pre-testing text already exists on main (spec already shipped?)"
+  exit 0
+fi
+# Rule absent — fix needed. Exit non-zero to signal pre-baseline failure.
+exit 1
 ```
 
 ### Post-acceptance (must PASS after implementation)
