@@ -83,7 +83,7 @@ pass without changes.
 
 ```bash
 # No pre-testing rule exists in the sandbox template.
-if grep -q 'pretesting\|pre-testing\|fertile void\|Kornell.*2009.*pretesting' agent/sandbox.go; then
+if grep -q 'fertile void\|Pre-testing. After the session-open recall\|2–3 probing questions' agent/sandbox.go; then
   echo "PRE-FAIL: pre-testing text already exists on main (spec already shipped?)"
   exit 0
 fi
