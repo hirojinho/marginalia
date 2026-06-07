@@ -9,7 +9,6 @@ import {
   deleteSession,
 } from './sessions.js';
 import { initChat } from './chat.js';
-import { initPlan, openFullPlan, toggleTopic, openPdfFromDrawer } from './plan.js';
 import { initPdf, openPdf, triggerUpload, switchPdf, populateCourseSelect } from './pdf.js';
 import { initPomodoro } from './pomodoro.js';
 import {
@@ -37,15 +36,6 @@ document.addEventListener('click', function (e) {
     case 'delete-session':
       e.stopPropagation();
       deleteSession(parseInt(el.dataset.sessionId, 10)).then(() => loadRail());
-      break;
-    case 'open-full-plan':
-      openFullPlan(el.dataset.courseId);
-      break;
-    case 'open-pdf-from-drawer':
-      openPdfFromDrawer(parseInt(el.dataset.pdfId, 10));
-      break;
-    case 'toggle-topic':
-      toggleTopic(el.dataset.courseId, parseInt(el.dataset.idx, 10));
       break;
     case 'open-pdf':
       openPdf(parseInt(el.dataset.pdfId, 10));
@@ -87,7 +77,6 @@ document.getElementById('sidebar-toggle').addEventListener('click', function () 
 });
 
 initRail();
-initPlan();
 initPdf();
 initPomodoro();
 
