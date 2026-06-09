@@ -41,11 +41,12 @@ type Cluster struct {
 }
 
 type Task struct {
-	ID       string `json:"id"`
-	Title    string `json:"title"`
-	Done     bool   `json:"done"`
-	Priority string `json:"priority,omitempty"`
-	Notes    string `json:"notes,omitempty"`
+	ID         string `json:"id"`
+	Title      string `json:"title"`
+	Done       bool   `json:"done"`
+	Priority   string `json:"priority,omitempty"`
+	Notes      string `json:"notes,omitempty"`
+	BloomLevel string `json:"bloom_level,omitempty"`
 }
 
 type PlanSession struct {

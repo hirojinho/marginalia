@@ -487,3 +487,129 @@ func TestMasteryGate_AllowsClusterTaskWithConfidence(t *testing.T) {
 		t.Fatalf("cluster task should be done")
 	}
 }
+
+// --- Bloom enforcement tests ---
+
+func bloomIncompletePlan() *JSONPlan {
+	// Missing evaluate and create
+	return &JSONPlan{
+		ID:   "bloom-incomplete",
+		Name: "BloomIncomplete",
+		Phases: []Phase{{
+			Title: "Phase A",
+			Tasks: []Task{
+				{ID: "b-0", Title: "Understand", Done: false, BloomLevel: "understand"},
+				{ID: "b-1", Title: "Apply", Done: false, BloomLevel: "apply"},
+				{ID: "b-2", Title: "Analyze", Done: false, BloomLevel: "analyze"},
+			},
+		}},
+	}
+}
+
+func bloomCompletePlan() *JSONPlan {
+	return &JSONPlan{
+		ID:   "bloom-complete",
+		Name: "BloomComplete",
+		Phases: []Phase{{
+			Title: "Phase B",
+			Tasks: []Task{
+				{ID: "b-0", Title: "Understand", Done: false, BloomLevel: "understand"},
+				{ID: "b-1", Title: "Apply", Done: false, BloomLevel: "apply"},
+				{ID: "b-2", Title: "Analyze", Done: false, BloomLevel: "analyze"},
+				{ID: "b-3", Title: "Evaluate", Done: false, BloomLevel: "evaluate"},
+				{ID: "b-4", Title: "Create", Done: false, BloomLevel: "create"},
+			},
+		}},
+	}
+}
+
+func TestBloomEnforcementRefusesIncompletePhase(t *testing.T) {
+	a := newMemoryApp(t)
+	writePlan(t, a, bloomIncompletePlan())
+	sess, _ := a.CreateSession("bloom-incomplete", "t", "study")
+	for _, id := range []string{"b-0", "b-1", "b-2"} {
+		a.LogConfidence(sess.ID, id, 0.8, "manual", "")
+	}
+	// Mark first two tasks done so the third is the last undone
+	a.ToolUpdatePlan(json.RawMessage(`{"plan_id":"bloom-incomplete","action":"set_done","task_index":0}`))
+	a.ToolUpdatePlan(json.RawMessage(`{"plan_id":"bloom-incomplete","action":"set_done","task_index":1}`))
+	// Now task_index 2 is the last undone — this should trigger bloom check
+	out := a.ToolUpdatePlan(json.RawMessage(`{"plan_id":"bloom-incomplete","action":"set_done","task_index":2}`))
+	if !strings.Contains(out, "cannot be completed") {
+		t.Fatalf("expected bloom refusal, got %q", out)
+	}
+	if !strings.Contains(out, "evaluate") || !strings.Contains(out, "create") {
+		t.Fatalf("refusal should name missing levels, got %q", out)
+	}
+	if a.LoadPlan("bloom-incomplete").Phases[0].Tasks[2].Done {
+		t.Fatalf("task should remain undone after refusal")
+	}
+}
+
+func TestBloomEnforcementAllowsCompletePhase(t *testing.T) {
+	a := newMemoryApp(t)
+	writePlan(t, a, bloomCompletePlan())
+	sess, _ := a.CreateSession("bloom-complete", "t", "study")
+	for _, id := range []string{"b-0", "b-1", "b-2", "b-3", "b-4"} {
+		a.LogConfidence(sess.ID, id, 0.8, "manual", "")
+	}
+	out := a.ToolUpdatePlan(json.RawMessage(`{"plan_id":"bloom-complete","action":"set_done","task_index":4}`))
+	if strings.Contains(out, "cannot be completed") {
+		t.Fatalf("should not refuse complete phase, got %q", out)
+	}
+	if !a.LoadPlan("bloom-complete").Phases[0].Tasks[4].Done {
+		t.Fatalf("last task should be done")
+	}
+}
+
+func TestBloomEnforcementSkippedWhenUntagged(t *testing.T) {
+	a := newMemoryApp(t)
+	// Phase with one untagged task — enforcement should be skipped
+	plan := &JSONPlan{
+		ID:   "bloom-untagged",
+		Name: "BloomUntagged",
+		Phases: []Phase{{
+			Title: "Phase C",
+			Tasks: []Task{
+				{ID: "u-0", Title: "Tagged", Done: false, BloomLevel: "understand"},
+				{ID: "u-1", Title: "Untagged", Done: false},
+			},
+		}},
+	}
+	writePlan(t, a, plan)
+	sess, _ := a.CreateSession("bloom-untagged", "t", "study")
+	a.LogConfidence(sess.ID, "u-1", 0.8, "manual", "")
+	out := a.ToolUpdatePlan(json.RawMessage(`{"plan_id":"bloom-untagged","action":"set_done","task_index":1}`))
+	if strings.Contains(out, "cannot be completed") {
+		t.Fatalf("should skip enforcement when tasks are untagged, got %q", out)
+	}
+	if !a.LoadPlan("bloom-untagged").Phases[0].Tasks[1].Done {
+		t.Fatalf("task should be done")
+	}
+}
+
+func TestBloomEnforcementForceBypasses(t *testing.T) {
+	a := newMemoryApp(t)
+	writePlan(t, a, bloomIncompletePlan())
+	out := a.ToolUpdatePlan(json.RawMessage(`{"plan_id":"bloom-incomplete","action":"set_done","task_index":2,"force":true}`))
+	if strings.Contains(out, "cannot be completed") {
+		t.Fatalf("force should bypass bloom check, got %q", out)
+	}
+	if !a.LoadPlan("bloom-incomplete").Phases[0].Tasks[2].Done {
+		t.Fatalf("task should be done with force")
+	}
+}
+
+func TestBloomEnforcementUndoAlwaysAllowed(t *testing.T) {
+	a := newMemoryApp(t)
+	plan := bloomIncompletePlan()
+	plan.Phases[0].Tasks[2].Done = true // pre-set done so undo is possible
+	writePlan(t, a, plan)
+	out := a.ToolUpdatePlan(json.RawMessage(`{"plan_id":"bloom-incomplete","action":"set_undone","task_index":2}`))
+	if strings.Contains(out, "cannot be completed") {
+		t.Fatalf("undo should never trigger bloom check, got %q", out)
+	}
+	if a.LoadPlan("bloom-incomplete").Phases[0].Tasks[2].Done {
+		t.Fatalf("task should be undone")
+	}
+}

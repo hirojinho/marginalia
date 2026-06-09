@@ -60,6 +60,66 @@ func (a *App) masteryGateRefusal(planID string, task *Task, action string, force
 	return ""
 }
 
+// isLastUndoneInPhase returns true if task is the only undone task remaining in the phase.
+// It collects all tasks from the phase (direct tasks + cluster tasks).
+func isLastUndoneInPhase(phase *Phase, task *Task) bool {
+	undone := 0
+	for _, t := range phase.Tasks {
+		if !t.Done {
+			undone++
+		}
+	}
+	for _, c := range phase.Clusters {
+		for _, t := range c.Tasks {
+			if !t.Done {
+				undone++
+			}
+		}
+	}
+	return undone == 1 && !task.Done
+}
+
+// phaseCompletionBloomCheck returns a refusal message if completing this task
+// would finish the phase without covering all required Bloom levels. Returns ""
+// if the check passes or is skipped.
+func phaseCompletionBloomCheck(phase *Phase) string {
+	// Collect bloom levels from all tasks in the phase.
+	levels := map[string]bool{}
+	allTagged := true
+	for _, t := range phase.Tasks {
+		if t.BloomLevel == "" {
+			allTagged = false
+		} else {
+			levels[t.BloomLevel] = true
+		}
+	}
+	for _, c := range phase.Clusters {
+		for _, t := range c.Tasks {
+			if t.BloomLevel == "" {
+				allTagged = false
+			} else {
+				levels[t.BloomLevel] = true
+			}
+		}
+	}
+	// Skip enforcement if ANY task lacks a bloom_level (backward compat).
+	if !allTagged {
+		return ""
+	}
+	required := []string{"analyze", "evaluate", "create"}
+	var missing []string
+	for _, r := range required {
+		if !levels[r] {
+			missing = append(missing, r)
+		}
+	}
+	if len(missing) > 0 {
+		return fmt.Sprintf("Phase %q cannot be completed: missing Bloom levels — %s. Add a task at each missing level then try again, or pass --force to override.",
+			phase.Title, strings.Join(missing, ", "))
+	}
+	return ""
+}
+
 // applyToggle walks the plan tasks in sequential order and applies the action to the task at taskIndex.
 func (a *App) applyToggle(plan *JSONPlan, action string, taskIndex int, force bool) string {
 	count := 0
@@ -68,6 +128,12 @@ func (a *App) applyToggle(plan *JSONPlan, action string, taskIndex int, force bo
 			if count == taskIndex {
 				if refusal := a.masteryGateRefusal(plan.ID, &plan.Phases[i].Tasks[j], action, force); refusal != "" {
 					return refusal
+				}
+				completing := action == "toggle" || action == "set_done"
+				if completing && !force && isLastUndoneInPhase(&plan.Phases[i], &plan.Phases[i].Tasks[j]) {
+					if bloomRefusal := phaseCompletionBloomCheck(&plan.Phases[i]); bloomRefusal != "" {
+						return bloomRefusal
+					}
 				}
 				applyAction(&plan.Phases[i].Tasks[j].Done, action)
 				if err := a.SavePlan(plan); err != nil {
@@ -99,6 +165,12 @@ func (a *App) applyToggleCluster(plan *JSONPlan, action string, taskIndex, phase
 			task := &plan.Phases[phaseIdx].Clusters[clusterIdx].Tasks[j]
 			if refusal := a.masteryGateRefusal(plan.ID, task, action, force); refusal != "" {
 				return refusal, true, true
+			}
+			completing := action == "toggle" || action == "set_done"
+			if completing && !force && isLastUndoneInPhase(&plan.Phases[phaseIdx], task) {
+				if bloomRefusal := phaseCompletionBloomCheck(&plan.Phases[phaseIdx]); bloomRefusal != "" {
+					return bloomRefusal, true, true
+				}
 			}
 			applyAction(&task.Done, action)
 			return fmt.Sprintf("Task %d %q in cluster %q marked as %s",
