@@ -89,19 +89,30 @@ No changes to chat.js, app.js, or the SSE flow. The capture box is an additive, 
 ### Pre-baseline (must FAIL on current main)
 
 ```bash
+# Pre-baseline: features should NOT exist on current main.
+# Exit 1 when features are absent (expected pre-state → gate proceeds).
+# Exit 0 when any feature IS present (unexpected → gate fails, correct).
+
 # 1. GET /api/knowledge should 404 on current main.
-curl -sf -o /dev/null -w "%{http_code}" http://localhost:8080/api/knowledge
-# Expected: 404
+if [ "$(curl -sf -o /dev/null -w '%{http_code}' http://localhost:8080/api/knowledge)" != "404" ]; then
+  echo "UNEXPECTED: GET /api/knowledge already returns something other than 404"
+  exit 0
+fi
 
 # 2. POST /api/knowledge should 404 on current main.
-curl -sf -o /dev/null -w "%{http_code}" -X POST \
-  -H "Content-Type: application/json" \
-  -d '{"title":"test","body":"test body"}' \
-  http://localhost:8080/api/knowledge
-# Expected: 404
+if [ "$(curl -sf -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{"title":"test","body":"test body"}' http://localhost:8080/api/knowledge)" != "404" ]; then
+  echo "UNEXPECTED: POST /api/knowledge already returns something other than 404"
+  exit 0
+fi
 
 # 3. No "rail-knowledge" div in the index HTML.
-! grep -q 'rail-knowledge' static/index.html
+if grep -q 'rail-knowledge' static/index.html; then
+  echo "UNEXPECTED: rail-knowledge already in index HTML"
+  exit 0
+fi
+
+# All features absent — expected. Signal "fail" (non-zero) so gate proceeds.
+exit 1
 ```
 
 ### Post-acceptance (must PASS after implementation)
