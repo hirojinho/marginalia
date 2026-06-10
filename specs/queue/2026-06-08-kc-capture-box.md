@@ -94,13 +94,13 @@ No changes to chat.js, app.js, or the SSE flow. The capture box is an additive, 
 # Exit 0 when any feature IS present (unexpected → gate fails, correct).
 
 # 1. GET /api/knowledge should 404 on current main.
-if [ "$(curl -sf -o /dev/null -w '%{http_code}' http://localhost:8080/api/knowledge)" != "404" ]; then
+if [ "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/api/knowledge)" != "404" ]; then
   echo "UNEXPECTED: GET /api/knowledge already returns something other than 404"
   exit 0
 fi
 
 # 2. POST /api/knowledge should 404 on current main.
-if [ "$(curl -sf -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{"title":"test","body":"test body"}' http://localhost:8080/api/knowledge)" != "404" ]; then
+if [ "$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{"title":"test","body":"test body"}' http://localhost:8080/api/knowledge)" != "404" ]; then
   echo "UNEXPECTED: POST /api/knowledge already returns something other than 404"
   exit 0
 fi
@@ -137,10 +137,10 @@ assert '$ID' in ids, f'$ID not found'; print('PASS: KC in list')
 "
 
 # 4. Empty title returns 400.
-[ "$(curl -sf -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{"title":"","body":"x"}' http://localhost:8080/api/knowledge)" = "400" ] && echo "PASS: empty title 400"
+[ "$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{"title":"","body":"x"}' http://localhost:8080/api/knowledge)" = "400" ] && echo "PASS: empty title 400"
 
 # 5. Empty body returns 400.
-[ "$(curl -sf -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{"title":"x","body":""}' http://localhost:8080/api/knowledge)" = "400" ] && echo "PASS: empty body 400"
+[ "$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{"title":"x","body":""}' http://localhost:8080/api/knowledge)" = "400" ] && echo "PASS: empty body 400"
 
 # 6. Build + vet + tests.
 go build ./... && echo "PASS: build"
