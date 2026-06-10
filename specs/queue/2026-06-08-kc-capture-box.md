@@ -88,26 +88,35 @@ No changes to chat.js, app.js, or the SSE flow. The capture box is an additive, 
 
 ### Pre-baseline (must FAIL on current main)
 
+The gate expects this script to exit non-zero on current main (features absent).
+Exit 0 signals "feature already exists" → gate fails the run.
+
 ```bash
 # Pre-baseline: features should NOT exist on current main.
 # Exit 1 when features are absent (expected pre-state → gate proceeds).
 # Exit 0 when any feature IS present (unexpected → gate fails, correct).
 
-# 1. GET /api/knowledge should 404 on current main.
-if [ "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/api/knowledge)" != "404" ]; then
-  echo "UNEXPECTED: GET /api/knowledge already returns something other than 404"
+# 1. No handler/knowledge.go on main.
+if [ -f handler/knowledge.go ]; then
+  echo "UNEXPECTED: handler/knowledge.go already exists on main"
   exit 0
 fi
 
-# 2. POST /api/knowledge should 404 on current main.
-if [ "$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{"title":"test","body":"test body"}' http://localhost:8080/api/knowledge)" != "404" ]; then
-  echo "UNEXPECTED: POST /api/knowledge already returns something other than 404"
+# 2. No /api/knowledge route registered in handler/handler.go.
+if grep -q '/api/knowledge' handler/handler.go; then
+  echo "UNEXPECTED: /api/knowledge route already registered on main"
   exit 0
 fi
 
-# 3. No "rail-knowledge" div in the index HTML.
-if grep -q 'rail-knowledge' static/index.html; then
-  echo "UNEXPECTED: rail-knowledge already in index HTML"
+# 3. No rail-knowledge section in static/rail.js.
+if grep -q 'rail-knowledge' static/rail.js; then
+  echo "UNEXPECTED: rail-knowledge already in rail.js on main"
+  exit 0
+fi
+
+# 4. No rail-knowledge styles in static/style.css.
+if grep -q 'rail-knowledge' static/style.css; then
+  echo "UNEXPECTED: rail-knowledge already in style.css on main"
   exit 0
 fi
 
