@@ -1175,6 +1175,72 @@ header small {
   margin-bottom: 4px;
 }
 
+/* ---------- Knowledge Components ---------- */
+.rail-knowledge .rail-other-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.kc-item {
+  cursor: pointer;
+}
+.kc-item-title {
+  font-size: 12px;
+}
+.kc-body {
+  font-size: 11px;
+  color: var(--text-secondary);
+  padding: 4px 6px 2px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.kc-form {
+  margin-bottom: 8px;
+}
+.kc-title-input,
+.kc-body-input {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  font-size: 12px;
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  color: var(--text);
+  resize: vertical;
+}
+.kc-title-input {
+  margin-bottom: 4px;
+}
+.kc-form-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}
+.kc-cancel-btn,
+.kc-submit-btn {
+  font: inherit;
+  font-size: 11px;
+  padding: 3px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  background: var(--bg-elevated);
+  color: var(--text);
+}
+.kc-submit-btn {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+.kc-form-error {
+  font-size: 11px;
+  color: var(--danger, #d33);
+  margin-top: 4px;
+}
+
 /* ---------- Course settings (Steering) ---------- */
 .rail-course-row {
   display: flex;

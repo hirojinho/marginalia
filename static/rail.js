@@ -23,6 +23,7 @@ let designSessions = []; // task-less, mode='authoring' (course design chats)
 let archivedSessions = []; // task_id-less, archived (pre-redesign — "Before the redesign")
 let detachedSessions = []; // task_id set but absent from the current course's plan (orphaned)
 let pendingTask = null; // {courseId, taskId, title} when a task is open with no session yet
+let kcListData = []; // Knowledge Components fetched from API
 
 export function getSelectedCourse() {
   return selectedCourse;
@@ -134,7 +135,7 @@ export function renderRail() {
       </div>`;
     }
   });
-  html += '</div>' + renderOther();
+  html += '</div>' + renderKnowledgeSection() + renderOther();
   container.innerHTML = html;
 }
 
@@ -209,6 +210,93 @@ function renderOther() {
   return html;
 }
 
+// ---------- Knowledge Components ----------
+
+function renderKnowledgeSection() {
+  let items = '';
+  for (const kc of kcListData) {
+    items += `<div class="rail-other-item kc-item" data-action="toggle-kc" data-kc-id="${escapeHtml(kc.id)}">
+      <span class="kc-item-title">${escapeHtml(kc.title)}</span>
+      <div class="kc-body" style="display:none">${escapeHtml(kc.body)}</div>
+    </div>`;
+  }
+  return (
+    '<div class="rail-bucket rail-knowledge">' +
+    '<div class="rail-other-label">Knowledge <button class="rail-settings-btn" data-action="add-kc" title="Add Knowledge Component">+</button></div>' +
+    '<div id="kc-list">' + items + '</div>' +
+    '</div>'
+  );
+}
+
+export async function fetchKCList() {
+  try {
+    const resp = await apiFetch('/api/knowledge?limit=25');
+    if (resp.ok) {
+      kcListData = await resp.json();
+    }
+  } catch (err) {
+    console.error('Failed to load KC list', err);
+  }
+}
+
+export function refreshKCList() {
+  return fetchKCList().then(() => renderRail());
+}
+
+function toggleKCItem(el) {
+  const body = el.querySelector('.kc-body');
+  if (!body) return;
+  body.style.display = body.style.display === 'none' ? 'block' : 'none';
+}
+
+function showKCForm() {
+  const list = document.getElementById('kc-list');
+  if (!list) return;
+  // Don't open a second form.
+  if (list.querySelector('.kc-form')) return;
+  const form = document.createElement('div');
+  form.className = 'kc-form';
+  form.innerHTML = `
+    <input type="text" class="kc-title-input" placeholder="One-idea title..." maxlength="500">
+    <textarea class="kc-body-input" placeholder="State the idea in your own words..." maxlength="500" rows="3"></textarea>
+    <div class="kc-form-actions">
+      <button class="kc-cancel-btn">Cancel</button>
+      <button class="kc-submit-btn">Save</button>
+    </div>`;
+  list.prepend(form);
+  form.querySelector('.kc-title-input').focus();
+  form.querySelector('.kc-cancel-btn').addEventListener('click', () => form.remove());
+  form.querySelector('.kc-submit-btn').addEventListener('click', async () => {
+    const title = form.querySelector('.kc-title-input').value.trim();
+    const body = form.querySelector('.kc-body-input').value.trim();
+    if (!title || !body) {
+      form.querySelector('.kc-form-actions').insertAdjacentHTML(
+        'afterend', '<div class="kc-form-error">Title and body are required.</div>'
+      );
+      return;
+    }
+    try {
+      const resp = await apiFetch('/api/knowledge', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, body }),
+      });
+      if (!resp.ok) {
+        const data = await resp.json();
+        const errEl = form.querySelector('.kc-form-error');
+        if (errEl) errEl.remove();
+        form.querySelector('.kc-form-actions').insertAdjacentHTML(
+          'afterend', '<div class="kc-form-error">' + (data.error || 'Failed') + '</div>'
+        );
+        return;
+      }
+      await refreshKCList();
+    } catch (err) {
+      console.error('Failed to create KC', err);
+    }
+  });
+}
+
 export async function startNewCourseAuthoring() {
   try {
     const resp = await apiFetch('/api/sessions', {
@@ -281,6 +369,22 @@ export function initRail() {
     e.stopPropagation();
     if (selectedCourse) openCourseSettings(selectedCourse);
   });
+
+  // Knowledge: "+" opens inline form.
+  document.getElementById('session-list').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-action="add-kc"]');
+    if (!btn) return;
+    e.stopPropagation();
+    showKCForm();
+  });
+
+  // Knowledge: click item to expand/collapse.
+  document.getElementById('session-list').addEventListener('click', (e) => {
+    const item = e.target.closest('[data-action="toggle-kc"]');
+    if (!item) return;
+    e.stopPropagation();
+    toggleKCItem(item);
+  });
 }
 
 export async function selectCourse(courseId) {
@@ -292,7 +396,7 @@ export async function selectCourse(courseId) {
 
 // loadRail is the public entry: load data for the selected course, then render.
 export async function loadRail() {
-  await loadRailData();
+  await Promise.all([loadRailData(), fetchKCList()]);
   renderRail();
 }
 
