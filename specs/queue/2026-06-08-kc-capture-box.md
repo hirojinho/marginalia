@@ -161,9 +161,10 @@ go build ./... && echo "PASS: build"
 go vet ./... && echo "PASS: vet"
 go test ./... -count=1 && echo "PASS: tests"
 
-# 7. Frontend elements present.
-curl -sf "$STAGING_URL/" | grep -q 'rail-knowledge' && echo "PASS: rail-knowledge in HTML"
-curl -sf "$STAGING_URL/" | grep -q 'data-action="add-kc"' && echo "PASS: add-kc button in HTML"
+# 7. Frontend elements present in source (rail is JS-generated, not in static HTML).
+grep -q 'rail-knowledge' static/rail.js && echo "PASS: rail-knowledge in rail.js"
+grep -q 'data-action="add-kc"' static/rail.js && echo "PASS: add-kc button in rail.js"
+grep -q 'rail-knowledge' static/style.css && echo "PASS: rail-knowledge in style.css"
 ```
 
 
