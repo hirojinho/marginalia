@@ -126,30 +126,35 @@ exit 1
 
 ### Post-acceptance (must PASS after implementation)
 
+The verifier receives `STAGING_URL` and `STAGING_TOKEN` from the gate-runner.
+
 ```bash
+AUTH="Authorization: Bearer $STAGING_TOKEN"
+
 # 1. GET /api/knowledge returns 200 with a JSON array.
-curl -sf http://localhost:8080/api/knowledge | python3 -c "import sys,json; d=json.load(sys.stdin); assert isinstance(d, list), 'not an array'; print('PASS: GET')"
+curl -sf -H "$AUTH" "$STAGING_URL/api/knowledge" | python3 -c "import sys,json; d=json.load(sys.stdin); assert isinstance(d, list), 'not an array'; print('PASS: GET')"
 
 # 2. POST /api/knowledge creates a KC and returns 201.
 RESP=$(curl -sf -w "\n%{http_code}" -X POST \
   -H "Content-Type: application/json" \
+  -H "$AUTH" \
   -d '{"title":"Test KC","body":"This is a test."}' \
-  http://localhost:8080/api/knowledge)
+  "$STAGING_URL/api/knowledge")
 HTTP_CODE=$(echo "$RESP" | tail -1)
 ID=$(echo "$RESP" | head -1 | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
 [ "$HTTP_CODE" = "201" ] && [ -n "$ID" ] && echo "PASS: POST 201 id=$ID" || echo "FAIL: HTTP $HTTP_CODE"
 
 # 3. Created KC appears in list.
-curl -sf "http://localhost:8080/api/knowledge?limit=5" | python3 -c "
+curl -sf -H "$AUTH" "$STAGING_URL/api/knowledge?limit=5" | python3 -c "
 import sys,json; ids=[d['id'] for d in json.load(sys.stdin)]
 assert '$ID' in ids, f'$ID not found'; print('PASS: KC in list')
 "
 
 # 4. Empty title returns 400.
-[ "$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{"title":"","body":"x"}' http://localhost:8080/api/knowledge)" = "400" ] && echo "PASS: empty title 400"
+[ "$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -H "$AUTH" -d '{"title":"","body":"x"}' "$STAGING_URL/api/knowledge")" = "400" ] && echo "PASS: empty title 400"
 
 # 5. Empty body returns 400.
-[ "$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{"title":"x","body":""}' http://localhost:8080/api/knowledge)" = "400" ] && echo "PASS: empty body 400"
+[ "$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -H "$AUTH" -d '{"title":"x","body":""}' "$STAGING_URL/api/knowledge")" = "400" ] && echo "PASS: empty body 400"
 
 # 6. Build + vet + tests.
 go build ./... && echo "PASS: build"
@@ -157,11 +162,10 @@ go vet ./... && echo "PASS: vet"
 go test ./... -count=1 && echo "PASS: tests"
 
 # 7. Frontend elements present.
-curl -sf http://localhost:8080/ | grep -q 'rail-knowledge' && echo "PASS: rail-knowledge in HTML"
-curl -sf http://localhost:8080/ | grep -q 'data-action="add-kc"' && echo "PASS: add-kc button in HTML"
+curl -sf "$STAGING_URL/" | grep -q 'rail-knowledge' && echo "PASS: rail-knowledge in HTML"
+curl -sf "$STAGING_URL/" | grep -q 'data-action="add-kc"' && echo "PASS: add-kc button in HTML"
 ```
 
-### Human-eyeball notes
 
 - Open the app, select a course. The left rail should have a "Knowledge" section below the plan with a "+" button.
 - Click "+" — a form appears with title and body fields.
