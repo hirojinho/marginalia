@@ -1045,3 +1045,160 @@ func TestHasConfidenceAtLeast(t *testing.T) {
 		t.Fatalf("expected true at latest 0.8 ≥ 0.7")
 	}
 }
+
+func TestLogProbe(t *testing.T) {
+	a := newMemoryApp(t)
+
+	// Create a session so FK on session_id passes.
+	if err := a.CreateCourse("c1", "Course 1"); err != nil {
+		t.Fatalf("create course: %v", err)
+	}
+	sess, err := a.CreateSession("c1", "topic", "study")
+	if err != nil {
+		t.Fatalf("create session: %v", err)
+	}
+
+	// Insert a knowledge component so the FK passes.
+	kcID, err := a.CreateKnowledgeComponent("KC Title", "KC Body", "task-1", 0)
+	if err != nil {
+		t.Fatalf("create kc: %v", err)
+	}
+
+	probeID, err := a.LogProbe(kcID, "What is X?", "X is Y", "X is Z", 4, sess.ID)
+	if err != nil {
+		t.Fatalf("log probe: %v", err)
+	}
+	if probeID == 0 {
+		t.Fatal("expected non-zero probe ID")
+	}
+
+	// Verify the probe row exists with correct fields.
+	var learnerAnswer string
+	var grade int
+	var gradedAt int64
+	var sessionID int64
+	err = a.DB.QueryRow(
+		"SELECT learner_answer, grade, graded_at, session_id FROM retrieval_probe WHERE id = ?", probeID,
+	).Scan(&learnerAnswer, &grade, &gradedAt, &sessionID)
+	if err != nil {
+		t.Fatalf("query probe: %v", err)
+	}
+	if learnerAnswer != "X is Z" {
+		t.Errorf("learner_answer = %q, want %q", learnerAnswer, "X is Z")
+	}
+	if grade != 4 {
+		t.Errorf("grade = %d, want 4", grade)
+	}
+	if gradedAt == 0 {
+		t.Error("graded_at should be set")
+	}
+	if sessionID != sess.ID {
+		t.Errorf("session_id = %d, want %d", sessionID, sess.ID)
+	}
+
+	// Verify retrieval_queue was upserted with last_confidence = 0.8 (4/5).
+	var lastConf float64
+	err = a.DB.QueryRow(
+		"SELECT last_confidence FROM retrieval_queue WHERE knowledge_component_id = ?", kcID,
+	).Scan(&lastConf)
+	if err != nil {
+		t.Fatalf("query retrieval_queue: %v", err)
+	}
+	if lastConf != 0.8 {
+		t.Errorf("last_confidence = %v, want 0.8", lastConf)
+	}
+}
+
+func TestLogProbeNoAnswer(t *testing.T) {
+	a := newMemoryApp(t)
+
+	if err := a.CreateCourse("c1", "Course 1"); err != nil {
+		t.Fatalf("create course: %v", err)
+	}
+	sess, err := a.CreateSession("c1", "topic", "study")
+	if err != nil {
+		t.Fatalf("create session: %v", err)
+	}
+
+	kcID, err := a.CreateKnowledgeComponent("KC Title", "KC Body", "task-1", 0)
+	if err != nil {
+		t.Fatalf("create kc: %v", err)
+	}
+
+	// Log a question-only probe (no answer).
+	probeID, err := a.LogProbe(kcID, "What is X?", "X is Y", "", 0, sess.ID)
+	if err != nil {
+		t.Fatalf("log probe: %v", err)
+	}
+	if probeID == 0 {
+		t.Fatal("expected non-zero probe ID")
+	}
+
+	// Verify learner_answer and grade are NULL.
+	var learnerAnswer *string
+	var grade *int
+	err = a.DB.QueryRow(
+		"SELECT learner_answer, grade FROM retrieval_probe WHERE id = ?", probeID,
+	).Scan(&learnerAnswer, &grade)
+	if err != nil {
+		t.Fatalf("query probe: %v", err)
+	}
+	if learnerAnswer != nil {
+		t.Errorf("learner_answer = %v, want nil", learnerAnswer)
+	}
+	if grade != nil {
+		t.Errorf("grade = %v, want nil", grade)
+	}
+}
+
+func TestGetProbeQuestion(t *testing.T) {
+	a := newMemoryApp(t)
+
+	if err := a.CreateCourse("c1", "Course 1"); err != nil {
+		t.Fatalf("create course: %v", err)
+	}
+	sess, err := a.CreateSession("c1", "topic", "study")
+	if err != nil {
+		t.Fatalf("create session: %v", err)
+	}
+
+	kcID, err := a.CreateKnowledgeComponent("KC Title", "KC Body", "task-1", 0)
+	if err != nil {
+		t.Fatalf("create kc: %v", err)
+	}
+
+	// Insert two probes for the same KC.
+	if _, err := a.LogProbe(kcID, "Q1", "A1", "", 0, sess.ID); err != nil {
+		t.Fatalf("log probe 1: %v", err)
+	}
+	if _, err := a.LogProbe(kcID, "Q2", "A2", "", 0, sess.ID); err != nil {
+		t.Fatalf("log probe 2: %v", err)
+	}
+
+	// Should return the most recent question.
+	probeID, question, err := a.GetProbeQuestion(kcID)
+	if err != nil {
+		t.Fatalf("get probe question: %v", err)
+	}
+	if question != "Q2" {
+		t.Errorf("question = %q, want %q", question, "Q2")
+	}
+	if probeID == 0 {
+		t.Error("expected non-zero probe ID")
+	}
+}
+
+func TestGetProbeQuestionNone(t *testing.T) {
+	a := newMemoryApp(t)
+
+	probeID, question, err := a.GetProbeQuestion("nonexistent-kc")
+	if err != nil {
+		t.Fatalf("get probe question: %v", err)
+	}
+	if probeID != 0 {
+		t.Errorf("probeID = %d, want 0", probeID)
+	}
+	if question != "" {
+		t.Errorf("question = %q, want empty", question)
+	}
+}

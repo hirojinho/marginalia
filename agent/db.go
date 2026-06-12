@@ -233,6 +233,18 @@ func InitSchema(db *sql.DB) error {
 	    updated_at              INTEGER NOT NULL
 	);
 	CREATE INDEX IF NOT EXISTS idx_retrieval_queue_due ON retrieval_queue(due_at);
+	CREATE TABLE IF NOT EXISTS retrieval_probe (
+	  id                      INTEGER PRIMARY KEY AUTOINCREMENT,
+	  knowledge_component_id  TEXT NOT NULL REFERENCES knowledge_components(id),
+	  question                TEXT NOT NULL,
+	  expected_answer         TEXT NOT NULL,
+	  learner_answer          TEXT,
+	  grade                   INTEGER,
+	  graded_at               INTEGER,
+	  created_at              INTEGER NOT NULL,
+	  session_id              INTEGER REFERENCES sessions(id)
+	);
+	CREATE INDEX IF NOT EXISTS idx_retrieval_probe_kc ON retrieval_probe(knowledge_component_id, created_at);
 	`
 	if _, err := db.Exec(schema); err != nil {
 		return fmt.Errorf("create schema: %w", err)
@@ -1324,4 +1336,63 @@ func (a *App) ListKnowledgeComponents(limit int) ([]KnowledgeComponent, error) {
 		components = append(components, kc)
 	}
 	return components, rows.Err()
+}
+
+// LogProbe stores a graded retrieval probe and updates the SM-2
+// retrieval_queue. learnerAnswer and sessionID may be zero/empty on
+// the first call (question generation only).
+func (a *App) LogProbe(knowledgeComponentID, question, expectedAnswer, learnerAnswer string, grade int, sessionID int64) (probeID int64, err error) {
+	now := time.Now().UnixMilli()
+	if learnerAnswer != "" {
+		res, err := a.DB.Exec(
+			`INSERT INTO retrieval_probe
+			 (knowledge_component_id, question, expected_answer, learner_answer, grade, graded_at, created_at, session_id)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+			knowledgeComponentID, question, expectedAnswer, learnerAnswer, grade, now, now, sessionID,
+		)
+		if err != nil {
+			return 0, fmt.Errorf("insert retrieval_probe (graded): %w", err)
+		}
+		probeID, err = res.LastInsertId()
+		if err != nil {
+			return 0, fmt.Errorf("last insert id: %w", err)
+		}
+	} else {
+		// Question-only generation: INSERT OR IGNORE to avoid duplicates.
+		res, err := a.DB.Exec(
+			`INSERT OR IGNORE INTO retrieval_probe
+			 (knowledge_component_id, question, expected_answer, created_at)
+			 VALUES (?, ?, ?, ?)`,
+			knowledgeComponentID, question, expectedAnswer, now,
+		)
+		if err != nil {
+			return 0, fmt.Errorf("insert retrieval_probe (question-only): %w", err)
+		}
+		probeID, err = res.LastInsertId()
+		if err != nil {
+			return 0, fmt.Errorf("last insert id: %w", err)
+		}
+	}
+	// Feed SM-2 scheduler.
+	confidence := float64(grade) / 5.0
+	if err := a.UpsertRetrievalItem(knowledgeComponentID, confidence); err != nil {
+		return 0, fmt.Errorf("upsert retrieval_queue: %w", err)
+	}
+	return probeID, nil
+}
+
+// GetProbeQuestion returns the most recent cached question for a KC,
+// or nil if no question has been generated yet.
+func (a *App) GetProbeQuestion(knowledgeComponentID string) (probeID int64, question string, err error) {
+	err = a.DB.QueryRow(
+		`SELECT id, question FROM retrieval_probe WHERE knowledge_component_id = ? ORDER BY created_at DESC LIMIT 1`,
+		knowledgeComponentID,
+	).Scan(&probeID, &question)
+	if err == sql.ErrNoRows {
+		return 0, "", nil
+	}
+	if err != nil {
+		return 0, "", fmt.Errorf("query retrieval_probe: %w", err)
+	}
+	return probeID, question, nil
 }
