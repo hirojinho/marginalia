@@ -27,6 +27,25 @@ This is the unit that mastery, confidence, and retrieval are tracked *against*.
 - The **body is authored by the learner, in their own words** — the agent never
   writes it. The agent elicits, stores verbatim, critiques, and manages.
 
+## Recall: formative vs spaced
+
+Two kinds of recall happen in a Session, and only one is scheduled.
+
+- **Formative recall** — in-session explain-back, boundary checks, and cueing
+  while working a Task. It coaches understanding *in the moment* and is not
+  itself tracked or scheduled. The bulk of a study session is this.
+- **Spaced retrieval** — recall of a [Knowledge Component](#knowledge-component)
+  (a learner-authored atom) on an expanding schedule. This is what "the queue"
+  holds and what mastery accrues against.
+
+Completing a Task requires **distilling at least one Knowledge Component** from
+it (the generative act ADR 0007 protects). A Task is **not** blocked from
+completion by a confidence score — durability is the job of spaced retrieval
+*afterward*, which resurfaces an atom until it is mastered, rather than the Task
+refusing to close. (Earlier the code gated Task completion on a per-task
+confidence threshold; that conflated the molecule with the atom and is being
+corrected alongside the identifier.)
+
 ## Course
 
 A subject the learner studies — e.g. *CE-297 Safety*, *DDIA*, *DSA Interview*,
@@ -66,6 +85,16 @@ that follow from this definition (not implementation, just meaning):
 - A retrieval check that references an *earlier* Task at session-open still
   belongs to **today's** Session — it points back at the old Task, it does not
   reopen it.
+
+### Detached Session
+
+A Session whose anchor no longer resolves to a Task in the Plan — the Task it
+pointed at is gone (e.g. a plan restructure dropped that Task's identity). The
+work is **not lost**: a Detached Session is reachable through a *Detached* group
+in its Course's [Scratch](#scratch) and can be re-anchored. "Detach" and
+"orphan" name the same event; *Detached* is the canonical term. A **live**
+Session — one currently anchored to a real Task and not archived or hidden — is
+what plan restructuring must avoid detaching unasked.
 
 ## Scratch
 
