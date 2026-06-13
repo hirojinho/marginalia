@@ -36,7 +36,10 @@ Two kinds of recall happen in a Session, and only one is scheduled.
   itself tracked or scheduled. The bulk of a study session is this.
 - **Spaced retrieval** — recall of a [Knowledge Component](#knowledge-component)
   (a learner-authored atom) on an expanding schedule. This is what "the queue"
-  holds and what mastery accrues against.
+  holds and what mastery accrues against. Retrieval is **understanding-first and
+  generative**: it probes *why/how/when* and asks the learner to produce their
+  own example, rather than reciting facts or the source's specific examples —
+  retrieval through reasoning, not memorization (ADR 0020).
 
 Completing a Task requires **distilling at least one Knowledge Component** from
 it (the generative act ADR 0007 protects). A Task is **not** blocked from

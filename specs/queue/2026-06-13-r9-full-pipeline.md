@@ -270,7 +270,7 @@ Add a lightweight LLM function so Pi can delegate question generation to a cheap
 // probes ONE specific concept, mechanism, or relationship — not an open-ended
 // "recall everything" prompt. Returns the generated question text.
 func (c *LLMClient) GenerateProbeQuestion(ctx context.Context, kcBody string) (question string, err error) {
-    systemMsg := `You are generating a targeted short-answer practice-testing question from a knowledge component. The question must probe ONE specific concept, mechanism, or relationship — never ask an open-ended "recall everything about X."
+    systemMsg := `You are generating ONE understanding-first practice-testing question from a knowledge component (ADR 0020). It must be answerable only by reasoning with the idea, not by reciting it: prefer "why does X hold / how does it differ from Y / when would you use it / what breaks if…", or ask the learner to give THEIR OWN example. NEVER ask "what is X", "list everything about X", or "what was the example in the material."
 
 Return ONLY the question text. Do not include the answer, commentary, numbering, or markdown formatting.`
 
@@ -349,7 +349,7 @@ The new Rule 6 for the interleaving-on case:
 rule6 := "6. **Session-open retrieval with practice-testing probes (MANDATORY).** Before answering anything else, run `claw-cli retrieve due --course <active course>` to lead with THIS course's due atoms; if other courses also have due atoms, name them and OFFER to fold them in (do not front-load them — ADR 0019 active-course-first). **(a)** If items are due → for each due KC (at most 2):\n" +
     "  (i) Read the KC body: `claw-cli knowledge show <kc_id>`\n" +
     "  (ii) Check for an existing cached question: `claw-cli probe show --kc <kc_id>`. If it returns a cached question, use it — skip generation.\n" +
-    "  (iii) If no cached question exists, generate a targeted short-answer question from the KC body. The question must ask for ONE specific concept, mechanism, or relationship — not \"recall everything about X.\" Store it: `claw-cli probe store --kc <kc_id> --question \"<question>\" --expected \"<kc body>\"` (the --expected is the KC body at generation time).\n" +
+    "  (iii) If no cached question exists, generate ONE understanding-first question from the KC body (ADR 0020): a why/how/when/what-breaks, or \"give me your own example\" — NEVER \"what is X,\" \"list everything,\" or \"what was the example in the material.\" Store it: `claw-cli probe store --kc <kc_id> --question \"<question>\" --expected \"<kc body>\"` (the --expected is the KC body at generation time).\n" +
     "  (iv) Present the question to Eduardo in chat. Ask for his answer.\n" +
     "  (v) When he answers, grade his answer against the expected answer on the SM-2 0–5 scale:\n" +
     "    - 0 = complete blackout — nothing correct or relevant\n" +
@@ -359,10 +359,10 @@ rule6 := "6. **Session-open retrieval with practice-testing probes (MANDATORY).*
     "    - 4 = correct, after hesitation or minor gaps\n" +
     "    - 5 = perfect, immediate recall — complete and precise\n" +
     "  (vi) Record the probe: `claw-cli probe record --probe-id <id> --answer \"<his verbatim text>\" --grade <0-5>`\n" +
-    "  (vii) Tell him the grade plus a one-sentence justification:\n" +
-    "    - Grade 0–2: name what was missed, show the correct answer concisely.\n" +
-    "    - Grade 3–4: note the specific gap or hesitation.\n" +
-    "    - Grade 5: affirm. Do not linger.\n" +
+    "  (vii) Respond CONVERSATIONALLY — do NOT announce the raw 0–5 number (it is recorded silently for scheduling; ADR 0020). Credit the idea in his own words (paraphrase = full credit). At most ONE cue if he is short, then move on:\n" +
+    "    - Low (0–2): one cue toward the gap; if still short, fill it in a sentence and move on.\n" +
+    "    - Mid (3–4): note the one specific gap conversationally.\n" +
+    "    - High (5): affirm briefly. Do not linger.\n" +
     "  (viii) If multiple KCs are due, repeat from (i) for the next one.\n" +
     "**(b)** If nothing is due BUT a task has been completed → you MUST still open with 2–3 targeted short-answer questions about the highest-priority concepts from the most recent completed task. Generate questions from your knowledge of the material; do NOT use the probe tools (probes are for KCs only). Score per the SM-2 rubric above; name at most 1–2 missed points. An empty queue is the normal case (SM-2 future-dates fresh items); it does NOT license skipping the recall. **(c)** ONLY if no task is completed at all (a brand-new course, or his very first task) do you skip to the Rule 7 pre-read prediction. Never invent or assume a completed task; never claim he has read, finished, or recalled anything without evidence — if unsure whether he has started, ask.\n\nTailor question depth to the bloom_level of the upcoming task (visible in `claw-cli plan status`): remember/understand → key facts, definitions, mechanisms; apply → principles, formulas, procedures; analyze/evaluate → comparative frameworks, trade-offs, evaluation criteria (\"what are the trade-offs between X and Y?\" not \"what is X?\"); create → skip scored recall, the creation is the retrieval. If bloom_level is missing (older plans), default to understand-level. Non-negotiable; highest-evidence pedagogic move (Roediger & Karpicke 2006, testing effect; Endres et al. 2020, targeted short-answer preserves testing effect).\n"
 ```

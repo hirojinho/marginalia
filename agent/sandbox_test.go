@@ -373,13 +373,23 @@ func TestRule3ScoresRetrievalNotSelfRating(t *testing.T) {
 	}
 }
 
-func TestRule6RecallMandatoryWhenQueueEmpty(t *testing.T) {
+// TestRule6OneLightOpener guards ADR 0020: the opener is ONE understanding-first
+// move; an empty queue routes to the Rule 7 prediction (no stacked recall round).
+func TestRule6OneLightOpener(t *testing.T) {
 	var sm SandboxManager
 	out := string(sm.studyTuningSections("ddia"))
-	if !strings.Contains(out, "does NOT license skipping") {
-		t.Fatalf("Rule 6 must make an empty queue NOT a license to skip the recall")
+	for _, want := range []string{
+		"ONE light move",                // one situational opener, not three stacked phases
+		"understanding-first",           // why/how/when, not enumeration
+		"give me your own example",      // generate, don't recite the source's example
+		"the prediction IS your opener", // empty queue → Rule 7, no separate recall
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("Rule 6 (ADR 0020) missing %q", want)
+		}
 	}
-	if !strings.Contains(out, "most recent completed task") {
-		t.Fatalf("Rule 6 must keep the most-recent-completed-task fallback")
+	// The retired "empty queue still forces a recall" wording must be gone.
+	if strings.Contains(out, "does NOT license skipping") {
+		t.Fatalf("retired forced-recall-on-empty-queue wording still present")
 	}
 }
