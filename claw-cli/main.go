@@ -1311,6 +1311,13 @@ func confidenceLog(args []string, stdout, stderr io.Writer, dbPath string) int {
 		return 1
 	}
 	defer func() { _ = app.Close() }()
+	if !app.IsAtom(*kc) {
+		_, _ = fmt.Fprintf(stderr,
+			"confidence log: --kc %q is not a knowledge component. Confidence now keys on an "+
+				"ATOM, not a task. Create the atom first (`claw-cli knowledge create` — or search "+
+				"`knowledge search` to reuse one), then log against its id.\n", *kc)
+		return 2
+	}
 	id, err := app.LogConfidence(*session, *kc, *value, "tool_call", *raw)
 	if err != nil {
 		_, _ = fmt.Fprintf(stderr, "error: %v\n", err)
