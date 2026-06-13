@@ -1338,6 +1338,67 @@ func (a *App) ListKnowledgeComponents(limit int) ([]KnowledgeComponent, error) {
 	return components, rows.Err()
 }
 
+// RebuildRetrievalQueue wipes retrieval_queue and reconstructs it from
+// confidence_log, INCLUDING ONLY rows whose key is a real knowledge_components
+// id (atoms). SM-2 state is threaded per atom in chronological order;
+// deterministic — due_at derives from each event's created_at, not wall-clock.
+// Returns the number of atoms queued.
+func (a *App) RebuildRetrievalQueue() (int, error) {
+	if _, err := a.DB.Exec("DELETE FROM retrieval_queue"); err != nil {
+		return 0, fmt.Errorf("clear retrieval_queue: %w", err)
+	}
+	rows, err := a.DB.Query(
+		`SELECT c.knowledge_component_id, c.value, c.created_at
+		 FROM confidence_log c
+		 JOIN knowledge_components k ON k.id = c.knowledge_component_id
+		 ORDER BY c.created_at ASC, c.id ASC`)
+	if err != nil {
+		return 0, fmt.Errorf("read confidence_log: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	type state struct {
+		n          int
+		ef         float64
+		intervalMs int64
+		lastConf   float64
+		lastAt     int64
+	}
+	acc := map[string]*state{}
+	order := []string{}
+	for rows.Next() {
+		var kc string
+		var value float64
+		var at int64
+		if err := rows.Scan(&kc, &value, &at); err != nil {
+			return 0, fmt.Errorf("scan: %w", err)
+		}
+		st, ok := acc[kc]
+		if !ok {
+			st = &state{n: 0, ef: 2.5, intervalMs: 0}
+			acc[kc] = st
+			order = append(order, kc)
+		}
+		st.intervalMs, st.n, st.ef = SM2NextInterval(ConfidenceToGrade(value), st.n, st.ef, st.intervalMs)
+		st.lastConf, st.lastAt = value, at
+	}
+	if err := rows.Err(); err != nil {
+		return 0, err
+	}
+	count := 0
+	for _, kc := range order {
+		st := acc[kc]
+		if _, err := a.DB.Exec(
+			`INSERT INTO retrieval_queue (knowledge_component_id, due_at, last_confidence, n, ef, interval_ms, updated_at)
+			 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+			kc, st.lastAt+st.intervalMs, st.lastConf, st.n, st.ef, st.intervalMs, st.lastAt); err != nil {
+			return count, fmt.Errorf("insert %q: %w", kc, err)
+		}
+		count++
+	}
+	return count, nil
+}
+
 // HasAtomForTask reports whether at least one knowledge_components row was
 // authored with this task as its provenance.
 func (a *App) HasAtomForTask(taskID string) (bool, error) {
