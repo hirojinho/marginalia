@@ -1202,3 +1202,54 @@ func TestGetProbeQuestionNone(t *testing.T) {
 		t.Errorf("question = %q, want empty", question)
 	}
 }
+
+func TestSearchKnowledgeComponents(t *testing.T) {
+	app := newMemoryApp(t)
+	_, _ = app.CreateKnowledgeComponent("Write skew cross-row invariant", "two txns, different rows", "", 0)
+	_, _ = app.CreateKnowledgeComponent("Leader-based replication trade-off", "sync vs async", "", 0)
+
+	hits, err := app.SearchKnowledgeComponents("skew", 10)
+	if err != nil {
+		t.Fatalf("search: %v", err)
+	}
+	if len(hits) != 1 || hits[0].Title != "Write skew cross-row invariant" {
+		t.Fatalf("hits = %+v", hits)
+	}
+	// Matches body too, case-insensitively.
+	if h, _ := app.SearchKnowledgeComponents("SYNC", 10); len(h) != 1 {
+		t.Fatalf("body match failed: %+v", h)
+	}
+}
+
+func TestRebuildRetrievalQueueAtomsOnly(t *testing.T) {
+	app := newMemoryApp(t)
+	atomID, _ := app.CreateKnowledgeComponent("atom A", "b", "", 0)
+	seed := func(kc string, v float64, at int64) {
+		if _, err := app.DB.Exec(
+			"INSERT INTO confidence_log (session_id, knowledge_component_id, value, source, created_at, raw_text) VALUES (NULL,?,?,?,?,?)",
+			kc, v, "tool_call", at, ""); err != nil {
+			t.Fatalf("seed: %v", err)
+		}
+	}
+	seed(atomID, 0.4, 1_000)           // atom: grade<3 → reset, 1 day
+	seed(atomID, 0.9, 2_000)           // atom: grade 5, n0→1, 1 day
+	seed("task-legacy-id", 0.8, 3_000) // NOT an atom → must be excluded
+
+	n, err := app.RebuildRetrievalQueue()
+	if err != nil {
+		t.Fatalf("rebuild: %v", err)
+	}
+	if n != 1 {
+		t.Fatalf("expected 1 atom queued, got %d", n)
+	}
+	items, _ := app.GetDueRetrievalItems(1<<62, 50)
+	if len(items) != 1 || items[0].KnowledgeComponentID != atomID {
+		t.Fatalf("queue = %+v", items)
+	}
+	if items[0].LastConfidence != 0.9 { // last event, not the poisoned earlier one
+		t.Fatalf("last_confidence = %v", items[0].LastConfidence)
+	}
+	if items[0].DueAt != 2_000+int64(86_400_000) { // from event ts, not wall-clock
+		t.Fatalf("due_at = %d", items[0].DueAt)
+	}
+}

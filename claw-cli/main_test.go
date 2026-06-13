@@ -885,6 +885,7 @@ func TestCourseCreateWithSessionRetags(t *testing.T) {
 func TestConfidenceLogWritesRowAndQueue(t *testing.T) {
 	dbPath := newTempDB(t)
 	var sessID int64
+	var atomID string
 	func() {
 		app := openApp(t, dbPath)
 		defer func() { _ = app.Close() }()
@@ -893,12 +894,17 @@ func TestConfidenceLogWritesRowAndQueue(t *testing.T) {
 			t.Fatalf("create session: %v", err)
 		}
 		sessID = s.ID
+		// Confidence now keys on a real atom (ADR 0019), not a task id.
+		atomID, err = app.CreateKnowledgeComponent("an atom", "body", "", 0)
+		if err != nil {
+			t.Fatalf("create atom: %v", err)
+		}
 	}()
 	var stdout, stderr bytes.Buffer
 	code := run([]string{
 		"clawcli", "confidence", "log",
 		"--session", strconv.FormatInt(sessID, 10),
-		"--kc", "task-abc",
+		"--kc", atomID,
 		"--value", "0.8",
 		"--raw", "pretty solid",
 	}, &stdout, &stderr, dbPath)
@@ -924,13 +930,13 @@ func TestConfidenceLogWritesRowAndQueue(t *testing.T) {
 	).Scan(&sess, &kc, &val, &source); err != nil {
 		t.Fatalf("scan row: %v", err)
 	}
-	if sess != sessID || kc != "task-abc" || val != 0.8 || source != "tool_call" {
+	if sess != sessID || kc != atomID || val != 0.8 || source != "tool_call" {
 		t.Fatalf("row = (%d,%q,%v,%q)", sess, kc, val, source)
 	}
 
 	var qn int
 	if err := db.QueryRow(
-		`SELECT count(*) FROM retrieval_queue WHERE knowledge_component_id = 'task-abc'`,
+		`SELECT count(*) FROM retrieval_queue WHERE knowledge_component_id = ?`, atomID,
 	).Scan(&qn); err != nil || qn != 1 {
 		t.Fatalf("retrieval_queue rows = %d (err %v), want 1", qn, err)
 	}
@@ -990,7 +996,7 @@ func TestPlanToggleForceBypassesGate(t *testing.T) {
 	if err := os.MkdirAll(plansDir, 0755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	planJSON := `{"id":"gate-course","name":"Gate","phases":[{"title":"P1","tasks":[{"id":"t-0","title":"Task zero","done":false}]}]}`
+	planJSON := `{"id":"gate-course","name":"Gate","phases":[{"title":"P1","tasks":[{"id":"t-0","title":"Read: Task zero","done":false}]}]}`
 	if err := os.WriteFile(filepath.Join(plansDir, "gate-course.json"), []byte(planJSON), 0644); err != nil {
 		t.Fatalf("write plan: %v", err)
 	}
@@ -1003,7 +1009,7 @@ func TestPlanToggleForceBypassesGate(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("exit %d, stderr: %s", code, stderr.String())
 	}
-	if strings.Contains(stdout.String(), "mastery gate") {
+	if strings.Contains(stdout.String(), "atomicity gate") {
 		t.Fatalf("force should bypass gate, stdout: %s", stdout.String())
 	}
 	if !strings.Contains(stdout.String(), "done") {
@@ -1019,7 +1025,7 @@ func TestPlanToggleWithoutForceHitsGate(t *testing.T) {
 	if err := os.MkdirAll(plansDir, 0755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	planJSON := `{"id":"gate-course2","name":"Gate","phases":[{"title":"P1","tasks":[{"id":"t-0","title":"Task zero","done":false}]}]}`
+	planJSON := `{"id":"gate-course2","name":"Gate","phases":[{"title":"P1","tasks":[{"id":"t-0","title":"Read: Task zero","done":false}]}]}`
 	if err := os.WriteFile(filepath.Join(plansDir, "gate-course2.json"), []byte(planJSON), 0644); err != nil {
 		t.Fatalf("write plan: %v", err)
 	}
@@ -1033,7 +1039,7 @@ func TestPlanToggleWithoutForceHitsGate(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("exit %d, stderr: %s", code, stderr.String())
 	}
-	if !strings.Contains(stdout.String(), "mastery gate") {
+	if !strings.Contains(stdout.String(), "atomicity gate") {
 		t.Fatalf("expected gate refusal, stdout: %s", stdout.String())
 	}
 }

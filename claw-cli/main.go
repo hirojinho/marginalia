@@ -1289,7 +1289,7 @@ func confidenceLog(args []string, stdout, stderr io.Writer, dbPath string) int {
 	fs := flag.NewFlagSet("confidence log", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	session := fs.Int64("session", 0, "session id (required)")
-	kc := fs.String("kc", "", "knowledge_component_id — the active plan task's id (required)")
+	kc := fs.String("kc", "", "knowledge_component_id — a real atom id, NOT a task id (required)")
 	value := fs.Float64("value", -1, "confidence value in [0.0, 1.0] (required)")
 	raw := fs.String("raw", "", "the user's verbatim reply (optional)")
 	dbOverride := fs.String("db", "", "path to study.db")
@@ -1311,6 +1311,13 @@ func confidenceLog(args []string, stdout, stderr io.Writer, dbPath string) int {
 		return 1
 	}
 	defer func() { _ = app.Close() }()
+	if !app.IsAtom(*kc) {
+		_, _ = fmt.Fprintf(stderr,
+			"confidence log: --kc %q is not a knowledge component. Confidence now keys on an "+
+				"ATOM, not a task. Create the atom first (`claw-cli knowledge create` — or search "+
+				"`knowledge search` to reuse one), then log against its id.\n", *kc)
+		return 2
+	}
 	id, err := app.LogConfidence(*session, *kc, *value, "tool_call", *raw)
 	if err != nil {
 		_, _ = fmt.Fprintf(stderr, "error: %v\n", err)
@@ -1340,7 +1347,7 @@ func parseSince(s string) (int64, error) {
 
 func runKnowledge(args []string, stdout, stderr io.Writer, dbPath string) int {
 	if len(args) < 1 {
-		_, _ = fmt.Fprintln(stderr, "usage: claw-cli knowledge <create|show|list> [args]")
+		_, _ = fmt.Fprintln(stderr, "usage: claw-cli knowledge <create|show|list|search> [args]")
 		return 2
 	}
 	switch args[0] {
@@ -1350,6 +1357,8 @@ func runKnowledge(args []string, stdout, stderr io.Writer, dbPath string) int {
 		return knowledgeShow(args[1:], stdout, stderr, dbPath)
 	case "list":
 		return knowledgeList(args[1:], stdout, stderr, dbPath)
+	case "search":
+		return knowledgeSearch(args[1:], stdout, stderr, dbPath)
 	default:
 		_, _ = fmt.Fprintf(stderr, "unknown knowledge subcommand: %q\n", args[0])
 		return 2
@@ -1458,24 +1467,60 @@ func knowledgeList(args []string, stdout, stderr io.Writer, dbPath string) int {
 	return 0
 }
 
+func knowledgeSearch(args []string, stdout, stderr io.Writer, dbPath string) int {
+	fs := flag.NewFlagSet("knowledge search", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	limit := fs.Int("limit", 20, "max hits")
+	dbOverride := fs.String("db", "", "path to study.db")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	q := strings.Join(fs.Args(), " ")
+	if q == "" {
+		_, _ = fmt.Fprintln(stderr, "knowledge search: query required")
+		return 2
+	}
+	resolvedDB, err := resolveDBPath(*dbOverride, dbPath)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return 1
+	}
+	app, err := newAppFromEnv(resolvedDB, false)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return 1
+	}
+	defer func() { _ = app.Close() }()
+	hits, err := app.SearchKnowledgeComponents(q, *limit)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return 1
+	}
+	for _, kc := range hits {
+		_, _ = fmt.Fprintf(stdout, "%s\t%s\n", kc.ID, kc.Title)
+	}
+	return 0
+}
+
 func runRetrieve(args []string, stdout, stderr io.Writer, dbPath string) int {
 	if len(args) < 1 {
-		_, _ = fmt.Fprintln(stderr, "usage: claw-cli retrieve <due> [args]")
+		_, _ = fmt.Fprintln(stderr, "usage: claw-cli retrieve <due|rebuild> [args]")
 		return 2
 	}
 	switch args[0] {
 	case "due":
 		return retrieveDue(args[1:], stdout, stderr, dbPath)
+	case "rebuild":
+		return retrieveRebuild(args[1:], stdout, stderr, dbPath)
 	default:
 		_, _ = fmt.Fprintf(stderr, "unknown retrieve subcommand: %q\n", args[0])
 		return 2
 	}
 }
 
-func retrieveDue(args []string, stdout, stderr io.Writer, dbPath string) int {
-	fs := flag.NewFlagSet("retrieve due", flag.ContinueOnError)
+func retrieveRebuild(args []string, stdout, stderr io.Writer, dbPath string) int {
+	fs := flag.NewFlagSet("retrieve rebuild", flag.ContinueOnError)
 	fs.SetOutput(stderr)
-	limit := fs.Int("limit", 50, "max rows")
 	dbOverride := fs.String("db", "", "path to study.db")
 	if err := fs.Parse(args); err != nil {
 		return 2
@@ -1491,17 +1536,55 @@ func retrieveDue(args []string, stdout, stderr io.Writer, dbPath string) int {
 		return 1
 	}
 	defer func() { _ = app.Close() }()
-	items, err := app.GetDueRetrievalItems(time.Now().UnixMilli(), *limit)
+	n, err := app.RebuildRetrievalQueue()
 	if err != nil {
-		_, _ = fmt.Fprintf(stderr, "error: %v\n", err)
+		_, _ = fmt.Fprintln(stderr, err)
 		return 1
 	}
-	if len(items) == 0 {
-		_, _ = fmt.Fprintln(stdout, "No items due. REMINDER (Pedagogical Rule 6b): an empty queue does NOT license skipping the session-open recall — if any task in this course is already completed, you MUST still open with 2-3 targeted short-answer questions about the most recent completed task before any pre-read prediction.")
-		return 0
+	_, _ = fmt.Fprintf(stdout, "rebuilt %d atom(s) into retrieval_queue\n", n)
+	return 0
+}
+
+func retrieveDue(args []string, stdout, stderr io.Writer, dbPath string) int {
+	fs := flag.NewFlagSet("retrieve due", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	limit := fs.Int("limit", 50, "max items")
+	courseFilter := fs.String("course", "", "only atoms whose provenance course matches")
+	dbOverride := fs.String("db", "", "path to study.db")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	resolvedDB, err := resolveDBPath(*dbOverride, dbPath)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return 1
+	}
+	app, err := newAppFromEnv(resolvedDB, false)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return 1
+	}
+	defer func() { _ = app.Close() }()
+
+	idx, err := app.BuildTaskTitleIndex()
+	if err != nil {
+		idx = map[string]agent.TaskRef{}
+	}
+	items, err := app.GetDueRetrievalItems(time.Now().UnixMilli(), *limit)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return 1
 	}
 	for _, item := range items {
-		_, _ = fmt.Fprintf(stdout, "%s\t%.2f\n", item.KnowledgeComponentID, item.LastConfidence)
+		title, course, ok := app.ResolveAtomLabel(item.KnowledgeComponentID, idx)
+		if *courseFilter != "" && course != *courseFilter {
+			continue
+		}
+		if !ok {
+			title = "(legacy non-atom key — will be dropped on rebuild)"
+		}
+		_, _ = fmt.Fprintf(stdout, "%s\t%.2f\t%s\t%s\n",
+			item.KnowledgeComponentID, item.LastConfidence, course, title)
 	}
 	return 0
 }
