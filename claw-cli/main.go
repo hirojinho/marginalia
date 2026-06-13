@@ -1289,7 +1289,7 @@ func confidenceLog(args []string, stdout, stderr io.Writer, dbPath string) int {
 	fs := flag.NewFlagSet("confidence log", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	session := fs.Int64("session", 0, "session id (required)")
-	kc := fs.String("kc", "", "knowledge_component_id — the active plan task's id (required)")
+	kc := fs.String("kc", "", "knowledge_component_id — a real atom id, NOT a task id (required)")
 	value := fs.Float64("value", -1, "confidence value in [0.0, 1.0] (required)")
 	raw := fs.String("raw", "", "the user's verbatim reply (optional)")
 	dbOverride := fs.String("db", "", "path to study.db")

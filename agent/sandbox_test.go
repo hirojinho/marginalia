@@ -194,6 +194,32 @@ func TestWriteAgentsMDIncludesToolHonesty(t *testing.T) {
 	}
 }
 
+// TestWriteAgentsMDConceptLevelRules guards the ADR 0019 prompt edits: scoring
+// keys on an atom (not a task), atom capture is search-first, completion is an
+// atomicity gate, and the tutor must not read the next task before stopping.
+func TestWriteAgentsMDConceptLevelRules(t *testing.T) {
+	sm := NewSandboxManager(t.TempDir())
+	dir, err := sm.Create(9, "", "ddia", "eduardo", "study")
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	md := readAgentsMD(t, dir)
+	for _, want := range []string{
+		"(NEVER a task id)",                     // Rule 3 keys on the atom id
+		"knowledge search",                      // Rule 9 + knowledge section: search-before-create
+		"the atomicity gate",                    // Rule 9: completion model
+		"before the current one is marked done", // Rule 10: no next-task preview/extract
+		"Atomicity gate:",                       // steering note retired the mastery threshold
+	} {
+		if !strings.Contains(md, want) {
+			t.Errorf("AGENTS.md missing concept-level clause %q", want)
+		}
+	}
+	if strings.Contains(md, "Mastery gate:** `claw-cli plan toggle` will refuse with a \"mastery gate\"") {
+		t.Errorf("retired mastery-gate steering note still present")
+	}
+}
+
 func TestWriteAgentsMDIncludesPDFSection(t *testing.T) {
 	sm := NewSandboxManager(t.TempDir())
 	path, err := sm.Create(42, "", "", "", "study")
@@ -311,14 +337,17 @@ func TestWriteAgentsMDStudyKeepsPedagogy(t *testing.T) {
 	}
 }
 
-func TestAgentsMDMentionsMasteryGate(t *testing.T) {
+func TestAgentsMDMentionsAtomicityGate(t *testing.T) {
 	var sm SandboxManager
 	out := string(sm.studyTuningSections("ddia"))
-	if !strings.Contains(out, "mastery_threshold") {
-		t.Fatalf("steering key list must include mastery_threshold")
+	// ADR 0019: completion is gated on distilling an atom, not on a confidence
+	// threshold. The mastery_threshold setting still exists (harmless) but no
+	// longer gates completion, so the agent is told about the atomicity gate.
+	if !strings.Contains(out, "Atomicity gate:") {
+		t.Fatalf("must explain the plan-toggle atomicity gate to the agent")
 	}
-	if !strings.Contains(out, "mastery gate") {
-		t.Fatalf("must explain the plan-toggle mastery gate to the agent")
+	if strings.Contains(out, "refuse with a \"mastery gate\"") {
+		t.Fatalf("retired mastery-gate wording must be gone")
 	}
 }
 
