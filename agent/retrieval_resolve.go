@@ -58,3 +58,23 @@ func (a *App) BuildTaskTitleIndex() (map[string]TaskRef, error) {
 	}
 	return idx, nil
 }
+
+// ResolveAtomLabel returns an atom's title and its provenance course (via the
+// atom's source_task_id resolved through idx). ok=false if id is not an atom.
+func (a *App) ResolveAtomLabel(atomID string, idx map[string]TaskRef) (title, course string, ok bool) {
+	kc, err := a.GetKnowledgeComponent(atomID)
+	if err != nil || kc == nil {
+		return "", "", false
+	}
+	if ref, found := idx[kc.SourceTaskID]; found {
+		return kc.Title, ref.CourseID, true
+	}
+	return kc.Title, "", true
+}
+
+// IsAtom reports whether id is a real knowledge_components row. Used to reject a
+// --kc that is a plan task id, integer index, or invented string.
+func (a *App) IsAtom(id string) bool {
+	kc, err := a.GetKnowledgeComponent(id)
+	return err == nil && kc != nil
+}

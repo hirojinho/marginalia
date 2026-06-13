@@ -35,3 +35,29 @@ func TestBuildTaskTitleIndex(t *testing.T) {
 		t.Fatalf("repl-id (cluster) = %+v ok=%v", ref, ok)
 	}
 }
+
+func TestResolveAtomLabelAndIsAtom(t *testing.T) {
+	app := newMemoryApp(t)
+	writePlanRaw(t, app, "ddia", `{"id":"ddia","name":"DDIA","phases":[
+		{"title":"P3","tasks":[{"id":"wskew-task","title":"3.6 Write Skew"}]}]}`)
+	atomID, err := app.CreateKnowledgeComponent("Write skew breaks a cross-row invariant", "body", "wskew-task", 0)
+	if err != nil {
+		t.Fatalf("create atom: %v", err)
+	}
+	idx, _ := app.BuildTaskTitleIndex()
+
+	title, course, ok := app.ResolveAtomLabel(atomID, idx)
+	if !ok || title != "Write skew breaks a cross-row invariant" || course != "ddia" {
+		t.Fatalf("label = (%q,%q,%v)", title, course, ok)
+	}
+	// A plan task id is NOT a valid atom key.
+	if app.IsAtom("wskew-task") {
+		t.Fatalf("task id must not validate as an atom")
+	}
+	if !app.IsAtom(atomID) {
+		t.Fatalf("atom id must validate")
+	}
+	if app.IsAtom("22") {
+		t.Fatalf("legacy key must not validate")
+	}
+}
