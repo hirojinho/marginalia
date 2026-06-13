@@ -1475,7 +1475,8 @@ func runRetrieve(args []string, stdout, stderr io.Writer, dbPath string) int {
 func retrieveDue(args []string, stdout, stderr io.Writer, dbPath string) int {
 	fs := flag.NewFlagSet("retrieve due", flag.ContinueOnError)
 	fs.SetOutput(stderr)
-	limit := fs.Int("limit", 50, "max rows")
+	limit := fs.Int("limit", 50, "max items")
+	courseFilter := fs.String("course", "", "only atoms whose provenance course matches")
 	dbOverride := fs.String("db", "", "path to study.db")
 	if err := fs.Parse(args); err != nil {
 		return 2
@@ -1491,17 +1492,26 @@ func retrieveDue(args []string, stdout, stderr io.Writer, dbPath string) int {
 		return 1
 	}
 	defer func() { _ = app.Close() }()
+
+	idx, err := app.BuildTaskTitleIndex()
+	if err != nil {
+		idx = map[string]agent.TaskRef{}
+	}
 	items, err := app.GetDueRetrievalItems(time.Now().UnixMilli(), *limit)
 	if err != nil {
-		_, _ = fmt.Fprintf(stderr, "error: %v\n", err)
+		_, _ = fmt.Fprintln(stderr, err)
 		return 1
 	}
-	if len(items) == 0 {
-		_, _ = fmt.Fprintln(stdout, "No items due. REMINDER (Pedagogical Rule 6b): an empty queue does NOT license skipping the session-open recall — if any task in this course is already completed, you MUST still open with 2-3 targeted short-answer questions about the most recent completed task before any pre-read prediction.")
-		return 0
-	}
 	for _, item := range items {
-		_, _ = fmt.Fprintf(stdout, "%s\t%.2f\n", item.KnowledgeComponentID, item.LastConfidence)
+		title, course, ok := app.ResolveAtomLabel(item.KnowledgeComponentID, idx)
+		if *courseFilter != "" && course != *courseFilter {
+			continue
+		}
+		if !ok {
+			title = "(legacy non-atom key — will be dropped on rebuild)"
+		}
+		_, _ = fmt.Fprintf(stdout, "%s\t%.2f\t%s\t%s\n",
+			item.KnowledgeComponentID, item.LastConfidence, course, title)
 	}
 	return 0
 }
