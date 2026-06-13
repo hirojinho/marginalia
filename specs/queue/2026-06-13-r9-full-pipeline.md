@@ -21,6 +21,21 @@ The learner-facing experience stays in chat (no new UI components) — Pi asks t
 
 ---
 
+## Foundation dependency (ADR 0019 — READ FIRST)
+
+This spec builds on the atom-model foundation landed by ADR 0019 (now on `main`):
+**retrieval, confidence, and the completion gate all key on the Knowledge
+Component (atom) id, NEVER a plan task id.** Concretely, when implementing:
+
+- All probe persistence keys on `--kc <knowledge_component_id>` (a real
+  `knowledge_components.id`). Never a task id. `LogProbe`/`retrieval_probe`
+  already key on the atom — keep it that way.
+- Do NOT reintroduce any task-keyed confidence/mastery wording. Task completion
+  is governed by the **atomicity gate** (≥1 atom distilled), not a confidence
+  threshold — do not add or restore a mastery-threshold gate.
+- In-session free recall is *formative* (unscored); only atom retrieval is
+  scored and scheduled.
+
 ## Implementation plan
 
 ### Task 1 — `claw-cli probe` subcommand (`claw-cli/main.go`)
@@ -331,7 +346,7 @@ Replace the entire Rule 6 block (both the interleaving-on and interleaving-off v
 The new Rule 6 for the interleaving-on case:
 
 ```go
-rule6 := "6. **Session-open retrieval with practice-testing probes (MANDATORY).** Before answering anything else, run `claw-cli retrieve due`. **(a)** If items are due → for each due KC (at most 2):\n" +
+rule6 := "6. **Session-open retrieval with practice-testing probes (MANDATORY).** Before answering anything else, run `claw-cli retrieve due --course <active course>` to lead with THIS course's due atoms; if other courses also have due atoms, name them and OFFER to fold them in (do not front-load them — ADR 0019 active-course-first). **(a)** If items are due → for each due KC (at most 2):\n" +
     "  (i) Read the KC body: `claw-cli knowledge show <kc_id>`\n" +
     "  (ii) Check for an existing cached question: `claw-cli probe show --kc <kc_id>`. If it returns a cached question, use it — skip generation.\n" +
     "  (iii) If no cached question exists, generate a targeted short-answer question from the KC body. The question must ask for ONE specific concept, mechanism, or relationship — not \"recall everything about X.\" Store it: `claw-cli probe store --kc <kc_id> --question \"<question>\" --expected \"<kc body>\"` (the --expected is the KC body at generation time).\n" +
