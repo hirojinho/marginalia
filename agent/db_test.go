@@ -1202,3 +1202,21 @@ func TestGetProbeQuestionNone(t *testing.T) {
 		t.Errorf("question = %q, want empty", question)
 	}
 }
+
+func TestSearchKnowledgeComponents(t *testing.T) {
+	app := newMemoryApp(t)
+	_, _ = app.CreateKnowledgeComponent("Write skew cross-row invariant", "two txns, different rows", "", 0)
+	_, _ = app.CreateKnowledgeComponent("Leader-based replication trade-off", "sync vs async", "", 0)
+
+	hits, err := app.SearchKnowledgeComponents("skew", 10)
+	if err != nil {
+		t.Fatalf("search: %v", err)
+	}
+	if len(hits) != 1 || hits[0].Title != "Write skew cross-row invariant" {
+		t.Fatalf("hits = %+v", hits)
+	}
+	// Matches body too, case-insensitively.
+	if h, _ := app.SearchKnowledgeComponents("SYNC", 10); len(h) != 1 {
+		t.Fatalf("body match failed: %+v", h)
+	}
+}

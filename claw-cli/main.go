@@ -1340,7 +1340,7 @@ func parseSince(s string) (int64, error) {
 
 func runKnowledge(args []string, stdout, stderr io.Writer, dbPath string) int {
 	if len(args) < 1 {
-		_, _ = fmt.Fprintln(stderr, "usage: claw-cli knowledge <create|show|list> [args]")
+		_, _ = fmt.Fprintln(stderr, "usage: claw-cli knowledge <create|show|list|search> [args]")
 		return 2
 	}
 	switch args[0] {
@@ -1350,6 +1350,8 @@ func runKnowledge(args []string, stdout, stderr io.Writer, dbPath string) int {
 		return knowledgeShow(args[1:], stdout, stderr, dbPath)
 	case "list":
 		return knowledgeList(args[1:], stdout, stderr, dbPath)
+	case "search":
+		return knowledgeSearch(args[1:], stdout, stderr, dbPath)
 	default:
 		_, _ = fmt.Fprintf(stderr, "unknown knowledge subcommand: %q\n", args[0])
 		return 2
@@ -1454,6 +1456,41 @@ func knowledgeList(args []string, stdout, stderr io.Writer, dbPath string) int {
 	}
 	for _, c := range components {
 		_, _ = fmt.Fprintf(stdout, "%s\t%s\n", c.ID, c.Title)
+	}
+	return 0
+}
+
+func knowledgeSearch(args []string, stdout, stderr io.Writer, dbPath string) int {
+	fs := flag.NewFlagSet("knowledge search", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	limit := fs.Int("limit", 20, "max hits")
+	dbOverride := fs.String("db", "", "path to study.db")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	q := strings.Join(fs.Args(), " ")
+	if q == "" {
+		_, _ = fmt.Fprintln(stderr, "knowledge search: query required")
+		return 2
+	}
+	resolvedDB, err := resolveDBPath(*dbOverride, dbPath)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return 1
+	}
+	app, err := newAppFromEnv(resolvedDB, false)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return 1
+	}
+	defer func() { _ = app.Close() }()
+	hits, err := app.SearchKnowledgeComponents(q, *limit)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return 1
+	}
+	for _, kc := range hits {
+		_, _ = fmt.Fprintf(stdout, "%s\t%s\n", kc.ID, kc.Title)
 	}
 	return 0
 }

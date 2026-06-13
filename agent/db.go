@@ -1338,6 +1338,33 @@ func (a *App) ListKnowledgeComponents(limit int) ([]KnowledgeComponent, error) {
 	return components, rows.Err()
 }
 
+// SearchKnowledgeComponents returns atoms whose title or body contains q
+// (case-insensitive), most-recent first. Used for search-before-create dedup.
+func (a *App) SearchKnowledgeComponents(q string, limit int) ([]KnowledgeComponent, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+	like := "%" + strings.ToLower(q) + "%"
+	rows, err := a.DB.Query(
+		`SELECT id, title, body, COALESCE(source_task_id,''), COALESCE(source_session_id,0), created_at, updated_at
+		 FROM knowledge_components
+		 WHERE lower(title) LIKE ? OR lower(body) LIKE ?
+		 ORDER BY created_at DESC LIMIT ?`, like, like, limit)
+	if err != nil {
+		return nil, fmt.Errorf("search knowledge_components: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	var out []KnowledgeComponent
+	for rows.Next() {
+		var kc KnowledgeComponent
+		if err := rows.Scan(&kc.ID, &kc.Title, &kc.Body, &kc.SourceTaskID, &kc.SourceSessionID, &kc.CreatedAt, &kc.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("scan: %w", err)
+		}
+		out = append(out, kc)
+	}
+	return out, rows.Err()
+}
+
 // LogProbe stores a graded retrieval probe and updates the SM-2
 // retrieval_queue. learnerAnswer and sessionID may be zero/empty on
 // the first call (question generation only).
