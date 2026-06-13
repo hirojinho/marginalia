@@ -1504,16 +1504,45 @@ func knowledgeSearch(args []string, stdout, stderr io.Writer, dbPath string) int
 
 func runRetrieve(args []string, stdout, stderr io.Writer, dbPath string) int {
 	if len(args) < 1 {
-		_, _ = fmt.Fprintln(stderr, "usage: claw-cli retrieve <due> [args]")
+		_, _ = fmt.Fprintln(stderr, "usage: claw-cli retrieve <due|rebuild> [args]")
 		return 2
 	}
 	switch args[0] {
 	case "due":
 		return retrieveDue(args[1:], stdout, stderr, dbPath)
+	case "rebuild":
+		return retrieveRebuild(args[1:], stdout, stderr, dbPath)
 	default:
 		_, _ = fmt.Fprintf(stderr, "unknown retrieve subcommand: %q\n", args[0])
 		return 2
 	}
+}
+
+func retrieveRebuild(args []string, stdout, stderr io.Writer, dbPath string) int {
+	fs := flag.NewFlagSet("retrieve rebuild", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	dbOverride := fs.String("db", "", "path to study.db")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	resolvedDB, err := resolveDBPath(*dbOverride, dbPath)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return 1
+	}
+	app, err := newAppFromEnv(resolvedDB, false)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return 1
+	}
+	defer func() { _ = app.Close() }()
+	n, err := app.RebuildRetrievalQueue()
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return 1
+	}
+	_, _ = fmt.Fprintf(stdout, "rebuilt %d atom(s) into retrieval_queue\n", n)
+	return 0
 }
 
 func retrieveDue(args []string, stdout, stderr io.Writer, dbPath string) int {
