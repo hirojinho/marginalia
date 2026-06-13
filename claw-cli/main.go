@@ -443,12 +443,12 @@ func planStatus(args []string, stdout, stderr io.Writer, dbPath string) int {
 	for _, phase := range plan.Phases {
 		_, _ = fmt.Fprintf(stdout, "%s\n", phase.Title)
 		for _, t := range phase.Tasks {
-			_, _ = fmt.Fprintf(stdout, "  %s #%d %s\n", checkbox(t.Done), idx, summarizePlanTitle(t.Title))
+			_, _ = fmt.Fprintf(stdout, "  %s #%d%s %s\n", checkbox(t.Done), idx, bloomTag(t.BloomLevel), summarizePlanTitle(t.Title))
 			idx++
 		}
 		for _, c := range phase.Clusters {
 			for _, t := range c.Tasks {
-				_, _ = fmt.Fprintf(stdout, "  %s #%d %s\n", checkbox(t.Done), idx, summarizePlanTitle(t.Title))
+				_, _ = fmt.Fprintf(stdout, "  %s #%d%s %s\n", checkbox(t.Done), idx, bloomTag(t.BloomLevel), summarizePlanTitle(t.Title))
 				idx++
 			}
 		}
@@ -461,6 +461,15 @@ func checkbox(done bool) string {
 		return "[x]"
 	}
 	return "[ ]"
+}
+
+// bloomTag returns a " [level]" tag for plan status output, or "" if
+// BloomLevel is empty (older plans).
+func bloomTag(level string) string {
+	if level == "" {
+		return ""
+	}
+	return " [" + level + "]"
 }
 
 // summarizePlanTitle strips long "_Completed … Notes: …_" trailers from task
@@ -1488,7 +1497,7 @@ func retrieveDue(args []string, stdout, stderr io.Writer, dbPath string) int {
 		return 1
 	}
 	if len(items) == 0 {
-		_, _ = fmt.Fprintln(stdout, "No items due. REMINDER (Pedagogical Rule 6b): an empty queue does NOT license skipping the session-open recall — if any task in this course is already completed, you MUST still open with a scored free-recall of the most recent completed task before any pre-read prediction.")
+		_, _ = fmt.Fprintln(stdout, "No items due. REMINDER (Pedagogical Rule 6b): an empty queue does NOT license skipping the session-open recall — if any task in this course is already completed, you MUST still open with 2-3 targeted short-answer questions about the most recent completed task before any pre-read prediction.")
 		return 0
 	}
 	for _, item := range items {

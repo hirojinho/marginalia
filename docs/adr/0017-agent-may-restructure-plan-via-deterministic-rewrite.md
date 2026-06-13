@@ -80,7 +80,25 @@ one deterministic write.
   `id`. We rely on the AGENTS.md `id`-preservation norm rather than a hard guard;
   detachment is recoverable (Detached bucket), not data loss. A "warn/refuse if the
   rewrite would orphan a non-archived Session" guard is a possible future hardening,
-  not built now.
+  not built now. **— Amended 2026-06-07 (see below).**
+
+## Amendment — 2026-06-07: orphan guard built
+
+The "warn/refuse" hardening flagged above is now built. `ToolRewritePlan`, after
+`inheritOrGenerateIDs` and before `SavePlan`, queries the live Sessions for the course
+(`course_id = plan_id AND task_id IS NOT NULL AND archived = 0 AND hidden = 0`) and
+**refuses** the rewrite if any of their `task_id`s are absent from the new plan's id
+set — naming each detached task (`{title, old id}`) so the agent can re-add the `id`.
+
+The guard is **refuse-by-default with a `--force` escape hatch**, mirroring the mastery
+gate (`plan toggle --force`): the guard cannot distinguish an agent that fumbled an
+`id` from a learner who genuinely asked to delete the task, so a real deletion is
+expressed by re-running with `--force` (the success line then reports
+`N sessions detached by --force`). The slug-matching alternative from the ROADMAP was
+rejected: a title-derived slug is not stable across the rename it is meant to survive,
+and a separately-stored stable slug merely duplicates the `id` the agent already
+carries forward. The `id`-preservation norm remains the primary mechanism; the guard
+is the safety net for when it is dropped.
 - `rewrite` also *creates* a plan when none exists (it `MkdirAll`s the dir), so Plan
   Authoring can seed through the same command — no separate create path needed.
 - The change is a `claw-cli` subcommand plus an AGENTS.md block, so deploying it
