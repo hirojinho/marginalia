@@ -37,25 +37,33 @@ func (a *App) ToolUpdatePlan(args json.RawMessage) string {
 	}
 }
 
-// masteryGateRefusal returns a non-empty "refused: ..." message when completing
-// task must be blocked (no logged confidence ≥ the course's mastery_threshold),
-// or "" when the action is allowed. Empty-id tasks are ungateable (allowed).
-func (a *App) masteryGateRefusal(planID string, task *Task, action string, force bool) string {
+// taskRequiresAtom reports whether completing this task should require a
+// distilled atom. Only content-bearing Read tasks do; Watch/Reflect/Deploy
+// operate on existing atoms or introduce no new reading. (See ADR 0019.)
+func taskRequiresAtom(task *Task) bool {
+	return strings.Contains(strings.ToLower(task.Title), "read")
+}
+
+// atomicityGateRefusal returns a non-empty "refused: ..." message when a task
+// completion must be blocked because no atom has been distilled from it, or ""
+// when allowed. Replaces the retired confidence-threshold mastery gate (ADR
+// 0019): completion no longer depends on any confidence value.
+func (a *App) atomicityGateRefusal(planID string, task *Task, action string, force bool) string {
 	if force {
 		return ""
 	}
 	completing := action == "set_done" || (action == "toggle" && !task.Done)
-	if !completing || task.ID == "" {
+	if !completing || task.ID == "" || !taskRequiresAtom(task) {
 		return ""
 	}
-	s, _ := a.GetCourseSettings(planID) // defaults are safe on error (GetCourseSettings returns behavior-preserving defaults)
-	ok, err := a.HasConfidenceAtLeast(task.ID, s.MasteryThreshold)
+	has, err := a.HasAtomForTask(task.ID)
 	if err != nil {
 		return "" // never block on a read error
 	}
-	if !ok {
-		return fmt.Sprintf("refused: mastery gate — task %q has no logged confidence ≥ %.2f. Ask the learner to rate confidence and run `claw-cli confidence log`, or pass --force to override.",
-			task.Title, s.MasteryThreshold)
+	if !has {
+		return fmt.Sprintf("refused: atomicity gate — no Knowledge Component has been distilled "+
+			"from task %q. Ask the learner to state one atomic idea in their own words and capture "+
+			"it (`knowledge create`), or pass --force to override.", task.Title)
 	}
 	return ""
 }
@@ -126,7 +134,7 @@ func (a *App) applyToggle(plan *JSONPlan, action string, taskIndex int, force bo
 	for i := range plan.Phases {
 		for j := range plan.Phases[i].Tasks {
 			if count == taskIndex {
-				if refusal := a.masteryGateRefusal(plan.ID, &plan.Phases[i].Tasks[j], action, force); refusal != "" {
+				if refusal := a.atomicityGateRefusal(plan.ID, &plan.Phases[i].Tasks[j], action, force); refusal != "" {
 					return refusal
 				}
 				completing := action == "toggle" || action == "set_done"
@@ -163,7 +171,7 @@ func (a *App) applyToggleCluster(plan *JSONPlan, action string, taskIndex, phase
 	for j := range plan.Phases[phaseIdx].Clusters[clusterIdx].Tasks {
 		if *count == taskIndex {
 			task := &plan.Phases[phaseIdx].Clusters[clusterIdx].Tasks[j]
-			if refusal := a.masteryGateRefusal(plan.ID, task, action, force); refusal != "" {
+			if refusal := a.atomicityGateRefusal(plan.ID, task, action, force); refusal != "" {
 				return refusal, true, true
 			}
 			completing := action == "toggle" || action == "set_done"

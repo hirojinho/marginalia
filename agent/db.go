@@ -1338,6 +1338,19 @@ func (a *App) ListKnowledgeComponents(limit int) ([]KnowledgeComponent, error) {
 	return components, rows.Err()
 }
 
+// HasAtomForTask reports whether at least one knowledge_components row was
+// authored with this task as its provenance.
+func (a *App) HasAtomForTask(taskID string) (bool, error) {
+	var n int
+	err := a.DB.QueryRow(
+		"SELECT count(*) FROM knowledge_components WHERE source_task_id = ?", taskID,
+	).Scan(&n)
+	if err != nil {
+		return false, fmt.Errorf("count atoms for task: %w", err)
+	}
+	return n > 0, nil
+}
+
 // SearchKnowledgeComponents returns atoms whose title or body contains q
 // (case-insensitive), most-recent first. Used for search-before-create dedup.
 func (a *App) SearchKnowledgeComponents(q string, limit int) ([]KnowledgeComponent, error) {
