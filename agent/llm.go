@@ -239,3 +239,66 @@ func (c *LLMClient) GradeProbeAnswer(ctx context.Context, expectedAnswer, learne
 	}
 	return parseGradeResponse(result.Choices[0].Message.Content)
 }
+
+// GenerateProbeQuestion prompts an LLM to generate a targeted short-answer
+// practice-testing question from a Knowledge Component body. The question
+// probes ONE specific concept, mechanism, or relationship — not an open-ended
+// "recall everything" prompt. Returns the generated question text.
+func (c *LLMClient) GenerateProbeQuestion(ctx context.Context, kcBody string) (question string, err error) {
+	systemMsg := `You are generating ONE understanding-first practice-testing question from a knowledge component (ADR 0020). It must be answerable only by reasoning with the idea, not by reciting it: prefer "why does X hold / how does it differ from Y / when would you use it / what breaks if…", or ask the learner to give THEIR OWN example. NEVER ask "what is X", "list everything about X", or "what was the example in the material."
+
+Return ONLY the question text. Do not include the answer, commentary, numbering, or markdown formatting.`
+
+	msgs := []Message{
+		{Role: "system", Content: systemMsg},
+		{Role: "user", Content: "Knowledge component: " + kcBody},
+	}
+	body := map[string]interface{}{
+		"model":      c.Model,
+		"stream":     false,
+		"max_tokens": 256,
+	}
+	msgsI := make([]interface{}, 0, len(msgs))
+	for _, m := range msgs {
+		msgsI = append(msgsI, map[string]string{"role": m.Role, "content": m.Content})
+	}
+	body["messages"] = msgsI
+	payload, err := json.Marshal(body)
+	if err != nil {
+		return "", fmt.Errorf("marshal request: %w", err)
+	}
+	req, err := http.NewRequestWithContext(ctx, "POST", c.APIURL+"/chat/completions", bytes.NewReader(payload))
+	if err != nil {
+		return "", fmt.Errorf("build request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+c.APIKey)
+	httpClient := &http.Client{Timeout: 15 * time.Second}
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("do request: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		respBody, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("api status %d: %s", resp.StatusCode, string(respBody))
+	}
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("read response: %w", err)
+	}
+	var result struct {
+		Choices []struct {
+			Message struct {
+				Content string `json:"content"`
+			} `json:"message"`
+		} `json:"choices"`
+	}
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return "", fmt.Errorf("unmarshal response: %w", err)
+	}
+	if len(result.Choices) == 0 {
+		return "", fmt.Errorf("no response from LLM")
+	}
+	return strings.TrimSpace(result.Choices[0].Message.Content), nil
+}

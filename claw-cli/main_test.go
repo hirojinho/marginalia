@@ -1043,3 +1043,238 @@ func TestPlanToggleWithoutForceHitsGate(t *testing.T) {
 		t.Fatalf("expected gate refusal, stdout: %s", stdout.String())
 	}
 }
+
+// ── probe subcommand tests ─────────────────────────────────────────
+
+func createTestKC(t *testing.T, dbPath string) string {
+	t.Helper()
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"clawcli", "knowledge", "create",
+		"--title", "Test KC", "--body", "The answer is 42.",
+	}, &stdout, &stderr, dbPath)
+	if code != 0 {
+		t.Fatalf("knowledge create failed (exit %d): %s", code, stderr.String())
+	}
+	return strings.TrimSpace(stdout.String())
+}
+
+func TestProbeStore(t *testing.T) {
+	dbPath := newTempDB(t)
+	kcID := createTestKC(t, dbPath)
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"clawcli", "probe", "store",
+		"--kc", kcID, "--question", "What is the answer?", "--expected", "The answer is 42.",
+	}, &stdout, &stderr, dbPath)
+	if code != 0 {
+		t.Fatalf("exit %d, stderr: %s", code, stderr.String())
+	}
+	var resp struct {
+		ProbeID int64 `json:"probe_id"`
+	}
+	if err := json.Unmarshal([]byte(stdout.String()), &resp); err != nil {
+		t.Fatalf("json: %v (stdout=%s)", err, stdout.String())
+	}
+	if resp.ProbeID == 0 {
+		t.Fatal("expected non-zero probe_id")
+	}
+}
+
+func TestProbeStoreMissingFlags(t *testing.T) {
+	dbPath := newTempDB(t)
+	kcID := createTestKC(t, dbPath)
+
+	// Missing --kc
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"clawcli", "probe", "store",
+		"--question", "Q?", "--expected", "A",
+	}, &stdout, &stderr, dbPath)
+	if code != 2 {
+		t.Fatalf("--kc missing: exit %d", code)
+	}
+
+	// Missing --question
+	code = run([]string{"clawcli", "probe", "store",
+		"--kc", kcID, "--expected", "A",
+	}, &stdout, &stderr, dbPath)
+	if code != 2 {
+		t.Fatalf("--question missing: exit %d", code)
+	}
+
+	// Missing --expected
+	code = run([]string{"clawcli", "probe", "store",
+		"--kc", kcID, "--question", "Q?",
+	}, &stdout, &stderr, dbPath)
+	if code != 2 {
+		t.Fatalf("--expected missing: exit %d", code)
+	}
+}
+
+func TestProbeShowByKC(t *testing.T) {
+	dbPath := newTempDB(t)
+	kcID := createTestKC(t, dbPath)
+
+	// Store two questions for same KC
+	for _, q := range []string{"Q1?", "Q2?"} {
+		var stdout, stderr bytes.Buffer
+		code := run([]string{"clawcli", "probe", "store",
+			"--kc", kcID, "--question", q, "--expected", "A",
+		}, &stdout, &stderr, dbPath)
+		if code != 0 {
+			t.Fatalf("store %s: exit %d", q, code)
+		}
+	}
+
+	// Show by --kc should return the most recent (Q2?)
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"clawcli", "probe", "show", "--kc", kcID}, &stdout, &stderr, dbPath)
+	if code != 0 {
+		t.Fatalf("exit %d", code)
+	}
+	var resp struct {
+		Question string `json:"question"`
+	}
+	if err := json.Unmarshal([]byte(stdout.String()), &resp); err != nil {
+		t.Fatalf("json: %v", err)
+	}
+	if resp.Question != "Q2?" {
+		t.Fatalf("expected Q2?, got %q", resp.Question)
+	}
+}
+
+func TestProbeShowByKCNone(t *testing.T) {
+	dbPath := newTempDB(t)
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"clawcli", "probe", "show", "--kc", "nonexistent"}, &stdout, &stderr, dbPath)
+	if code != 0 {
+		t.Fatalf("exit %d, stderr: %s", code, stderr.String())
+	}
+	if strings.TrimSpace(stdout.String()) != "null" {
+		t.Fatalf("expected null, got %q", stdout.String())
+	}
+}
+
+func TestProbeShowByID(t *testing.T) {
+	dbPath := newTempDB(t)
+	kcID := createTestKC(t, dbPath)
+
+	// Store a probe
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"clawcli", "probe", "store",
+		"--kc", kcID, "--question", "What is the answer?", "--expected", "The answer is 42.",
+	}, &stdout, &stderr, dbPath)
+	if code != 0 {
+		t.Fatalf("store: exit %d", code)
+	}
+	var storeResp struct {
+		ProbeID int64 `json:"probe_id"`
+	}
+	if err := json.Unmarshal([]byte(stdout.String()), &storeResp); err != nil {
+		t.Fatalf("json: %v", err)
+	}
+
+	// Show by ID
+	stdout.Reset()
+	stderr.Reset()
+	code = run([]string{"clawcli", "probe", "show", strconv.FormatInt(storeResp.ProbeID, 10)},
+		&stdout, &stderr, dbPath)
+	if code != 0 {
+		t.Fatalf("exit %d, stderr: %s", code, stderr.String())
+	}
+	var showResp struct {
+		ProbeID        int64  `json:"probe_id"`
+		Question       string `json:"question"`
+		ExpectedAnswer string `json:"expected_answer"`
+	}
+	if err := json.Unmarshal([]byte(stdout.String()), &showResp); err != nil {
+		t.Fatalf("json: %v (stdout=%s)", err, stdout.String())
+	}
+	if showResp.Question != "What is the answer?" {
+		t.Fatalf("question: %q", showResp.Question)
+	}
+	if showResp.ExpectedAnswer != "The answer is 42." {
+		t.Fatalf("expected_answer: %q", showResp.ExpectedAnswer)
+	}
+}
+
+func TestProbeRecord(t *testing.T) {
+	dbPath := newTempDB(t)
+	kcID := createTestKC(t, dbPath)
+
+	// Store a question-only probe
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"clawcli", "probe", "store",
+		"--kc", kcID, "--question", "What is 6*7?", "--expected", "42",
+	}, &stdout, &stderr, dbPath)
+	if code != 0 {
+		t.Fatalf("store: exit %d", code)
+	}
+	var storeResp struct {
+		ProbeID int64 `json:"probe_id"`
+	}
+	if err := json.Unmarshal([]byte(stdout.String()), &storeResp); err != nil {
+		t.Fatalf("json: %v", err)
+	}
+
+	// Record graded answer
+	stdout.Reset()
+	stderr.Reset()
+	code = run([]string{"clawcli", "probe", "record",
+		"--probe-id", strconv.FormatInt(storeResp.ProbeID, 10),
+		"--answer", "It is 42", "--grade", "4",
+	}, &stdout, &stderr, dbPath)
+	if code != 0 {
+		t.Fatalf("record: exit %d, stderr: %s", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "recorded") {
+		t.Fatalf("expected recorded status, got: %s", stdout.String())
+	}
+}
+
+func TestProbeRecordInvalidGrade(t *testing.T) {
+	dbPath := newTempDB(t)
+	kcID := createTestKC(t, dbPath)
+
+	// Store a probe first
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"clawcli", "probe", "store",
+		"--kc", kcID, "--question", "Q?", "--expected", "A",
+	}, &stdout, &stderr, dbPath)
+	if code != 0 {
+		t.Fatalf("store: exit %d", code)
+	}
+
+	// grade 6 is out of range
+	stdout.Reset()
+	stderr.Reset()
+	code = run([]string{"clawcli", "probe", "record",
+		"--probe-id", "1", "--answer", "X", "--grade", "6",
+	}, &stdout, &stderr, dbPath)
+	if code != 2 {
+		t.Fatalf("grade 6: expected exit 2, got %d", code)
+	}
+
+	// grade -1 is out of range
+	stdout.Reset()
+	stderr.Reset()
+	code = run([]string{"clawcli", "probe", "record",
+		"--probe-id", "1", "--answer", "X", "--grade", "-1",
+	}, &stdout, &stderr, dbPath)
+	if code != 2 {
+		t.Fatalf("grade -1: expected exit 2, got %d", code)
+	}
+}
+
+func TestProbeRecordMissingProbe(t *testing.T) {
+	dbPath := newTempDB(t)
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"clawcli", "probe", "record",
+		"--probe-id", "99999", "--answer", "X", "--grade", "3",
+	}, &stdout, &stderr, dbPath)
+	if code != 1 {
+		t.Fatalf("expected exit 1, got %d", code)
+	}
+	if !strings.Contains(stderr.String(), "not found") {
+		t.Fatalf("expected 'not found' in stderr, got: %s", stderr.String())
+	}
+}
+

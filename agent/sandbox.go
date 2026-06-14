@@ -233,9 +233,28 @@ func (sm *SandboxManager) studyTuningSections(course string) []byte {
 	// Pedagogical rules go last so they sit closest to the user message in
 	// the assembled context — maximum LLM weight. Rules 6/9/10 reflect the
 	// course's Steering settings (ADR 0010/0016).
-	rule6 := "6. **Session-open — ONE light move, then read (MANDATORY but brief).** Before anything else, run `claw-cli retrieve due --course <active course>`. Pick exactly ONE opener; do NOT stack phases. **(a)** If a real atom is due → ask ONE *understanding-first* question on it — a why / how / when / what-breaks, or \"give me your own example\" — NEVER \"list everything about X,\" and NEVER \"what was the textbook's example.\" Score the gist silently (Rule 3), reply conversationally, at most ONE cue if he stalls, then move on. **(b)** If nothing is due (the normal case — SM-2 future-dates fresh atoms) → go straight to the Rule 7 pre-read prediction; the prediction IS your opener — do NOT also run a recall round. Never invent a completed task or claim he recalled anything without evidence. The opener is a warm-up, not a gate: one good question, then into the work. Frame it by the upcoming task's bloom_level (`claw-cli plan status`): understand → why/how; apply → when would you use it, give your own case; analyze/evaluate → trade-offs, where it breaks. Retrieval through reasoning, never recitation (Roediger & Karpicke 2006; Kornell et al. 2009; ADR 0020).\n"
+	rule6 := "6. **Session-open retrieval with practice-testing probes (MANDATORY).** Before answering anything else, run `claw-cli retrieve due --course <active course>` to lead with THIS course's due atoms; if other courses also have due atoms, name them and OFFER to fold them in (do not front-load them — ADR 0019 active-course-first). **(a)** If items are due → for each due KC (at most 2):\n" +
+		"  (i) Read the KC body: `claw-cli knowledge show <kc_id>`\n" +
+		"  (ii) Check for an existing cached question: `claw-cli probe show --kc <kc_id>`. If it returns a cached question, use it — skip generation.\n" +
+		"  (iii) If no cached question exists, generate ONE understanding-first question from the KC body (ADR 0020): a why/how/when/what-breaks, or \"give me your own example\" — NEVER \"what is X,\" \"list everything,\" or \"what was the example in the material.\" Store it: `claw-cli probe store --kc <kc_id> --question \"<question>\" --expected \"<kc body>\"` (the --expected is the KC body at generation time).\n" +
+		"  (iv) Present the question to Eduardo in chat. Ask for his answer.\n" +
+		"  (v) When he answers, grade his answer against the expected answer on the SM-2 0–5 scale:\n" +
+		"    - 0 = complete blackout — nothing correct or relevant\n" +
+		"    - 1 = wrong, but would recognize the correct answer when shown\n" +
+		"    - 2 = wrong, but the correct answer seems easy to recall (tip of the tongue)\n" +
+		"    - 3 = correct, but with serious difficulty or major gaps\n" +
+		"    - 4 = correct, after hesitation or minor gaps\n" +
+		"    - 5 = perfect, immediate recall — complete and precise\n" +
+		"  (vi) Record the probe: `claw-cli probe record --probe-id <id> --answer \"<his verbatim text>\" --grade <0-5>`\n" +
+		"  (vii) Respond CONVERSATIONALLY — do NOT announce the raw 0–5 number (it is recorded silently for scheduling; ADR 0020). Credit the idea in his own words (paraphrase = full credit). At most ONE cue if he is short, then move on:\n" +
+		"    - Low (0–2): one cue toward the gap; if still short, fill it in a sentence and move on.\n" +
+		"    - Mid (3–4): note the one specific gap conversationally.\n" +
+		"    - High (5): affirm briefly. Do not linger.\n" +
+		"  (viii) If multiple KCs are due, repeat from (i) for the next one.\n" +
+		"**(b)** If nothing is due BUT a task has been completed → you MUST still open with 2–3 targeted short-answer questions about the highest-priority concepts from the most recent completed task. Generate questions from your knowledge of the material; do NOT use the probe tools (probes are for KCs only). Score per the SM-2 rubric above; name at most 1–2 missed points. An empty queue is the normal case (SM-2 future-dates fresh items); it does NOT license skipping the recall. **(c)** ONLY if no task is completed at all (a brand-new course, or his very first task) do you skip to the Rule 7 pre-read prediction. Never invent or assume a completed task; never claim he has read, finished, or recalled anything without evidence — if unsure whether he has started, ask.\n\n" +
+		"Tailor question depth to the bloom_level of the upcoming task (visible in `claw-cli plan status`): remember/understand → key facts, definitions, mechanisms; apply → principles, formulas, procedures; analyze/evaluate → comparative frameworks, trade-offs, evaluation criteria (\"what are the trade-offs between X and Y?\" not \"what is X?\"); create → skip scored recall, the creation is the retrieval. If bloom_level is missing (older plans), default to understand-level. Non-negotiable; highest-evidence pedagogic move (Roediger & Karpicke 2006, testing effect; Endres et al. 2020, targeted short-answer preserves testing effect).\n"
 	if !settings.Interleaving {
-		rule6 += "_(Interleaving OFF for this course: keep the opener on THIS course's atoms; do not pull older or other-course tasks.)_\n"
+		rule6 += "_(Interleaving OFF for this course: keep the opener on THIS course's atoms; do not pull older or other-course tasks.\n"
 	}
 
 	// Pre-testing is folded into the Rule 7 pre-read prediction (a prediction IS

@@ -5,6 +5,7 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -13,6 +14,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -169,6 +171,8 @@ func runWithStdin(args []string, stdin io.Reader, stdout, stderr io.Writer, dbPa
 		return runKnowledge(args[2:], stdout, stderr, dbPath)
 	case "retrieve":
 		return runRetrieve(args[2:], stdout, stderr, dbPath)
+	case "probe":
+		return runProbe(args[2:], stdout, stderr, dbPath)
 	default:
 		_, _ = fmt.Fprintf(stderr, "unknown subcommand: %q\n", args[1])
 		return 2
@@ -1586,5 +1590,177 @@ func retrieveDue(args []string, stdout, stderr io.Writer, dbPath string) int {
 		_, _ = fmt.Fprintf(stdout, "%s\t%.2f\t%s\t%s\n",
 			item.KnowledgeComponentID, item.LastConfidence, course, title)
 	}
+	return 0
+}
+
+// ── probe subcommand ───────────────────────────────────────────────
+
+func runProbe(args []string, stdout, stderr io.Writer, dbPath string) int {
+	if len(args) < 1 {
+		_, _ = fmt.Fprintln(stderr, "usage: claw-cli probe <store|show|record> [args]")
+		return 2
+	}
+	switch args[0] {
+	case "store":
+		return runProbeStore(args[1:], stdout, stderr, dbPath)
+	case "show":
+		return runProbeShow(args[1:], stdout, stderr, dbPath)
+	case "record":
+		return runProbeRecord(args[1:], stdout, stderr, dbPath)
+	default:
+		_, _ = fmt.Fprintf(stderr, "unknown probe subcommand: %q\n", args[0])
+		return 2
+	}
+}
+
+func runProbeStore(args []string, stdout, stderr io.Writer, dbPath string) int {
+	fs := flag.NewFlagSet("probe store", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	kc := fs.String("kc", "", "knowledge_component_id")
+	question := fs.String("question", "", "the generated question")
+	expected := fs.String("expected", "", "expected answer (KC body at generation time)")
+	dbOverride := fs.String("db", "", "path to study.db")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	if *kc == "" || *question == "" || *expected == "" {
+		_, _ = fmt.Fprintln(stderr, "probe store: --kc, --question, and --expected are required")
+		return 2
+	}
+	resolvedDB, err := resolveDBPath(*dbOverride, dbPath)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return 1
+	}
+	app, err := newAppFromEnv(resolvedDB, false)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return 1
+	}
+	defer func() { _ = app.Close() }()
+	// sessionID 0: not anchored to a specific session (question generation happens
+	// before the learner answers — the answer may come in any session)
+	probeID, err := app.LogProbe(*kc, *question, *expected, "", 0, 0)
+	if err != nil {
+		_, _ = fmt.Fprintf(stderr, "error: %v\n", err)
+		return 1
+	}
+	_, _ = fmt.Fprintf(stdout, `{"probe_id":%d}`, probeID)
+	return 0
+}
+
+func runProbeShow(args []string, stdout, stderr io.Writer, dbPath string) int {
+	fs := flag.NewFlagSet("probe show", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	kc := fs.String("kc", "", "knowledge_component_id (returns most recent question)")
+	dbOverride := fs.String("db", "", "path to study.db")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	resolvedDB, err := resolveDBPath(*dbOverride, dbPath)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return 1
+	}
+	app, err := newAppFromEnv(resolvedDB, false)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return 1
+	}
+	defer func() { _ = app.Close() }()
+	if *kc != "" {
+		probeID, question, err := app.GetProbeQuestion(*kc)
+		if err != nil {
+			_, _ = fmt.Fprintf(stderr, "error: %v\n", err)
+			return 1
+		}
+		if probeID == 0 {
+			_, _ = fmt.Fprintln(stdout, "null")
+			return 0
+		}
+		_, _ = fmt.Fprintf(stdout, `{"probe_id":%d,"question":%q}`, probeID, question)
+		return 0
+	}
+	// Show single probe by ID (args after flag parsing)
+	positional := fs.Args()
+	if len(positional) == 0 {
+		_, _ = fmt.Fprintln(stderr, "probe show: provide a probe_id or --kc")
+		return 2
+	}
+	probeID, err := strconv.ParseInt(positional[0], 10, 64)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, "probe show: probe_id must be an integer")
+		return 2
+	}
+	// Query the probe row directly
+	var question, expected, learnerAnswer string
+	var grade sql.NullInt64
+	err = app.DB.QueryRow(
+		`SELECT question, expected_answer, learner_answer, grade FROM retrieval_probe WHERE id = ?`,
+		probeID,
+	).Scan(&question, &expected, &learnerAnswer, &grade)
+	if err == sql.ErrNoRows {
+		_, _ = fmt.Fprintln(stdout, "null")
+		return 0
+	}
+	if err != nil {
+		_, _ = fmt.Fprintf(stderr, "error: %v\n", err)
+		return 1
+	}
+	gradeVal := "null"
+	if grade.Valid {
+		gradeVal = strconv.Itoa(int(grade.Int64))
+	}
+	learnerOut := "null"
+	if learnerAnswer != "" {
+		learnerOut = fmt.Sprintf(%q, learnerAnswer)
+	}
+	_, _ = fmt.Fprintf(stdout, `{"probe_id":%d,"question":%q,"expected_answer":%q,"learner_answer":%s,"grade":%s}`,
+		probeID, question, expected, learnerOut, gradeVal)
+	return 0
+}
+
+func runProbeRecord(args []string, stdout, stderr io.Writer, dbPath string) int {
+	fs := flag.NewFlagSet("probe record", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	probeID := fs.Int64("probe-id", 0, "probe ID")
+	answer := fs.String("answer", "", "learner's verbatim answer")
+	grade := fs.Int("grade", -1, "SM-2 grade 0–5")
+	dbOverride := fs.String("db", "", "path to study.db")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	if *probeID == 0 || *answer == "" || *grade < 0 || *grade > 5 {
+		_, _ = fmt.Fprintln(stderr, "probe record: --probe-id (>0), --answer, and --grade (0–5) are required")
+		return 2
+	}
+	resolvedDB, err := resolveDBPath(*dbOverride, dbPath)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return 1
+	}
+	app, err := newAppFromEnv(resolvedDB, false)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return 1
+	}
+	defer func() { _ = app.Close() }()
+	// Read the existing probe row for kc_id, question, expected_answer
+	var kcID, question, expected string
+	err = app.DB.QueryRow(
+		`SELECT knowledge_component_id, question, expected_answer FROM retrieval_probe WHERE id = ?`,
+		*probeID,
+	).Scan(&kcID, &question, &expected)
+	if err != nil {
+		_, _ = fmt.Fprintf(stderr, "error: probe %d not found: %v\n", *probeID, err)
+		return 1
+	}
+	// LogProbe with answer and grade feeds SM-2
+	_, err = app.LogProbe(kcID, question, expected, *answer, *grade, 0)
+	if err != nil {
+		_, _ = fmt.Fprintf(stderr, "error: %v\n", err)
+		return 1
+	}
+	_, _ = fmt.Fprintln(stdout, `{"status":"recorded"}`)
 	return 0
 }
