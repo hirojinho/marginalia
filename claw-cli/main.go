@@ -1693,7 +1693,8 @@ func runProbeShow(args []string, stdout, stderr io.Writer, dbPath string) int {
 		return 2
 	}
 	// Query the probe row directly
-	var question, expected, learnerAnswer string
+	var question, expected string
+	var learnerAnswer sql.NullString
 	var grade sql.NullInt64
 	err = app.DB.QueryRow(
 		`SELECT question, expected_answer, learner_answer, grade FROM retrieval_probe WHERE id = ?`,
@@ -1712,8 +1713,8 @@ func runProbeShow(args []string, stdout, stderr io.Writer, dbPath string) int {
 		gradeVal = strconv.Itoa(int(grade.Int64))
 	}
 	learnerOut := "null"
-	if learnerAnswer != "" {
-		learnerOut = fmt.Sprintf(%q, learnerAnswer)
+	if learnerAnswer.Valid {
+		learnerOut = fmt.Sprintf("%q", learnerAnswer.String)
 	}
 	_, _ = fmt.Fprintf(stdout, `{"probe_id":%d,"question":%q,"expected_answer":%q,"learner_answer":%s,"grade":%s}`,
 		probeID, question, expected, learnerOut, gradeVal)

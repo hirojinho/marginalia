@@ -1445,11 +1445,15 @@ func (a *App) SearchKnowledgeComponents(q string, limit int) ([]KnowledgeCompone
 func (a *App) LogProbe(knowledgeComponentID, question, expectedAnswer, learnerAnswer string, grade int, sessionID int64) (probeID int64, err error) {
 	now := time.Now().UnixMilli()
 	if learnerAnswer != "" {
+		var sessID interface{} = nil
+		if sessionID > 0 {
+			sessID = sessionID
+		}
 		res, err := a.DB.Exec(
 			`INSERT INTO retrieval_probe
 			 (knowledge_component_id, question, expected_answer, learner_answer, grade, graded_at, created_at, session_id)
 			 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-			knowledgeComponentID, question, expectedAnswer, learnerAnswer, grade, now, now, sessionID,
+			knowledgeComponentID, question, expectedAnswer, learnerAnswer, grade, now, now, sessID,
 		)
 		if err != nil {
 			return 0, fmt.Errorf("insert retrieval_probe (graded): %w", err)
