@@ -19,3 +19,8 @@ node_modules/
 
 # Build artifacts for VPS deploy
 /bin/
+
+# editor/agent backup cruft
+*.bak
+*.bak[0-9]
+*.orig

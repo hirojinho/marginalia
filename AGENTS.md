@@ -17,5 +17,13 @@ obeys the spec + the `implement-from-spec` skill only.)
 - **Every spec needs a `## Verification recipe` whose `### Pre-baseline` genuinely
   FAILS on current main.** That failing check is the contract with the executor;
   a spec without it is broken.
+- **Pre-baseline verifiers must use the form `if grep -q PATTERN FILE; then echo
+  UNEXPECTED; exit 0; fi` ending with `exit 1` — NEVER `! grep -q` (it inverts
+  the exit code, so the gate reads the spec as already-satisfied and aborts with
+  exit 10).**
+- **When a spec changes behavior that an ADR or a guard test protects: cite the
+  ADR it honors or amends, reconcile MEANING (not just terminology) against that
+  ADR, and update or explicitly retire the guard test IN THE SAME SPEC.** A spec
+  that breaks a guard test it never mentions is the drift failure mode.
 - **Pick the cost tier in frontmatter:** `model: deepseek-v4-flash` default;
   `deepseek-v4-pro` / `thinking: high` only when a ticket needs frontier reasoning.

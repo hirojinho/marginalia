@@ -99,7 +99,7 @@ After implementation, run `git diff --numstat origin/main..HEAD` and sum the add
 
 ### 6. Commit and emit the handoff
 
-Stage every modified or added file and commit:
+Stage ONLY the files named in the plan by explicit path and commit. Never run `git add -A` or `git add .`, and never stage `*.bak`, `*.orig`, or build artifacts.
 
 ```
 git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho \
@@ -127,6 +127,7 @@ Write `$RESULT_DIR/pi-done.json` with this exact shape:
 - **Never touch `~/stack/study-app/`.** That is the deploy clone; only the orchestrator's `deploy-swap.sh` writes there.
 - **Never invoke `agent-browser`.** It is a gate verifier, not an exploration tool. If your only way to understand a UI is to drive it, the spec is underspecified — exit 3.
 - **Never use `claw-cli web search`** unless the spec has `allow_web_search: true`. Default is no web; the spec is supposed to bake research in.
+- **Never `git add -A` / `git add .`** — stage only the plan's named files; never commit `*.bak` / `*.orig`.
 - **Never edit the spec file.** It is the contract; the orchestrator manages its lifecycle (queue → in-progress → done/failed).
 - **Never run `go test`, `go build`, or any verifier script yourself.** Those are the gate's job. Your scope ends at `git commit`.
 
