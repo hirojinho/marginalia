@@ -24,3 +24,7 @@ node_modules/
 *.bak
 *.bak[0-9]
 *.orig
+
+# postmortem: keep curated .md, drop bulky transcripts + intermediates
+docs/postmortem/*/raw/
+docs/postmortem/*/evidence-*.txt
