@@ -1278,3 +1278,86 @@ func TestProbeRecordMissingProbe(t *testing.T) {
 	}
 }
 
+// TestKnowledgeCreateRejectsFlagShapedSourceTaskID guards the omitted-value
+// footgun: a flag-shaped --source-task-id (the next flag swallowed as its
+// value) must exit 2 rather than minting an atom with a bogus task id.
+func TestKnowledgeCreateRejectsFlagShapedSourceTaskID(t *testing.T) {
+	dbPath := newTempDB(t)
+	var stdout, stderr bytes.Buffer
+	code := run([]string{
+		"clawcli", "knowledge", "create",
+		"--title", "Atom title",
+		"--body", "his words",
+		"--source-task-id", "--source-session-id",
+		"--db", dbPath,
+	}, &stdout, &stderr, "")
+	if code != 2 {
+		t.Fatalf("exit %d, want 2 (flag-shaped --source-task-id); stderr: %s", code, stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "source-task-id") {
+		t.Fatalf("expected source-task-id error, got: %s", stderr.String())
+	}
+}
+
+func writeActivePlan(t *testing.T, planJSON string) (vault, course string) {
+	t.Helper()
+	vault = t.TempDir()
+	plansDir := filepath.Join(vault, "data", "plans")
+	if err := os.MkdirAll(plansDir, 0755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	var p struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal([]byte(planJSON), &p); err != nil {
+		t.Fatalf("parse plan json: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(plansDir, p.ID+".json"), []byte(planJSON), 0644); err != nil {
+		t.Fatalf("write plan: %v", err)
+	}
+	return vault, p.ID
+}
+
+// TestPlanActiveReturnsFirstNotDoneTask checks that `plan active` prints the
+// first not-done task as "id<TAB>title", skipping done tasks and walking into
+// clusters.
+func TestPlanActiveReturnsFirstNotDoneTask(t *testing.T) {
+	dbPath := newTempDB(t)
+	planJSON := `{"id":"active-course","name":"Active","phases":[{"title":"P1","tasks":[` +
+		`{"id":"done-1","title":"Already done","done":true}],` +
+		`"clusters":[{"title":"C1","tasks":[` +
+		`{"id":"t-live","title":"Read: the live task","done":false},` +
+		`{"id":"t-later","title":"Later","done":false}]}]}]}`
+	vault, course := writeActivePlan(t, planJSON)
+	t.Setenv("VAULT_ROOT", vault)
+
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"clawcli", "plan", "active", "--course", course, "--db", dbPath}, &stdout, &stderr, "")
+	if code != 0 {
+		t.Fatalf("exit %d, stderr: %s", code, stderr.String())
+	}
+	want := "t-live\tRead: the live task\n"
+	if stdout.String() != want {
+		t.Fatalf("plan active output = %q, want %q", stdout.String(), want)
+	}
+}
+
+// TestPlanActiveAllDonePrintsNothing checks that an all-done plan returns 0
+// with no stdout.
+func TestPlanActiveAllDonePrintsNothing(t *testing.T) {
+	dbPath := newTempDB(t)
+	planJSON := `{"id":"done-course","name":"Done","phases":[{"title":"P1","tasks":[` +
+		`{"id":"d-1","title":"One","done":true},` +
+		`{"id":"d-2","title":"Two","done":true}]}]}`
+	vault, course := writeActivePlan(t, planJSON)
+	t.Setenv("VAULT_ROOT", vault)
+
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"clawcli", "plan", "active", "--course", course, "--db", dbPath}, &stdout, &stderr, "")
+	if code != 0 {
+		t.Fatalf("exit %d, stderr: %s", code, stderr.String())
+	}
+	if stdout.String() != "" {
+		t.Fatalf("expected empty stdout for all-done plan, got %q", stdout.String())
+	}
+}

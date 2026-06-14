@@ -393,3 +393,27 @@ func TestRule6OneLightOpener(t *testing.T) {
 		t.Fatalf("retired forced-recall-on-empty-queue wording still present")
 	}
 }
+
+// TestBoundaryRecallIsUnderstandingFirst guards the ADR-0020-era polish: the
+// per-chunk boundary recall is ONE understanding-first question, not a
+// "full recall scored per Rule 3" list-everything dump.
+func TestBoundaryRecallIsUnderstandingFirst(t *testing.T) {
+	var sm SandboxManager
+	out := string(sm.studyTuningSections("ddia"))
+	// The retired "list everything" boundary-recall wording must be gone.
+	if strings.Contains(out, "ending with a full recall scored per Rule 3") {
+		t.Fatalf("boundary recall must no longer be a full list-everything recall")
+	}
+	// The boundary recall must now be one understanding-first question.
+	if !strings.Contains(out, "the boundary recall is ONE understanding-first question") {
+		t.Fatalf("boundary recall must be ONE understanding-first question")
+	}
+	// The one-cue cap must cover boundary recalls, not just the opener.
+	if !strings.Contains(out, "At the session opener AND at each boundary recall, cap this at ONE cue") {
+		t.Fatalf("one-cue cap must extend to boundary recalls (Rule 11)")
+	}
+	// The capture rule must tell the agent to fetch the task id first.
+	if !strings.Contains(out, "claw-cli plan active --course") {
+		t.Fatalf("capture rule must instruct getting the active task id via `plan active`")
+	}
+}

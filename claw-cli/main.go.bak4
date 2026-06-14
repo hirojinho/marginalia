@@ -392,7 +392,7 @@ func runRag(args []string, stdout, stderr io.Writer, dbPath string) int {
 
 func runPlan(args []string, stdout, stderr io.Writer, dbPath string) int {
 	if len(args) < 1 {
-		_, _ = fmt.Fprintln(stderr, "usage: claw-cli plan <show|status|active|toggle|rewrite> [args]")
+		_, _ = fmt.Fprintln(stderr, "usage: claw-cli plan <show|status|toggle|rewrite> [args]")
 		return 2
 	}
 	switch args[0] {
@@ -400,8 +400,6 @@ func runPlan(args []string, stdout, stderr io.Writer, dbPath string) int {
 		return planShow(args[1:], stdout, stderr, dbPath)
 	case "status":
 		return planStatus(args[1:], stdout, stderr, dbPath)
-	case "active":
-		return planActive(args[1:], stdout, stderr, dbPath)
 	case "toggle":
 		return planToggle(args[1:], stdout, stderr, dbPath)
 	case "rewrite":
@@ -459,58 +457,6 @@ func planStatus(args []string, stdout, stderr io.Writer, dbPath string) int {
 			}
 		}
 	}
-	return 0
-}
-
-// planActive prints the first not-done task as "id<TAB>title" so the agent
-// can pass it to `knowledge create --source-task-id`. It walks the plan in
-// order, checking both phase-level tasks and cluster tasks. If all tasks are
-// done it prints nothing and returns 0.
-func planActive(args []string, stdout, stderr io.Writer, dbPath string) int {
-	fs := flag.NewFlagSet("plan active", flag.ContinueOnError)
-	fs.SetOutput(stderr)
-	course := fs.String("course", "", "course id (required)")
-	dbOverride := fs.String("db", "", "path to study.db")
-	if err := fs.Parse(args); err != nil {
-		return 2
-	}
-	if *course == "" {
-		_, _ = fmt.Fprintln(stderr, "plan active: --course is required")
-		return 2
-	}
-	resolvedDB, err := resolveDBPath(*dbOverride, dbPath)
-	if err != nil {
-		_, _ = fmt.Fprintln(stderr, err)
-		return 1
-	}
-	app, err := newAppFromEnv(resolvedDB, false)
-	if err != nil {
-		_, _ = fmt.Fprintln(stderr, err)
-		return 1
-	}
-	defer func() { _ = app.Close() }()
-	plan := app.LoadPlan(*course)
-	if plan == nil {
-		_, _ = fmt.Fprintf(stderr, "plan not found for course %q\n", *course)
-		return 1
-	}
-	for _, phase := range plan.Phases {
-		for _, t := range phase.Tasks {
-			if !t.Done {
-				_, _ = fmt.Fprintf(stdout, "%s\t%s\n", t.ID, t.Title)
-				return 0
-			}
-		}
-		for _, c := range phase.Clusters {
-			for _, t := range c.Tasks {
-				if !t.Done {
-					_, _ = fmt.Fprintf(stdout, "%s\t%s\n", t.ID, t.Title)
-					return 0
-				}
-			}
-		}
-	}
-	// All tasks done: print nothing, success.
 	return 0
 }
 
@@ -1439,10 +1385,6 @@ func knowledgeCreate(args []string, stdout, stderr io.Writer, dbPath string) int
 		_, _ = fmt.Fprintln(stderr, "--title and --body are required")
 		return 2
 	}
-	if strings.HasPrefix(*sourceTaskID, "--") {
-		_, _ = fmt.Fprintf(stderr, "knowledge create: --source-task-id got %q, which looks like a flag — you likely omitted its value. Get the task id from `claw-cli plan active --course <id>`.\n", *sourceTaskID)
-		return 2
-	}
 	resolvedDB, err := resolveDBPath(*dbOverride, dbPath)
 	if err != nil {
 		_, _ = fmt.Fprintln(stderr, err)
@@ -1751,8 +1693,7 @@ func runProbeShow(args []string, stdout, stderr io.Writer, dbPath string) int {
 		return 2
 	}
 	// Query the probe row directly
-	var question, expected string
-	var learnerAnswer sql.NullString
+	var question, expected, learnerAnswer string
 	var grade sql.NullInt64
 	err = app.DB.QueryRow(
 		`SELECT question, expected_answer, learner_answer, grade FROM retrieval_probe WHERE id = ?`,
