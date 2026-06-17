@@ -133,6 +133,39 @@ func TestHandlePlanToggleSuccess(t *testing.T) {
 	}
 }
 
+func TestHandlePlanInterleaveInline(t *testing.T) {
+	h := newTestHandler(t)
+	planJSON := `{"plan":{"id":"test","name":"test","phases":[{"title":"P1","tasks":[{"id":"t1","title":"A"},{"id":"t2","title":"B"},{"id":"t3","title":"C"},{"id":"t4","title":"D"},{"id":"t5","title":"E"},{"id":"t6","title":"F"}]}]},"cadence":3}`
+	req := httptest.NewRequest(http.MethodPost, "/api/plan/interleave", strings.NewReader(planJSON))
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+	h.handlePlanInterleave(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body=%s", rr.Code, rr.Body.String())
+	}
+
+	var body struct {
+		Inserted int             `json:"inserted"`
+		Plan     agent.JSONPlan  `json:"plan"`
+	}
+	if err := json.NewDecoder(rr.Body).Decode(&body); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if body.Inserted != 2 {
+		t.Fatalf("expected inserted=2, got %d", body.Inserted)
+	}
+	revisitCount := 0
+	for _, tsk := range body.Plan.Phases[0].Tasks {
+		if tsk.Kind == "revisit" {
+			revisitCount++
+		}
+	}
+	if revisitCount != 2 {
+		t.Fatalf("expected 2 revisit tasks, got %d", revisitCount)
+	}
+}
+
 func TestHandlePlanToggleRecordsPlanToggleEvent(t *testing.T) {
 	h := newTestHandler(t)
 	writePlan(t, h, &agent.JSONPlan{

@@ -47,6 +47,7 @@ type Task struct {
 	Priority   string `json:"priority,omitempty"`
 	Notes      string `json:"notes,omitempty"`
 	BloomLevel string `json:"bloom_level,omitempty"`
+	Kind       string `json:"kind,omitempty"` // "" = normal new-content task; "revisit" = interleaved spaced-retrieval task
 }
 
 type PlanSession struct {

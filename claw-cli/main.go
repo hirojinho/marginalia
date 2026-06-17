@@ -392,7 +392,7 @@ func runRag(args []string, stdout, stderr io.Writer, dbPath string) int {
 
 func runPlan(args []string, stdout, stderr io.Writer, dbPath string) int {
 	if len(args) < 1 {
-		_, _ = fmt.Fprintln(stderr, "usage: claw-cli plan <show|status|active|toggle|rewrite> [args]")
+		_, _ = fmt.Fprintln(stderr, "usage: claw-cli plan <show|status|active|toggle|rewrite|interleave> [args]")
 		return 2
 	}
 	switch args[0] {
@@ -406,6 +406,8 @@ func runPlan(args []string, stdout, stderr io.Writer, dbPath string) int {
 		return planToggle(args[1:], stdout, stderr, dbPath)
 	case "rewrite":
 		return planRewrite(args[1:], stdout, stderr, dbPath)
+	case "interleave":
+		return planInterleave(args[1:], stdout, stderr, dbPath)
 	default:
 		_, _ = fmt.Fprintf(stderr, "unknown plan subcommand: %q\n", args[0])
 		return 2
@@ -612,6 +614,39 @@ func planToggle(args []string, stdout, stderr io.Writer, dbPath string) int {
 		"force":      *force,
 	})
 	_, _ = fmt.Fprintln(stdout, app.ToolUpdatePlan(argsJSON))
+	return 0
+}
+
+func planInterleave(args []string, stdout, stderr io.Writer, dbPath string) int {
+	fs := flag.NewFlagSet("plan interleave", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	course := fs.String("course", "", "course id / plan id (required)")
+	cadence := fs.Int("cadence", 4, "insert a revisit task after every N new-content tasks")
+	dbOverride := fs.String("db", "", "path to study.db")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	if *course == "" {
+		_, _ = fmt.Fprintln(stderr, "plan interleave: --course is required")
+		return 2
+	}
+	resolvedDB, err := resolveDBPath(*dbOverride, dbPath)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return 1
+	}
+	app, err := newAppFromEnv(resolvedDB, false)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return 1
+	}
+	defer func() { _ = app.Close() }()
+	_, inserted, err := app.InterleavePlan(*course, *cadence)
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		return 1
+	}
+	_, _ = fmt.Fprintf(stdout, "interleaved plan %q: inserted %d revisit task(s) at cadence %d\n", *course, inserted, *cadence)
 	return 0
 }
 

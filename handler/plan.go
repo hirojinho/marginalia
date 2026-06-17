@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/json"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -91,6 +92,39 @@ func (h *Handler) handlePlanToggle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, p)
+}
+
+func (h *Handler) handlePlanInterleave(w http.ResponseWriter, r *http.Request) {
+	if methodNotAllowed(w, r, http.MethodPost) {
+		return
+	}
+	var body struct {
+		Plan     *agent.JSONPlan `json:"plan"`
+		CourseID string          `json:"course_id"`
+		Cadence  int             `json:"cadence"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid JSON body")
+		return
+	}
+	cadence := body.Cadence
+	if cadence < 1 {
+		cadence = 4
+	}
+	switch {
+	case body.Plan != nil:
+		inserted := agent.InterleaveRevisitTasks(body.Plan, cadence)
+		writeJSON(w, http.StatusOK, map[string]any{"inserted": inserted, "plan": body.Plan})
+	case body.CourseID != "":
+		plan, inserted, err := h.App.InterleavePlan(body.CourseID, cadence)
+		if err != nil {
+			writeError(w, http.StatusNotFound, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"inserted": inserted, "plan": plan})
+	default:
+		writeError(w, http.StatusBadRequest, "one of plan or course_id is required")
+	}
 }
 
 // toggleTaskAt flips the Done flag of the task at the given linear

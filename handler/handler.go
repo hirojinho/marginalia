@@ -51,6 +51,7 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("/api/sessions/for-task", h.handleSessionForTask)
 	mux.HandleFunc("/api/plan", h.handlePlan)
 	mux.HandleFunc("/api/plan/toggle", h.handlePlanToggle)
+	mux.HandleFunc("/api/plan/interleave", h.handlePlanInterleave)
 	mux.HandleFunc("/api/courses", h.handleCourses)
 	mux.HandleFunc("/api/courses/settings", h.handleCourseSettings)
 	mux.HandleFunc("/api/knowledge", h.handleKnowledge)
