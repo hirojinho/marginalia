@@ -2,12 +2,60 @@
 
 > From Fragile Prototype to Reliable Personal Tool
 > Created: May 8, 2026
+> Status updated: June 17, 2026 — **somewhat stable** (was *architecturally fragile*)
+
+## Status — 2026-06-17 (architectural review)
+
+The app has moved from **architecturally fragile** to **somewhat stable**. The
+bulk of this plan shipped; the app no longer loses data silently, no longer dies
+ungracefully, and is no longer one giant file front and back. Reassessed against
+the live code in an architectural-stability review on this date.
+
+**Shipped (verified in code):**
+- *Phase 0* — `ReadTimeout`/`WriteTimeout`/`IdleTimeout` set; SIGTERM/SIGINT
+  graceful shutdown with a 15s drain; 50MB PDF cap; 4000-char message cap.
+- *Phase 1* — structured JSON error responses (`writeError`); input validation;
+  `context.Context` cancellation through to the LLM/agent; `errcheck` now in the
+  linter so unhandled DB errors are caught at commit time, not runtime.
+- *Phase 2* — globals collapsed into the `agent.App` struct; `ActiveSessionID`
+  is an `atomic.Int64`; the full SQLite pragma set (WAL, `busy_timeout`,
+  `foreign_keys`, `synchronous=NORMAL`, cache) is applied on open. *(The
+  service/repository layer (2.3/2.4) was deliberately **rejected** — see
+  [ADR 0002](../docs/adr/0002-no-service-repository-layer.md). Numbered migrations
+  (2.6) remain open — tracked in ROADMAP "Next".)*
+- *Phase 3* — `go test` suites exist (handlers + pure functions); `golangci-lint`
+  v2 config (`errcheck`, `govet`, `staticcheck`, `gocyclo`, `gochecknoglobals`,
+  `forbidigo`, …) enforced by a `scripts/git-hooks/pre-commit` hook that lints
+  staged files `--new-from-rev HEAD`.
+- *Phase 4* — the 2,160-line `index.html` is now ~13 vanilla-JS modules (largest
+  `pdf.js` ≈730 lines); retry-with-backoff (`apiFetch.js`); error banner;
+  `data-action` event delegation.
+
+**Why "somewhat stable" and not "stable" — residual structural debt:**
+1. **`agent/db.go` is a 1,503-line monolith** — the one piece of the Phase-2
+   restructuring never done. It's explicitly excluded from `gocyclo` in
+   `.golangci.yml`, i.e. the guardrails were told to ignore it. → ROADMAP "Next".
+2. **No file/function-size guardrail** — nothing stopped `db.go` from growing and
+   nothing stops the next one. `funlen` is not enabled and there's no file-length
+   check. → ROADMAP "Next".
+3. **No numbered migration system** — migrations are still inline + string-matched
+   on SQLite error text (Phase 2.6, already in ROADMAP "Next").
+4. **Plan state is dual-sourced** — plans live as JSON files, everything else in
+   SQLite, with no transaction spanning the two and the JSON authoritative on
+   restart; multi-step writes aren't wrapped in explicit transactions. (Newly
+   surfaced 2026-06-17; not yet a roadmap item — flag if it bites.)
+5. **No resource ceiling on the pi subprocess** (memory/CPU/disk/FD) beyond the
+   10-min turn timeout; three independently-deployed binaries with no version
+   pinning; hand-synced frontend↔backend contract. (Newly surfaced 2026-06-17.)
+
+**Recommendation:** Stay with Go, but restructure. A rewrite would take 40-60 hours; fixing it takes 25-35.
 
 ## Executive Summary
 
 The study app is functionally usable but architecturally fragile. This plan identifies 28 specific issues and prescribes a phased remediation strategy. Goal: confidence to add features without breaking existing functionality.
 
-**Recommendation:** Stay with Go, but restructure. A rewrite would take 40-60 hours; fixing it takes 25-35.
+> Historical note: this section is the original May-8 assessment; see the
+> 2026-06-17 status block above for the current standing.
 
 ## Current State
 
