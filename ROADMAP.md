@@ -38,7 +38,6 @@ The encoding front-half (Rules 1–8) and the retrieval back-half core — KC ar
   - **Per-concept visual dashboard.** Read-side learning-curve view over confidence + retrieval history. Tracked as the *R-Later — Pedagogy dashboard* item under Later.
 - **R5 — Worked-example → completion pairs.** For technical content with computation (ETA probability, FTA cut-sets, risk matrices), define a new task type: `worked-example` (study) → `completion` (fill blanked steps). Pi grades against a rubric prompt. Sweller & Cooper (1985); Renkl (2014, *example-based learning*). Bigger lift — needs a new task kind, completion-grading rubric, and frontend rendering.
 - **R7 — Interest-log activation (full version).** Today shipped a lightweight prompt-only surfacing rule (Rule 6 / Q6). Full version: time-based queue (`interests` table with `surfaced_at`, `closed`, `pursued`), weekly resurfacing of oldest entries with explicit close-or-pursue action, decay if ignored. Berlyne (1960, curiosity as the engine of self-directed learning).
-- **R8 — Bloom-level enforcement at phase boundaries.** Spec'd 2026-06-08 (see `specs/queue/2026-06-08-bloom-enforcement.md`). Adds `bloom_level` field to Task + phase-completion gate requiring analyze/evaluate/create coverage. Waiting for overnight pipeline pickup.
 
 ### Practice-testing gap (grill-with-docs, 2026-06-02)
 
