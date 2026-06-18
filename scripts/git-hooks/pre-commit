@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+# Pre-commit hook for marginalia.
+# Lints ONLY the files staged in this commit, not the whole repo.
+# Existing repo-wide debt is tracked separately and does not block new commits.
+set -e
+
+ROOT="$(git rev-parse --show-toplevel)"
+cd "$ROOT"
+
+STAGED_GO=$(git diff --cached --name-only --diff-filter=ACMR | grep '\.go$' || true)
+STAGED_JS=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '\.(js|html|css)$' | grep -v '\.min\.' || true)
+STAGED_SPECS=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '^specs/queue/.*\.md$' || true)
+
+if [ -n "$STAGED_SPECS" ]; then
+  echo "==> lint-specs.sh (staged queue specs)"
+  if ! "$ROOT/scripts/lint-specs.sh" $STAGED_SPECS; then
+    echo "FAIL: fix spec schema violations (see specs/README.md for the contract)"
+    exit 1
+  fi
+fi
+
+if [ -n "$STAGED_GO" ]; then
+  echo "==> gofmt -s -d (staged Go files)"
+  # Capture stdout (diffs) and stderr (parse errors) separately.
+  # 'set -e' is disabled here because gofmt exits non-zero on both parse errors and diffs.
+  set +e
+  fmt_diff="$(gofmt -s -d $STAGED_GO 2>/dev/null)"
+  fmt_err="$(gofmt -s -d $STAGED_GO 2>&1 >/dev/null)"
+  set -e
+  if [ -n "$fmt_err" ]; then
+    echo "$fmt_err"
+    echo "FAIL: gofmt failed (likely a parse error)"
+    exit 1
+  fi
+  if [ -n "$fmt_diff" ]; then
+    echo "$fmt_diff"
+    echo "FAIL: formatting issues found; run 'gofmt -s -w <file>' to fix"
+    exit 1
+  fi
+
+  # Lint the packages (directories) containing staged Go files, not individual files —
+  # golangci-lint per-file mode produces spurious typecheck errors.
+  # --new-from-rev HEAD means: only report issues introduced since the last commit,
+  # so pre-existing debt does not block new commits.
+  STAGED_GO_PKGS=$(echo "$STAGED_GO" | xargs -n1 dirname | sort -u | sed 's|^|./|;s|$|/...|')
+  echo "==> golangci-lint run (packages: $STAGED_GO_PKGS)"
+  if ! golangci-lint run --new-from-rev HEAD $STAGED_GO_PKGS; then
+    echo "FAIL: fix lint violations in staged Go files"
+    exit 1
+  fi
+fi
+
+if [ -n "$STAGED_JS" ]; then
+  if [ ! -x "$ROOT/node_modules/.bin/prettier" ]; then
+    echo "WARN: prettier missing in node_modules; run 'npm install' to enable JS lint."
+    echo "Skipping prettier+eslint for this commit."
+  else
+    echo "==> prettier --check (staged files)"
+    if ! npx --no-install prettier --check $STAGED_JS; then
+      echo "FAIL: run 'npm run format:write' to fix"
+      exit 1
+    fi
+
+    STAGED_JS_ONLY=$(echo "$STAGED_JS" | grep '\.js$' || true)
+    if [ -n "$STAGED_JS_ONLY" ]; then
+      echo "==> eslint (staged JS files)"
+      if ! npx --no-install eslint $STAGED_JS_ONLY; then
+        echo "FAIL: fix eslint violations in staged JS files"
+        exit 1
+      fi
+    fi
+  fi
+fi
+
+echo "OK: format + lint clean for staged files"

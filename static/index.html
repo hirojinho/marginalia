@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>marginalia</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <script src="/static/marked.min.js"></script>
+    <script type="module">
+      import * as pdfjsLib from '/static/pdf.mjs';
+      pdfjsLib.GlobalWorkerOptions.workerSrc = '/static/pdf.worker.mjs';
+      window.pdfjsLib = pdfjsLib;
+      window.dispatchEvent(new Event('pdfjs-ready'));
+    </script>
+    <link rel="stylesheet" href="/static/style.css" />
+  </head>
+  <body>
+    <header>
+      <div style="display: flex; align-items: center">
+        <button
+          id="sidebar-toggle"
+          style="
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 4px 8px;
+            margin-right: 4px;
+            color: var(--text-secondary);
+            font-size: 16px;
+            line-height: 1;
+          "
+          title="Toggle sessions"
+        >
+          &#x2630;
+        </button>
+        <h1>marginalia</h1>
+        <span id="session-pill" style="display: none"></span>
+      </div>
+      <div class="header-actions">
+        <span
+          id="health-dot"
+          style="
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--text-tertiary);
+            display: inline-block;
+          "
+          title="Checking connection..."
+        ></span>
+        <span id="model-footer"></span>
+        <button id="pomodoro-btn" class="header-btn">25:00</button>
+        <button id="pdf-btn" class="header-btn">PDF</button>
+
+      </div>
+    </header>
+
+    <div id="main-content">
+      <div id="session-sidebar">
+        <div id="session-sidebar-header">
+          <h2>Plan</h2>
+        </div>
+        <div id="session-list"></div>
+      </div>
+      <div id="chat-panel">
+        <div id="workspace-banner" style="display: none"></div>
+        <div id="messages"></div>
+        <div id="input-area">
+          <form id="chat-form">
+            <div class="input-container">
+              <textarea
+                id="message-input"
+                name="message"
+                placeholder="Start a session to chat..."
+                autocomplete="off"
+                autofocus
+                rows="1"
+              ></textarea>
+              <button type="submit" id="send-btn">&rarr;</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <div id="splitter"></div>
+
+      <div id="pdf-panel">
+        <div id="pdf-empty-state">
+          <div id="pdf-upload-zone">
+            <h3>Drop PDF here or click to upload</h3>
+            <p>Supported: .pdf files</p>
+            <input type="file" id="pdf-file-input" accept=".pdf" />
+          </div>
+          <!-- Options populated from courseMeta by pdf.js populateCourseSelect()
+               so agent-created courses become valid upload targets. -->
+          <select id="pdf-course-select">
+            <option value="">No course (Library)</option>
+          </select>
+          <div id="pdf-list-container"></div>
+        </div>
+
+        <div
+          id="pdf-open-state"
+          style="display: none; flex: 1; flex-direction: column; overflow: hidden"
+        >
+          <div id="pdf-toolbar">
+            <div class="toolbar-left">
+              <button id="pdf-close-btn" title="Close PDF">&#x2715;</button>
+              <span id="pdf-filename">No PDF</span>
+              <div id="pdf-dropdown"></div>
+            </div>
+            <div class="toolbar-right">
+              <span id="pdf-page-nav" title="Current page — type a number and press Enter to jump">
+                Page
+                <input
+                  id="pdf-page-input"
+                  type="text"
+                  inputmode="numeric"
+                  autocomplete="off"
+                  value="0"
+                />
+                / <span id="pdf-page-total">0</span>
+              </span>
+              <button id="pdf-view-toggle" title="Toggle view mode">Scroll</button>
+              <button id="pdf-zoom-out" title="Zoom out">&#8722;</button>
+              <span id="pdf-zoom-level">100%</span>
+              <button id="pdf-zoom-in" title="Zoom in">+</button>
+            </div>
+          </div>
+          <div id="pdf-viewer"></div>
+        </div>
+      </div>
+    </div>
+
+
+    <script type="module" src="/static/app.js"></script>
+  </body>
+</html>

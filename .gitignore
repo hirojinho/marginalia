@@ -1,0 +1,52 @@
+# Compiled binary
+/marginalia
+
+# Runtime data
+/data/
+*.db
+*.db-wal
+*.db-shm
+
+# Logs
+*.log
+/tmp/
+
+# Personal notes (not app source)
+/memory/courses/
+/memory/thesis/
+/memory/courses-agent
+node_modules/
+
+# Build artifacts for server deploy
+/bin/
+
+# editor/agent backup cruft
+*.bak
+*.bak[0-9]
+*.orig
+
+# machine-local agent instructions (not app source)
+/CLAUDE.local.md
+
+# ─── Personal instance content (kept locally, not distributed) ───
+# Maintainer/topology doc — private-only (see docs/MAINTAINER.md).
+/docs/MAINTAINER.md
+# Real study profile (ship the .example; keep your own private copy here).
+/memory/study-context.md
+/memory/study-app-runbook.md
+/memory/stability-plan.md
+# Personal dev skills (overnight-pipeline tooling, not the study product).
+/skills/implement-from-spec/
+/skills/pipeline-doctor/
+# Personal dev-process docs: planning journals, postmortems, harness design,
+# the overnight-pipeline ticket queue, and the local planning-Pi rules.
+/docs/superpowers/
+/docs/postmortem/
+/docs/harness-design/
+/docs/specs/2026-05-10-agent-runtime-pi-impl.md
+/docs/specs/2026-05-21-first-overnight-run-log.md
+/docs/specs/proposals/
+/specs/
+/AGENTS.md
+/ROADMAP.md
+/CHANGELOG.md
