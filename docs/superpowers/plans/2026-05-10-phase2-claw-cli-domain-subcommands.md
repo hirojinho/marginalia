@@ -253,7 +253,7 @@ The two new CLI tests pass; existing agent tests still green (rename was interna
 ```bash
 cd ~/Documents/ITA/claw-study
 git add agent/tools_rag.go agent/tools.go claw-cli/main.go claw-cli/main_test.go
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho \
+git -c user.email=you@example.com -c user.name=your-name \
   commit -m "claw-cli: rag search subcommand + newAppFromEnv helper"
 ```
 
@@ -391,7 +391,7 @@ func planToggle(args []string, stdout, stderr io.Writer, dbPath string) int {
 ```bash
 /opt/homebrew/bin/go test ./... 2>&1 | tail -10
 git add agent/tools_plan.go agent/tools.go claw-cli/main.go claw-cli/main_test.go
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho \
+git -c user.email=you@example.com -c user.name=your-name \
   commit -m "claw-cli: plan show + plan toggle subcommands"
 ```
 
@@ -499,7 +499,7 @@ func courseInterests(args []string, stdout, stderr io.Writer, dbPath string) int
 ```bash
 /opt/homebrew/bin/go test ./claw-cli -v
 git add claw-cli/main.go claw-cli/main_test.go
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho \
+git -c user.email=you@example.com -c user.name=your-name \
   commit -m "claw-cli: course interests subcommand"
 ```
 
@@ -605,7 +605,7 @@ func noteSave(args []string, stdout, stderr io.Writer, dbPath string) int {
 ```bash
 /opt/homebrew/bin/go test ./... 2>&1 | tail -10
 git add agent/tools_file.go agent/tools.go claw-cli/main.go claw-cli/main_test.go
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho \
+git -c user.email=you@example.com -c user.name=your-name \
   commit -m "claw-cli: note save subcommand"
 ```
 
@@ -771,8 +771,8 @@ ls -la /tmp/study-app-linux /tmp/claw-cli-linux
 - [ ] **Step 2: Hot-swap server + claw-cli**
 
 ```bash
-scp /tmp/study-app-linux nanoclaw:/home/eduardo/stack/study-app/bin/study-app.new
-scp /tmp/claw-cli-linux nanoclaw:/home/eduardo/stack/study-app/bin/claw-cli
+scp /tmp/study-app-linux nanoclaw:$VAULT_ROOT/bin/study-app.new
+scp /tmp/claw-cli-linux nanoclaw:$VAULT_ROOT/bin/claw-cli
 ssh nanoclaw 'cd ~/stack/study-app/bin && cp study-app study-app.bak && mv study-app.new study-app && chmod +x study-app claw-cli && export XDG_RUNTIME_DIR=/run/user/$(id -u) && systemctl --user restart study-app.service && sleep 3 && systemctl --user is-active study-app.service'
 ```
 
@@ -781,7 +781,7 @@ Expected: `active`. Rollback procedure same as Phase 1 Task 8 if needed.
 - [ ] **Step 3: Smoke each new subcommand**
 
 ```bash
-ssh nanoclaw 'cd /home/eduardo/stack/study-app && set -e
+ssh nanoclaw 'cd $VAULT_ROOT && set -e
 echo "=== plan show ==="; ./bin/claw-cli plan show --course ce297 | head -10 || echo "no plan"
 echo "=== plan toggle (dry — wrong index intentional) ==="; ./bin/claw-cli plan toggle --course ce297 --task 999
 echo "=== course interests ==="; ./bin/claw-cli course interests --course ce297 | head -5 || echo "no file"
@@ -797,7 +797,7 @@ Expected: every subcommand prints something to stdout (whether the tool's succes
 - [ ] **Step 4: Smoke `rag search` (needs real API key from .env)**
 
 ```bash
-ssh nanoclaw 'cd /home/eduardo/stack/study-app && set -a && source .env && set +a && ./bin/claw-cli rag search --query "STAMP" --course ce297 --top-k 3 | head -30'
+ssh nanoclaw 'cd $VAULT_ROOT && set -a && source .env && set +a && ./bin/claw-cli rag search --query "STAMP" --course ce297 --top-k 3 | head -30'
 ```
 
 Expected: top-3 RAG hits printed. If there's no indexed corpus yet, the tool returns `"No relevant results found for: STAMP"` — that's still a valid CLI exit 0.
@@ -806,7 +806,7 @@ Expected: top-3 RAG hits printed. If there's no indexed corpus yet, the tool ret
 
 ```bash
 TOKEN=$(ssh nanoclaw 'grep ^AUTH_TOKEN= ~/stack/study-app/.env | cut -d= -f2')
-curl -s -o /dev/null -w "%{http_code}\n" -H "Authorization: Bearer $TOKEN" https://study.claw-study.xyz/debug/health
+curl -s -o /dev/null -w "%{http_code}\n" -H "Authorization: Bearer $TOKEN" https://your-host.example/debug/health
 ```
 
 Expected: 200.
@@ -822,7 +822,7 @@ Expected: 200.
 ```bash
 cd ~/Documents/ITA/claw-study
 git add docs/specs/proposals/phase1-deploy-log.md
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho \
+git -c user.email=you@example.com -c user.name=your-name \
   commit -m "docs: phase 2 deploy log"
 git push origin main
 ```

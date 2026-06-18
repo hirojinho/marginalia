@@ -131,10 +131,10 @@ Estimated ~150 lines of new code.
 ## Environment
 
 ```
-NANOCLAW_INBOUND_DB=/home/eduardo/stack/nanoclaw-v2/data/v2-sessions/ag-1777924890168-e1etn1/sess-1777924890171-zaqikj/inbound.db
+NANOCLAW_INBOUND_DB=/path/to/nanoclaw-v2/data/v2-sessions/ag-1777924890168-e1etn1/sess-1777924890171-zaqikj/inbound.db
 ```
 
-Added to `/home/eduardo/stack/study-app/.env` on the VPS. When unset, the goroutine logs a single startup notice and exits — no digest runs in local dev.
+Added to `$VAULT_ROOT/.env` on the VPS. When unset, the goroutine logs a single startup notice and exits — no digest runs in local dev.
 
 ## Error Handling
 

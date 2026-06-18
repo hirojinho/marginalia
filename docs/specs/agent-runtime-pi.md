@@ -82,7 +82,7 @@ CREATE TABLE agent_memory (
 CREATE INDEX agent_memory_scope ON agent_memory (user_id, course_id, kind);
 ```
 
-Initial seed: import the relevant memories from `~/.claude/projects/-Users-eduardohiroji-Documents-ITA-Mestrado/memory/` (the user-profile and feedback files, scoped course memories, course interests). Future writes happen via `claw-cli memory save`.
+Initial seed: import the relevant memories from `~/.claude/projects/<project-slug>/` (the user-profile and feedback files, scoped course memories, course interests). Future writes happen via `claw-cli memory save`.
 
 ## Skill catalog (v1)
 

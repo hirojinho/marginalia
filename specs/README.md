@@ -2,7 +2,7 @@
 
 This directory is the input queue for the overnight feature pipeline. One file = one ticket. State is the directory the file lives in.
 
-Authoritative design memory: `~/.claude/projects/-Users-eduardohiroji-Documents-ITA-Mestrado/memory/claw_overnight_pipeline.md`.
+Authoritative design memory: `~/.claude/projects/<project-slug>/claw_overnight_pipeline.md`.
 Implementation plan: `docs/superpowers/plans/2026-05-21-overnight-pipeline-v1.md`.
 
 ## Directory state machine
@@ -69,7 +69,7 @@ Both fields are optional. Absent = orchestrator falls back to `PI_MODEL` / `PI_T
 On laptop:
 
 1. Draft spec markdown with all mandatory blocks.
-2. **Run the pre-baseline verifier locally** against the current prod URL (`STAGING_URL=https://study.claw-study.xyz STAGING_TOKEN=<prod-token> bash <(awk ...)`). Confirm it fails for the right reason. This is the spec author's TDD-red step — it catches structurally-broken verifiers before Pi ever sees them.
+2. **Run the pre-baseline verifier locally** against the current prod URL (`STAGING_URL=https://your-host.example STAGING_TOKEN=<prod-token> bash <(awk ...)`). Confirm it fails for the right reason. This is the spec author's TDD-red step — it catches structurally-broken verifiers before Pi ever sees them.
 3. `git add specs/queue/<id>.md && git commit && git push`.
 
 The verifier IS the contract. Author quality dominates pipeline quality.

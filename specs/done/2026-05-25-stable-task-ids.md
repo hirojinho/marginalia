@@ -120,7 +120,7 @@ fi
 
 ### Human-eyeball notes (NOT part of the gate)
 
-- After deploy, manually `curl https://study.claw-study.xyz/api/plan?view=full&id=ce297 | jq '.phases[0].tasks[0]'` and confirm the `id` looks like a UUIDv4 (`xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx`).
+- After deploy, manually `curl https://your-host.example/api/plan?view=full&id=ce297 | jq '.phases[0].tasks[0]'` and confirm the `id` looks like a UUIDv4 (`xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx`).
 - On the VPS, inspect one persisted plan file: `ssh nanoclaw 'jq ".phases[0].tasks[0]" ~/stack/study-app/vault/data/plans/ce297.json'`. The `id` should match what the HTTP response returned (proves migration persisted, not just runtime-generated each load).
 
 ## Done criteria

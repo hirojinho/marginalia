@@ -168,7 +168,7 @@ func TestSandboxManagerSweepKeepsFresh(t *testing.T) {
 - [ ] **Step 2: Run tests to confirm they fail**
 
 ```bash
-cd /Users/eduardohiroji/Documents/ITA/claw-study
+cd ~/claw-study
 /opt/homebrew/bin/go test ./agent/ -run TestSandboxManager -v 2>&1 | head -30
 ```
 
@@ -374,9 +374,9 @@ Expected: PASS (no regressions).
 - [ ] **Step 7: Commit**
 
 ```bash
-cd /Users/eduardohiroji/Documents/ITA/claw-study
+cd ~/claw-study
 git add agent/sandbox.go agent/sandbox_test.go agent/app.go
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho \
+git -c user.email=you@example.com -c user.name=your-name \
   commit -m "$(cat <<'EOF'
 feat(agent): add SandboxManager for per-session Pi working directories
 
@@ -653,7 +653,7 @@ Expected: no new violations.
 
 ```bash
 git add agent/app.go config.go main.go handler/handler.go handler/chat_v2.go handler/chat_v2_test.go
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho \
+git -c user.email=you@example.com -c user.name=your-name \
   commit -m "$(cat <<'EOF'
 feat: add /chat-v2 stub handler with per-session sandbox wiring
 
@@ -777,7 +777,7 @@ Expected: no new violations.
 
 ```bash
 git add agent/db.go handler/chat_v2_test.go
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho \
+git -c user.email=you@example.com -c user.name=your-name \
   commit -m "$(cat <<'EOF'
 feat(agent): wire Sandbox.Delete in DeleteSession
 
@@ -820,7 +820,7 @@ ssh nanoclaw "curl -s -X POST http://localhost:8081/chat-v2 \
   -d \"{\\\"session_id\\\":$SESSION_ID,\\\"message\\\":\\\"hi\\\"}\" | jq ."
 ```
 
-Expected: `{"sandbox": "/home/eduardo/stack/study-app/data/agent-sessions/<N>", "status": "stub — Pi not yet wired"}`
+Expected: `{"sandbox": "$VAULT_ROOT/data/agent-sessions/<N>", "status": "stub — Pi not yet wired"}`
 
 ```bash
 # Second call — reuses sandbox (same path).
@@ -836,7 +836,7 @@ Expected: same path as first call.
 ssh nanoclaw "ls -la ~/stack/study-app/data/agent-sessions/$SESSION_ID/"
 ```
 
-Expected: `AGENTS.md`, `notes/`, `out -> /home/eduardo/stack/study-app/data/agent-out`
+Expected: `AGENTS.md`, `notes/`, `out -> $VAULT_ROOT/data/agent-out`
 
 ```bash
 # Delete session — sandbox must disappear.

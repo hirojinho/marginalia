@@ -44,7 +44,7 @@ chain into the next task** — distributed practice beats massed sessions (Ceped
 - [ ] **Step 3: Commit.**
 ```bash
 git add skills/study-step-complete/SKILL.md
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho commit -m "feat(pedagogy): tutor stops after one task instead of chaining (ADR 0009)"
+git -c user.email=you@example.com -c user.name=your-name commit -m "feat(pedagogy): tutor stops after one task instead of chaining (ADR 0009)"
 ```
 
 ### Task 1.2 — Interleaved opener (Rule 6, three files)
@@ -74,7 +74,7 @@ Rule 6 currently says: open every session with a recall of the **most recent com
 - [ ] **Step 5: Commit.**
 ```bash
 git add agent/sandbox.go agent/agent.go CLAUDE.local.md
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho commit -m "feat(pedagogy): interleave older material into the session-open recall (ADR 0009)"
+git -c user.email=you@example.com -c user.name=your-name commit -m "feat(pedagogy): interleave older material into the session-open recall (ADR 0009)"
 ```
 
 ### Task 1.3 — Deploy Phase 1 (binary + disk-file sync)
@@ -83,7 +83,7 @@ git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho commit -m 
 - [ ] **Step 2: Deploy binary** (carries `sandbox.go`/`agent.go`): scp to `~/stack/study-app/bin/study-app.new`, back up, swap, `systemctl --user restart study-app.service`, confirm both services `active`.
 - [ ] **Step 3: Sync disk files to VPS** (NOT carried by the binary):
 ```bash
-scp CLAUDE.local.md nanoclaw:/home/eduardo/stack/study-app/CLAUDE.local.md
+scp CLAUDE.local.md nanoclaw:$VAULT_ROOT/CLAUDE.local.md
 # study-step-complete skill → its mounted path on the VPS (confirm the live path first):
 ssh nanoclaw 'find ~/stack/study-app -path "*skills/study-step-complete/SKILL.md"'
 # scp skills/study-step-complete/SKILL.md to the path that command reveals

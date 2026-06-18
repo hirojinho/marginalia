@@ -119,7 +119,7 @@ Expected: PASS (all subtests).
 ```bash
 cd ~/Documents/ITA/claw-study
 git add agent/llm.go agent/llm_test.go
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho commit -m "feat: add GenerateTitle + cleanTitle for async session titling"
+git -c user.email=you@example.com -c user.name=your-name commit -m "feat: add GenerateTitle + cleanTitle for async session titling"
 ```
 
 ---
@@ -198,7 +198,7 @@ Expected: build OK; tests PASS. If `chat_v2_test.go` asserted on the old synchro
 
 ```bash
 git add handler/chat_v2.go
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho commit -m "feat: async LLM session titling on first turn, deterministic fallback"
+git -c user.email=you@example.com -c user.name=your-name commit -m "feat: async LLM session titling on first turn, deterministic fallback"
 ```
 
 ---
@@ -293,7 +293,7 @@ Append after the existing `.session-item .session-delete:hover { … }` rule (~`
 
 ```bash
 git add static/style.css
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho commit -m "style: course accordion styles for sidebar"
+git -c user.email=you@example.com -c user.name=your-name commit -m "style: course accordion styles for sidebar"
 ```
 
 (Visual verification happens in Task 6 after deploy — no JS test runner exists.)
@@ -464,7 +464,7 @@ There is no JS test runner. Sanity-check syntax by serving locally is done in Ta
 
 ```bash
 git add static/sessions.js
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho commit -m "feat: course-first accordion sidebar with per-course instant create"
+git -c user.email=you@example.com -c user.name=your-name commit -m "feat: course-first accordion sidebar with per-course instant create"
 ```
 
 ---
@@ -513,7 +513,7 @@ Expected: no matches (or only inside comments you then remove).
 
 ```bash
 git add static/index.html static/sessions.js
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho commit -m "refactor: remove obsolete create modal; per-course + is the only create path"
+git -c user.email=you@example.com -c user.name=your-name commit -m "refactor: remove obsolete create modal; per-course + is the only create path"
 ```
 
 ---
@@ -535,13 +535,13 @@ Expected: vet clean, tests PASS, binary built.
 - [ ] **Step 2: Deploy**
 
 ```bash
-scp /tmp/study-app-linux nanoclaw:/home/eduardo/stack/study-app/bin/study-app.new
+scp /tmp/study-app-linux nanoclaw:$VAULT_ROOT/bin/study-app.new
 ssh nanoclaw 'cd ~/stack/study-app/bin && cp study-app study-app.bak && mv study-app.new study-app && chmod +x study-app && export XDG_RUNTIME_DIR=/run/user/$(id -u) && systemctl --user restart study-app.service'
 ssh nanoclaw 'export XDG_RUNTIME_DIR=/run/user/$(id -u); systemctl --user is-active study-app.service study-app-tunnel.service'
 ```
 Expected: two `active` lines.
 
-- [ ] **Step 3: Manual verification checklist** (hard-refresh `https://study.claw-study.xyz`, Cmd+Shift+R)
+- [ ] **Step 3: Manual verification checklist** (hard-refresh `https://your-host.example`, Cmd+Shift+R)
 
   - [ ] All courses listed, collapsed, with correct counts; long course names ellipsize.
   - [ ] Clicking a course header expands it; opening another collapses the first (single-open).

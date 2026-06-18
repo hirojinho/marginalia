@@ -79,7 +79,7 @@ interest-log note, which is also session-level.
 
 ### Step 3 — Mirror in `CLAUDE.local.md`
 
-The local study-agent prompt at `/Users/eduardohiroji/Documents/ITA/claw-study/CLAUDE.local.md` (gitignored, ops-only) is the manual copy that the VPS study
+The local study-agent prompt at `~/claw-study/CLAUDE.local.md` (gitignored, ops-only) is the manual copy that the VPS study
 agent reads directly. The sandbox template in `agent/sandbox.go` is what the
 **local planning Pi** injects into **sandbox sessions** — two different
 code paths, same pedagogy rules.

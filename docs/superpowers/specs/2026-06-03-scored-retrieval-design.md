@@ -68,4 +68,4 @@ Manual acceptance: deploy; next DDIA session-open, confirm the tutor (a) opens w
 
 ## Deploy
 
-Same as S4 — two artifacts: rebuild + deploy `study-app` (Rules compiled from `sandbox.go`; `AGENTS.md` regenerates next turn) AND `scp skills/study-step-complete/SKILL.md` to `SKILLS_DIR=/home/eduardo/stack/study-app/skills/study-step-complete/SKILL.md` (mounted file, not compiled in).
+Same as S4 — two artifacts: rebuild + deploy `study-app` (Rules compiled from `sandbox.go`; `AGENTS.md` regenerates next turn) AND `scp skills/study-step-complete/SKILL.md` to `SKILLS_DIR=$VAULT_ROOT/skills/study-step-complete/SKILL.md` (mounted file, not compiled in).

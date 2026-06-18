@@ -120,7 +120,7 @@ we wrap them.
 
 - Touches `claw-cli` (new subcommand) AND `study-app` (`sandbox.go` AGENTS.md block) →
   **rebuild + deploy BOTH binaries.**
-- Bare-SSH `claw-cli plan ...` needs `--db /home/eduardo/stack/study-app/data/study.db`
+- Bare-SSH `claw-cli plan ...` needs `--db $VAULT_ROOT/data/study.db`
   AND a reachable `VAULT_ROOT` for plan files (`data/plans/`); the Pi sandbox inherits
   the service env so it resolves both without flags.
 - Live smoke: on the VPS, `plan show` a test course → edit JSON (rename a task keeping

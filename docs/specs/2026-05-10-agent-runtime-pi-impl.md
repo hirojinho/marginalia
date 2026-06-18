@@ -18,7 +18,7 @@ Each phase ships a verifiable artifact and de-risks the next. Phases are sized t
 
 **Scope.** New Go binary at `cmd/claw-cli/`. Subcommands: `memory load`, `memory save`, `memory search`. Schema migration adding the `agent_memory` table. Loader assembles `AGENTS.md` content from user profile + course context + active feedback memories + recent activity + skill list (skill list parsed from frontmatter of each file under `skills/`).
 
-**Deliverables.** `claw-cli` binary built and deployed. Migration applied. Seed script that imports the relevant memories from `~/.claude/projects/-Users-eduardohiroji-Documents-ITA-Mestrado/memory/` into `agent_memory` (user profile, feedback files, course-scoped memories, interests).
+**Deliverables.** `claw-cli` binary built and deployed. Migration applied. Seed script that imports the relevant memories from `~/.claude/projects/<project-slug>/` into `agent_memory` (user profile, feedback files, course-scoped memories, interests).
 
 **Verification.** `claw-cli memory load --session <fake> --course ce297 --user eduardo` produces a non-trivial, well-formed `AGENTS.md` of at most 3 KB. New unit tests on the loader cover: empty memory, course-only filtering, recency cutoff, skill-list assembly.
 

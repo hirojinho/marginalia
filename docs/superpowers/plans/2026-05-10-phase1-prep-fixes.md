@@ -224,7 +224,7 @@ Expected: all green.
 ```bash
 cd ~/Documents/ITA/claw-study
 git add agent/text.go agent/text_test.go agent/memory.go claw-cli/main.go
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho \
+git -c user.email=you@example.com -c user.name=your-name \
   commit -m "agent: add TruncateRunes helper, replace UTF-8-unsafe byte slicing"
 ```
 
@@ -601,7 +601,7 @@ Expected: all 12+ tests pass (8 prior + 4 new). If existing tests fail because t
 ```bash
 cd ~/Documents/ITA/claw-study
 git add claw-cli/main.go claw-cli/main_test.go
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho \
+git -c user.email=you@example.com -c user.name=your-name \
   commit -m "claw-cli: resolve paths via CLAW_STUDY_ROOT, error on missing explicit paths"
 ```
 
@@ -751,7 +751,7 @@ Expected: 4 tests pass (3 prior + 1 new).
 ```bash
 cd ~/Documents/ITA/claw-study
 /opt/homebrew/bin/go run ./seed-memory \
-  --source "$HOME/.claude/projects/-Users-eduardohiroji-Documents-ITA-Mestrado/memory" \
+  --source "$HOME/.claude/projects/<project-slug>" \
   --db /tmp/seed-tx-test.db
 ```
 
@@ -769,7 +769,7 @@ Expected: a number > 1 (varied timestamps confirm mtime is being read, not a sin
 ```bash
 cd ~/Documents/ITA/claw-study
 git add seed-memory/main.go seed-memory/main_test.go
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho \
+git -c user.email=you@example.com -c user.name=your-name \
   commit -m "seed-memory: transactional reseed, file-mtime-based created_at"
 ```
 
@@ -794,9 +794,9 @@ ls -la /tmp/study-app-linux /tmp/claw-cli-linux /tmp/seed-memory-linux
 - [ ] **Step 2: Copy + hot-swap server**
 
 ```bash
-scp /tmp/study-app-linux nanoclaw:/home/eduardo/stack/study-app/bin/study-app.new
-scp /tmp/claw-cli-linux nanoclaw:/home/eduardo/stack/study-app/bin/claw-cli
-scp /tmp/seed-memory-linux nanoclaw:/home/eduardo/stack/study-app/bin/seed-memory
+scp /tmp/study-app-linux nanoclaw:$VAULT_ROOT/bin/study-app.new
+scp /tmp/claw-cli-linux nanoclaw:$VAULT_ROOT/bin/claw-cli
+scp /tmp/seed-memory-linux nanoclaw:$VAULT_ROOT/bin/seed-memory
 ssh nanoclaw 'cd ~/stack/study-app/bin && \
   cp study-app study-app.bak && mv study-app.new study-app && \
   chmod +x study-app claw-cli seed-memory && \
@@ -813,7 +813,7 @@ The new `claw-cli` paths default to `$CLAW_STUDY_ROOT/data/study.db`. Append to 
 
 ```bash
 ssh nanoclaw 'grep -q CLAW_STUDY_ROOT ~/stack/study-app/.env || \
-  echo "CLAW_STUDY_ROOT=/home/eduardo/stack/study-app" >> ~/stack/study-app/.env'
+  echo "CLAW_STUDY_ROOT=$VAULT_ROOT" >> ~/stack/study-app/.env'
 ```
 
 (The systemd unit reads `.env`. The CLI inherits via shell when run interactively — verify the next step still works without it being set in your interactive shell, since the test below runs ad-hoc.)
@@ -821,7 +821,7 @@ ssh nanoclaw 'grep -q CLAW_STUDY_ROOT ~/stack/study-app/.env || \
 - [ ] **Step 4: Smoke-test `claw-cli` from the canonical cwd (current behavior unchanged)**
 
 ```bash
-ssh nanoclaw 'cd /home/eduardo/stack/study-app && ./bin/claw-cli memory load --course ce297 --user eduardo' > /tmp/agents-ce297-after-fixes.md
+ssh nanoclaw 'cd $VAULT_ROOT && ./bin/claw-cli memory load --course ce297 --user eduardo' > /tmp/agents-ce297-after-fixes.md
 wc -c /tmp/agents-ce297-after-fixes.md
 ```
 
@@ -830,7 +830,7 @@ Expected: ≤ 3072 bytes. Compare to the Phase 1 deploy log's 2673 bytes — sho
 - [ ] **Step 5: Smoke-test `claw-cli` from a different cwd via `CLAW_STUDY_ROOT`**
 
 ```bash
-ssh nanoclaw 'cd /tmp && CLAW_STUDY_ROOT=/home/eduardo/stack/study-app /home/eduardo/stack/study-app/bin/claw-cli memory load --course ce297 --user eduardo' > /tmp/agents-from-tmp.md
+ssh nanoclaw 'cd /tmp && CLAW_STUDY_ROOT=$VAULT_ROOT $VAULT_ROOT/bin/claw-cli memory load --course ce297 --user eduardo' > /tmp/agents-from-tmp.md
 wc -c /tmp/agents-from-tmp.md
 ```
 
@@ -839,7 +839,7 @@ Expected: identical (or near-identical) byte count to Step 4. **This is the Pi-s
 - [ ] **Step 6: Smoke-test loud failure on missing explicit path**
 
 ```bash
-ssh nanoclaw 'cd /tmp && /home/eduardo/stack/study-app/bin/claw-cli memory load --course ce297 --db /tmp/no-such.db' 2>&1
+ssh nanoclaw 'cd /tmp && $VAULT_ROOT/bin/claw-cli memory load --course ce297 --db /tmp/no-such.db' 2>&1
 ```
 
 Expected: stderr `database not found at "/tmp/no-such.db"`, exit 1.
@@ -847,13 +847,13 @@ Expected: stderr `database not found at "/tmp/no-such.db"`, exit 1.
 - [ ] **Step 7: Re-run seed to confirm transactional + mtime-based updates work in prod**
 
 ```bash
-ssh nanoclaw 'cd /home/eduardo/stack/study-app && ./bin/seed-memory --source ./data/memory --db ./data/study.db'
+ssh nanoclaw 'cd $VAULT_ROOT && ./bin/seed-memory --source ./data/memory --db ./data/study.db'
 ```
 
 Expected: `seeded N rows`. Verify the `created_at` distribution:
 
 ```bash
-ssh nanoclaw 'python3 -c "import sqlite3; c=sqlite3.connect(\"/home/eduardo/stack/study-app/data/study.db\"); print(c.execute(\"SELECT MIN(created_at), MAX(created_at), COUNT(DISTINCT created_at) FROM agent_memory WHERE user_id=\\\"eduardo\\\"\").fetchone())"'
+ssh nanoclaw 'python3 -c "import sqlite3; c=sqlite3.connect(\"$VAULT_ROOT/data/study.db\"); print(c.execute(\"SELECT MIN(created_at), MAX(created_at), COUNT(DISTINCT created_at) FROM agent_memory WHERE user_id=\\\"eduardo\\\"\").fetchone())"'
 ```
 
 Expected: distinct values > 5 (mtime-based, not single `time.Now()`).
@@ -871,7 +871,7 @@ Edit `docs/specs/proposals/phase1-deploy-log.md` to add a "Pre-prep deploy" sect
 ```bash
 cd ~/Documents/ITA/claw-study
 git add docs/specs/proposals/phase1-deploy-log.md
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho \
+git -c user.email=you@example.com -c user.name=your-name \
   commit -m "docs: phase 1 pre-prep deploy log"
 git push origin main
 ```

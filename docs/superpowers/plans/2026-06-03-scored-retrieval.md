@@ -10,7 +10,7 @@
 
 **Spec:** `docs/superpowers/specs/2026-06-03-scored-retrieval-design.md`
 
-**Conventions:** build/test `/opt/homebrew/bin/go`; commit `git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho commit -m "..."`; branch main.
+**Conventions:** build/test `/opt/homebrew/bin/go`; commit `git -c user.email=you@example.com -c user.name=your-name commit -m "..."`; branch main.
 
 **Compatibility note:** the existing S1 test `TestRule3UsesClawCLIConfidenceLog` asserts the output CONTAINS `"claw-cli confidence log"` and does NOT contain `"call the log_confidence tool"`. The new Rule 3 keeps the `claw-cli confidence log` command and never mentions `log_confidence tool`, so that test stays green — do not break it. S2 (`mastery_threshold`), S4 (`cue — don't complete`) presence tests must also stay green.
 
@@ -108,7 +108,7 @@ Expected: green.
 
 ```bash
 git add agent/sandbox.go agent/sandbox_test.go skills/study-step-complete/SKILL.md
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho commit -m "feat(pedagogy): scored retrieval replaces self-rated confidence; reliable session-open recall"
+git -c user.email=you@example.com -c user.name=your-name commit -m "feat(pedagogy): scored retrieval replaces self-rated confidence; reliable session-open recall"
 ```
 
 ---
@@ -125,8 +125,8 @@ GOOS=linux GOARCH=amd64 /opt/homebrew/bin/go build -o /tmp/study-app-linux .
 
 - [ ] **Step 2: Deploy binary + SKILL.md (back up, restart)**
 ```bash
-scp /tmp/study-app-linux nanoclaw:/home/eduardo/stack/study-app/bin/study-app.new
-scp skills/study-step-complete/SKILL.md nanoclaw:/home/eduardo/stack/study-app/skills/study-step-complete/SKILL.md
+scp /tmp/study-app-linux nanoclaw:$VAULT_ROOT/bin/study-app.new
+scp skills/study-step-complete/SKILL.md nanoclaw:$VAULT_ROOT/skills/study-step-complete/SKILL.md
 ssh nanoclaw 'cd ~/stack/study-app/bin && cp study-app study-app.bak && mv study-app.new study-app && chmod +x study-app && export XDG_RUNTIME_DIR=/run/user/$(id -u) && systemctl --user restart study-app.service && sleep 3 && systemctl --user is-active study-app.service'
 ```
 Expected: `active`.
@@ -145,7 +145,7 @@ Expected: `0`.
 
 - [ ] **Step 5: Health check**
 ```bash
-URL=https://study.claw-study.xyz
+URL=https://your-host.example
 TOKEN=$(ssh nanoclaw 'grep ^AUTH_TOKEN= ~/stack/study-app/.env | cut -d= -f2')
 rtk proxy curl -s -o /dev/null -w "health=%{http_code}\n" -H "Authorization: Bearer $TOKEN" "$URL/debug/health"
 ```

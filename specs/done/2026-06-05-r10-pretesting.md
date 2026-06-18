@@ -62,7 +62,7 @@ pedagogy section assembly.
 
 ### Step 2 — Mirror in `CLAUDE.local.md`
 
-In `/Users/eduardohiroji/Documents/ITA/claw-study/CLAUDE.local.md`, find Rule 6
+In `~/claw-study/CLAUDE.local.md`, find Rule 6
 (session-open recall) and the Pre-Read prediction rule. Insert the following
 between them:
 

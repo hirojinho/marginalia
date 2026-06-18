@@ -184,7 +184,7 @@ Pipeline scripts live in `~/Documents/ITA/infra/scripts/`. Fix them locally:
 1. **Edit the script** — `gate-runner.sh`, `overnight-run.sh`, `staging-up.sh`, etc.
 2. **Syntax check**: `bash -n scripts/<name>.sh`
 3. **Commit + push**: `git commit -m "fix: <what>" && git push origin main`
-4. **Deploy to VPS**: `scp scripts/<name>.sh nanoclaw:/home/eduardo/stack/claw-build/bin/`
+4. **Deploy to VPS**: `scp scripts/<name>.sh nanoclaw:/path/to/claw-build/bin/`
 5. **Verify on VPS**: `ssh nanoclaw 'bash -n ~/stack/claw-build/bin/<name>.sh'`
 
 ### 3C. Pipeline code reference
@@ -229,8 +229,8 @@ ssh nanoclaw 'export XDG_RUNTIME_DIR=/run/user/$(id -u) && \
   git push origin main && \
   # Move spec to done:
   git mv specs/queue/<id>.md specs/done/<id>.md && \
-  git -c user.email=eduardo.hiroji@brendi.com.br \
-      -c user.name=hirojinho \
+  git -c user.email=you@example.com \
+      -c user.name=your-name \
       commit -m "agent: shipped <id>" && \
   git push origin main && \
   # Deploy:

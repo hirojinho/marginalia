@@ -265,7 +265,7 @@ package main
 
 ```go
 // seed-memory imports Eduardo's existing memory store at
-// ~/.claude/projects/-Users-eduardohiroji-Documents-ITA-Mestrado/memory/
+// ~/.claude/projects/<project-slug>/
 // into the agent_memory SQLite table. Idempotent: deletes all rows for
 // the user before reseeding.
 package main

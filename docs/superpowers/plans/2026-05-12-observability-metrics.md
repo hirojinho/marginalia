@@ -1466,7 +1466,7 @@ git push
 - [ ] **Step 4: Deploy to VPS**
 
 ```bash
-scp /tmp/study-app-linux nanoclaw:/home/eduardo/stack/study-app/bin/study-app.new
+scp /tmp/study-app-linux nanoclaw:$VAULT_ROOT/bin/study-app.new
 ssh nanoclaw 'cd ~/stack/study-app/bin && cp study-app study-app.bak && mv study-app.new study-app && chmod +x study-app && export XDG_RUNTIME_DIR=/run/user/$(id -u) && systemctl --user restart study-app.service'
 ```
 
@@ -1480,4 +1480,4 @@ Expected: `active (running)`
 
 - [ ] **Step 6: Smoke-test `/debug/metrics`**
 
-Open `https://study.claw-study.xyz/debug/metrics` (with bearer token in the Authorization header or via the app's session cookie). Verify the page loads, shows the three window links, and the Recent Events table is present (may be empty on a fresh deploy).
+Open `https://your-host.example/debug/metrics` (with bearer token in the Authorization header or via the app's session cookie). Verify the page loads, shows the three window links, and the Recent Events table is present (may be empty on a fresh deploy).

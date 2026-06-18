@@ -195,7 +195,7 @@ Expected: PASS
 
 ```bash
 git add claw-cli/main.go claw-cli/main_test.go
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho commit -m "feat(claw-cli): add pdf list subcommand
+git -c user.email=you@example.com -c user.name=your-name commit -m "feat(claw-cli): add pdf list subcommand
 
 Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 ```
@@ -362,7 +362,7 @@ Expected: PASS (all three)
 
 ```bash
 git add claw-cli/main.go claw-cli/main_test.go
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho commit -m "feat(claw-cli): add pdf current subcommand
+git -c user.email=you@example.com -c user.name=your-name commit -m "feat(claw-cli): add pdf current subcommand
 
 Resolves the user's current PDF via session last_pdf_id, falling back
 to the global last-opened PDF.
@@ -441,7 +441,7 @@ Expected: PASS
 
 ```bash
 git add agent/sandbox.go agent/sandbox_test.go
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho commit -m "feat(agent): instruct Pi to read PDFs via claw-cli in AGENTS.md
+git -c user.email=you@example.com -c user.name=your-name commit -m "feat(agent): instruct Pi to read PDFs via claw-cli in AGENTS.md
 
 Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 ```
@@ -470,8 +470,8 @@ Expected: two ELF binaries produced (study-app ~18 MB).
 - [ ] **Step 3: Deploy both binaries with backups, restart**
 
 ```bash
-scp /tmp/study-app-linux nanoclaw:/home/eduardo/stack/study-app/bin/study-app.new
-scp /tmp/claw-cli-linux  nanoclaw:/home/eduardo/stack/study-app/bin/claw-cli.new
+scp /tmp/study-app-linux nanoclaw:$VAULT_ROOT/bin/study-app.new
+scp /tmp/claw-cli-linux  nanoclaw:$VAULT_ROOT/bin/claw-cli.new
 ssh nanoclaw 'cd ~/stack/study-app/bin && \
   cp study-app study-app.bak && mv study-app.new study-app && \
   cp claw-cli claw-cli.bak && mv claw-cli.new claw-cli && \
@@ -485,14 +485,14 @@ Expected: final line `active`.
 - [ ] **Step 4: Smoke-test the new subcommands on the VPS**
 
 ```bash
-ssh nanoclaw 'CLAW_STUDY_ROOT=/home/eduardo/stack/study-app /home/eduardo/stack/study-app/bin/claw-cli pdf current'
-ssh nanoclaw 'CLAW_STUDY_ROOT=/home/eduardo/stack/study-app /home/eduardo/stack/study-app/bin/claw-cli pdf list'
+ssh nanoclaw 'CLAW_STUDY_ROOT=$VAULT_ROOT $VAULT_ROOT/bin/claw-cli pdf current'
+ssh nanoclaw 'CLAW_STUDY_ROOT=$VAULT_ROOT $VAULT_ROOT/bin/claw-cli pdf list'
 ```
 Expected: `pdf current` returns JSON for PDF id 4 ("Chapter 8 - PHI ETA Risk Assessment.pdf"); `pdf list` returns all 4 PDFs, the most-recently-read first.
 
 - [ ] **Step 5: Manual acceptance through the app**
 
-Open `https://study.claw-study.xyz`, start a **fresh** Pi `/chat-v2` session on the safety course while viewing the Ch.8 PDF, and ask about ALARP / secondary risk. Confirm in the tool stream that the agent calls `pdf current` then `pdf extract`, and that it quotes actual slide wording rather than saying it must reconstruct from memory.
+Open `https://your-host.example`, start a **fresh** Pi `/chat-v2` session on the safety course while viewing the Ch.8 PDF, and ask about ALARP / secondary risk. Confirm in the tool stream that the agent calls `pdf current` then `pdf extract`, and that it quotes actual slide wording rather than saying it must reconstruct from memory.
 
 If acceptance fails, capture `journalctl --user -u study-app.service` for the session and return to systematic-debugging — do not patch blindly.
 

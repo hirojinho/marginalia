@@ -10,7 +10,7 @@
 
 **Spec:** `docs/superpowers/specs/2026-06-02-mastery-gate-design.md`
 
-**Build/test:** always `/opt/homebrew/bin/go`. **Commit identity:** `git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho commit -m "..."`. Work on `main` (solo project).
+**Build/test:** always `/opt/homebrew/bin/go`. **Commit identity:** `git -c user.email=you@example.com -c user.name=your-name commit -m "..."`. Work on `main` (solo project).
 
 ---
 
@@ -130,7 +130,7 @@ Expected: green (the migration is idempotent; existing course_settings tests sti
 
 ```bash
 git add agent/course_settings.go agent/db.go agent/course_settings_test.go
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho commit -m "feat(settings): add mastery_threshold course setting (default 0.7)"
+git -c user.email=you@example.com -c user.name=your-name commit -m "feat(settings): add mastery_threshold course setting (default 0.7)"
 ```
 
 ---
@@ -215,7 +215,7 @@ Expected: PASS.
 
 ```bash
 git add agent/db.go agent/db_test.go
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho commit -m "feat(confidence): add HasConfidenceAtLeast threshold check"
+git -c user.email=you@example.com -c user.name=your-name commit -m "feat(confidence): add HasConfidenceAtLeast threshold check"
 ```
 
 ---
@@ -444,7 +444,7 @@ Expected: green.
 
 ```bash
 git add agent/tools_plan.go agent/tools_plan_test.go
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho commit -m "feat(plan): hard mastery gate on task completion (force-overridable)"
+git -c user.email=you@example.com -c user.name=your-name commit -m "feat(plan): hard mastery gate on task completion (force-overridable)"
 ```
 
 ---
@@ -529,7 +529,7 @@ Expected: green.
 
 ```bash
 git add claw-cli/main.go claw-cli/main_test.go
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho commit -m "feat(claw-cli): plan toggle --force to bypass the mastery gate"
+git -c user.email=you@example.com -c user.name=your-name commit -m "feat(claw-cli): plan toggle --force to bypass the mastery gate"
 ```
 
 ---
@@ -589,7 +589,7 @@ Expected: green.
 
 ```bash
 git add agent/sandbox.go agent/sandbox_test.go
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho commit -m "feat(pedagogy): surface the mastery gate + mastery_threshold to the agent"
+git -c user.email=you@example.com -c user.name=your-name commit -m "feat(pedagogy): surface the mastery gate + mastery_threshold to the agent"
 ```
 
 ---
@@ -608,8 +608,8 @@ ls -la /tmp/study-app-linux /tmp/claw-cli-linux
 
 - [ ] **Step 2: Deploy (back up both, restart)**
 ```bash
-scp /tmp/study-app-linux nanoclaw:/home/eduardo/stack/study-app/bin/study-app.new
-scp /tmp/claw-cli-linux nanoclaw:/home/eduardo/stack/study-app/bin/claw-cli.new
+scp /tmp/study-app-linux nanoclaw:$VAULT_ROOT/bin/study-app.new
+scp /tmp/claw-cli-linux nanoclaw:$VAULT_ROOT/bin/claw-cli.new
 ssh nanoclaw 'cd ~/stack/study-app/bin && cp study-app study-app.bak && cp claw-cli claw-cli.bak && mv study-app.new study-app && mv claw-cli.new claw-cli && chmod +x study-app claw-cli && export XDG_RUNTIME_DIR=/run/user/$(id -u) && systemctl --user restart study-app.service && sleep 2 && systemctl --user is-active study-app.service'
 ```
 Expected: `active`.

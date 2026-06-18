@@ -105,7 +105,7 @@ This is the **single canonical verifier**; pre-baseline runs it against current-
 
 ### Human-eyeball notes (NOT part of the gate)
 
-- After deploy, manually `curl https://study.claw-study.xyz/debug/version` with the prod token and confirm the `commit` matches `git rev-parse origin/main` on the laptop. This is part of Phase 7 acceptance in the impl plan; it's redundant with the gate but builds your confidence in the pipeline's first run.
+- After deploy, manually `curl https://your-host.example/debug/version` with the prod token and confirm the `commit` matches `git rev-parse origin/main` on the laptop. This is part of Phase 7 acceptance in the impl plan; it's redundant with the gate but builds your confidence in the pipeline's first run.
 
 ## Done criteria
 

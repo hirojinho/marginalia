@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Ship a `claw-cli` Go binary with `memory load|save|search` subcommands, an `agent_memory` SQLite table, and a `seed-memory` one-shot importer that pulls Eduardo's existing memory store from `~/.claude/projects/-Users-eduardohiroji-Documents-ITA-Mestrado/memory/` into the database. End state: `claw-cli memory load --course ce297` produces a ≤3 KB AGENTS.md ready for Pi to consume.
+**Goal:** Ship a `claw-cli` Go binary with `memory load|save|search` subcommands, an `agent_memory` SQLite table, and a `seed-memory` one-shot importer that pulls Eduardo's existing memory store from `~/.claude/projects/<project-slug>/` into the database. End state: `claw-cli memory load --course ce297` produces a ≤3 KB AGENTS.md ready for Pi to consume.
 
 **Architecture:** New table `agent_memory(id, user_id, course_id, kind, title, body, created_at, updated_at)` added inline to `InitSchema` in `agent/db.go`. New `MemoryStore` struct in `agent/memory.go` with `Save / Search / LoadByScope` methods on `*sql.DB` (does not depend on the heavyweight `*App`). New binary `claw-cli/main.go` (package `main`, parallel to existing `convert/main.go`) using stdlib `flag` for subcommand dispatch. AGENTS.md assembly reads from the DB plus the existing `sessions` table for recent activity, plus optional `skills/` dir frontmatter. Seed binary `seed-memory/main.go` walks the source memory dir, parses YAML frontmatter, maps `type` → `kind`, derives `course_id` from path (`courses/<id>/...` → `<id>`, else `NULL`), and reseeds idempotently. Inline migration pattern matches the existing `db.go`.
 
@@ -117,9 +117,9 @@ Expected: all previously-passing tests still pass.
 - [ ] **Step 6: Commit**
 
 ```
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho \
+git -c user.email=you@example.com -c user.name=your-name \
   add agent/db.go agent/db_test.go
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho \
+git -c user.email=you@example.com -c user.name=your-name \
   commit -m "agent: add agent_memory table to InitSchema"
 ```
 
@@ -460,9 +460,9 @@ Expected: 4 tests pass.
 - [ ] **Step 5: Commit**
 
 ```
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho \
+git -c user.email=you@example.com -c user.name=your-name \
   add agent/memory.go agent/memory_test.go
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho \
+git -c user.email=you@example.com -c user.name=your-name \
   commit -m "agent: add MemoryStore with save/search/load-by-scope"
 ```
 
@@ -871,9 +871,9 @@ Expected: all pass.
 - [ ] **Step 6: Commit**
 
 ```
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho \
+git -c user.email=you@example.com -c user.name=your-name \
   add agent/memory.go agent/memory_test.go
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho \
+git -c user.email=you@example.com -c user.name=your-name \
   commit -m "agent: AGENTS.md assembler with recent-sessions + skills frontmatter"
 ```
 
@@ -1131,9 +1131,9 @@ Expected: stderr `unknown subcommand: "wat"`, exit 2.
 - [ ] **Step 6: Commit**
 
 ```
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho \
+git -c user.email=you@example.com -c user.name=your-name \
   add claw-cli/main.go claw-cli/main_test.go
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho \
+git -c user.email=you@example.com -c user.name=your-name \
   commit -m "claw-cli: skeleton + memory save subcommand"
 ```
 
@@ -1274,9 +1274,9 @@ Expected: all tests (Task 4 + Task 5) pass.
 - [ ] **Step 5: Commit**
 
 ```
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho \
+git -c user.email=you@example.com -c user.name=your-name \
   add claw-cli/main.go claw-cli/main_test.go
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho \
+git -c user.email=you@example.com -c user.name=your-name \
   commit -m "claw-cli: memory search subcommand"
 ```
 
@@ -1424,9 +1424,9 @@ head -50 /tmp/agents.md
 - [ ] **Step 6: Commit**
 
 ```
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho \
+git -c user.email=you@example.com -c user.name=your-name \
   add claw-cli/main.go claw-cli/main_test.go
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho \
+git -c user.email=you@example.com -c user.name=your-name \
   commit -m "claw-cli: memory load subcommand emits AGENTS.md"
 ```
 
@@ -1524,7 +1524,7 @@ Expected: FAIL — package missing.
 
 ```go
 // seed-memory imports Eduardo's existing memory store at
-// ~/.claude/projects/-Users-eduardohiroji-Documents-ITA-Mestrado/memory/
+// ~/.claude/projects/<project-slug>/
 // into the agent_memory SQLite table. Idempotent: deletes all rows for
 // the user before reseeding.
 package main
@@ -1546,7 +1546,7 @@ import (
 const userID = "eduardo"
 
 func main() {
-	source := flag.String("source", os.ExpandEnv("$HOME/.claude/projects/-Users-eduardohiroji-Documents-ITA-Mestrado/memory"), "source memory directory")
+	source := flag.String("source", os.ExpandEnv("$HOME/.claude/projects/<project-slug>"), "source memory directory")
 	dbPath := flag.String("db", "data/study.db", "study.db path")
 	dryRun := flag.Bool("dry-run", false, "print what would be inserted; do not write")
 	flag.Parse()
@@ -1703,7 +1703,7 @@ Expected: 3 tests pass.
 - [ ] **Step 5: Smoke-run dry-mode against the real source dir**
 
 ```
-go run ./seed-memory --dry-run --source "$HOME/.claude/projects/-Users-eduardohiroji-Documents-ITA-Mestrado/memory" --db /tmp/seed-smoke.db
+go run ./seed-memory --dry-run --source "$HOME/.claude/projects/<project-slug>" --db /tmp/seed-smoke.db
 ```
 
 Expected: prints ~25-35 candidate rows: 1 `[profile]`, ~13 `[feedback]` global, ~6 course-scoped under `ce297`, etc. No errors.
@@ -1711,9 +1711,9 @@ Expected: prints ~25-35 candidate rows: 1 `[profile]`, ~13 `[feedback]` global, 
 - [ ] **Step 6: Commit**
 
 ```
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho \
+git -c user.email=you@example.com -c user.name=your-name \
   add seed-memory/main.go seed-memory/main_test.go
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho \
+git -c user.email=you@example.com -c user.name=your-name \
   commit -m "seed-memory: import frontmatter-tagged memory into agent_memory"
 ```
 
@@ -1737,20 +1737,20 @@ Expected: two ELF binaries, ~10-18 MB each.
 - [ ] **Step 2: Copy binaries to VPS**
 
 ```
-scp /tmp/claw-cli-linux nanoclaw:/home/eduardo/stack/study-app/bin/claw-cli
-scp /tmp/seed-memory-linux nanoclaw:/home/eduardo/stack/study-app/bin/seed-memory
-ssh nanoclaw 'chmod +x /home/eduardo/stack/study-app/bin/claw-cli /home/eduardo/stack/study-app/bin/seed-memory'
+scp /tmp/claw-cli-linux nanoclaw:$VAULT_ROOT/bin/claw-cli
+scp /tmp/seed-memory-linux nanoclaw:$VAULT_ROOT/bin/seed-memory
+ssh nanoclaw 'chmod +x $VAULT_ROOT/bin/claw-cli $VAULT_ROOT/bin/seed-memory'
 ```
 
 - [ ] **Step 3: Sync the source memory dir to the VPS**
 
-The VPS doesn't have `~/.claude/projects/-Users-eduardohiroji-Documents-ITA-Mestrado/memory/` — that lives on the laptop. Tar it and copy:
+The VPS doesn't have `~/.claude/projects/<project-slug>/` — that lives on the laptop. Tar it and copy:
 
 ```
-cd ~/.claude/projects/-Users-eduardohiroji-Documents-ITA-Mestrado/
+cd ~/.claude/projects/<project-slug>/
 tar czf /tmp/memory-source.tgz memory/
-scp /tmp/memory-source.tgz nanoclaw:/home/eduardo/stack/study-app/data/
-ssh nanoclaw 'cd /home/eduardo/stack/study-app/data && tar xzf memory-source.tgz && rm memory-source.tgz && ls memory | wc -l'
+scp /tmp/memory-source.tgz nanoclaw:$VAULT_ROOT/data/
+ssh nanoclaw 'cd $VAULT_ROOT/data && tar xzf memory-source.tgz && rm memory-source.tgz && ls memory | wc -l'
 ```
 
 Expected: file count ~30+.
@@ -1761,27 +1761,27 @@ The running `study-app.service` already calls `InitSchema` at startup. Restart s
 
 ```
 ssh nanoclaw 'export XDG_RUNTIME_DIR=/run/user/$(id -u); systemctl --user restart study-app.service'
-ssh nanoclaw 'sleep 2; sqlite3 /home/eduardo/stack/study-app/data/study.db "SELECT name FROM sqlite_master WHERE type=\"table\" AND name=\"agent_memory\";"'
+ssh nanoclaw 'sleep 2; sqlite3 $VAULT_ROOT/data/study.db "SELECT name FROM sqlite_master WHERE type=\"table\" AND name=\"agent_memory\";"'
 ```
 
 Expected: prints `agent_memory`.
 
-(If the service is running an older binary that doesn't have `InitSchema` updated, redeploy `study-app` per the deploy cheat sheet first. Check with `ssh nanoclaw 'sha256sum /home/eduardo/stack/study-app/bin/study-app'` against a freshly-built binary.)
+(If the service is running an older binary that doesn't have `InitSchema` updated, redeploy `study-app` per the deploy cheat sheet first. Check with `ssh nanoclaw 'sha256sum $VAULT_ROOT/bin/study-app'` against a freshly-built binary.)
 
 Actually — we likely need to redeploy `study-app` itself since the schema change is in the `agent` package. Do that:
 
 ```
 cd ~/Documents/ITA/claw-study
 GOOS=linux GOARCH=amd64 /opt/homebrew/bin/go build -o /tmp/study-app-linux .
-scp /tmp/study-app-linux nanoclaw:/home/eduardo/stack/study-app/bin/study-app.new
+scp /tmp/study-app-linux nanoclaw:$VAULT_ROOT/bin/study-app.new
 ssh nanoclaw 'cd ~/stack/study-app/bin && cp study-app study-app.bak && mv study-app.new study-app && chmod +x study-app && export XDG_RUNTIME_DIR=/run/user/$(id -u) && systemctl --user restart study-app.service'
-ssh nanoclaw 'sleep 2; sqlite3 /home/eduardo/stack/study-app/data/study.db "SELECT name FROM sqlite_master WHERE type=\"table\" AND name=\"agent_memory\";"'
+ssh nanoclaw 'sleep 2; sqlite3 $VAULT_ROOT/data/study.db "SELECT name FROM sqlite_master WHERE type=\"table\" AND name=\"agent_memory\";"'
 ```
 
 - [ ] **Step 5: Run the seed importer**
 
 ```
-ssh nanoclaw 'cd /home/eduardo/stack/study-app && ./bin/seed-memory --source ./data/memory --db ./data/study.db'
+ssh nanoclaw 'cd $VAULT_ROOT && ./bin/seed-memory --source ./data/memory --db ./data/study.db'
 ```
 
 Expected: log line `seeded N rows` (N ≈ 25-35).
@@ -1789,7 +1789,7 @@ Expected: log line `seeded N rows` (N ≈ 25-35).
 - [ ] **Step 6: Generate AGENTS.md and verify the cap**
 
 ```
-ssh nanoclaw 'cd /home/eduardo/stack/study-app && ./bin/claw-cli memory load --course ce297 --user eduardo' > /tmp/agents-ce297.md
+ssh nanoclaw 'cd $VAULT_ROOT && ./bin/claw-cli memory load --course ce297 --user eduardo' > /tmp/agents-ce297.md
 wc -c /tmp/agents-ce297.md
 head -60 /tmp/agents-ce297.md
 ```
@@ -1803,7 +1803,7 @@ Expected:
 - [ ] **Step 7: Smoke `memory search`**
 
 ```
-ssh nanoclaw 'cd /home/eduardo/stack/study-app && ./bin/claw-cli memory search --query "abbreviations"'
+ssh nanoclaw 'cd $VAULT_ROOT && ./bin/claw-cli memory search --query "abbreviations"'
 ```
 
 Expected: JSON `{"results":[...]}` with at least one feedback entry hit.
@@ -1811,8 +1811,8 @@ Expected: JSON `{"results":[...]}` with at least one feedback entry hit.
 - [ ] **Step 8: Smoke `memory save` and re-verify load**
 
 ```
-ssh nanoclaw 'cd /home/eduardo/stack/study-app && ./bin/claw-cli memory save --kind feedback --course ce297 --title "phase1-smoke" --body "test entry written by claw-cli during Phase 1 smoke"'
-ssh nanoclaw 'cd /home/eduardo/stack/study-app && ./bin/claw-cli memory load --course ce297 --user eduardo' | grep -c phase1-smoke
+ssh nanoclaw 'cd $VAULT_ROOT && ./bin/claw-cli memory save --kind feedback --course ce297 --title "phase1-smoke" --body "test entry written by claw-cli during Phase 1 smoke"'
+ssh nanoclaw 'cd $VAULT_ROOT && ./bin/claw-cli memory load --course ce297 --user eduardo' | grep -c phase1-smoke
 ```
 
 Expected: save emits `{"id":N,"kind":"feedback","title":"phase1-smoke"}`; the grep returns ≥1 (entry surfaces in feedback section).
@@ -1826,9 +1826,9 @@ Append a `Phase 1 deploy log` section to `docs/specs/proposals/pi-rpc-handshake-
 - Any deviation from the plan
 
 ```
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho \
+git -c user.email=you@example.com -c user.name=your-name \
   add docs/specs/proposals/
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho \
+git -c user.email=you@example.com -c user.name=your-name \
   commit -m "docs: phase 1 deploy log"
 git push origin main
 ```

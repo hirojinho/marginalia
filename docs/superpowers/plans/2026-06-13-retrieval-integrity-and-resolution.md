@@ -178,8 +178,8 @@ Run: `/opt/homebrew/bin/go test ./agent/ -run TestBuildTaskTitleIndex -v`
 - [ ] **Step 5: Commit**
 
 ```bash
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho add agent/retrieval_resolve.go agent/retrieval_resolve_test.go
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho commit -m "feat(retrieval): plan task-title index"
+git -c user.email=you@example.com -c user.name=your-name add agent/retrieval_resolve.go agent/retrieval_resolve_test.go
+git -c user.email=you@example.com -c user.name=your-name commit -m "feat(retrieval): plan task-title index"
 ```
 
 ### Task 2: Atom-label resolution + atom-id validation
@@ -437,7 +437,7 @@ func knowledgeSearch(args []string, stdout, stderr io.Writer, dbPath string) int
 - [ ] **Step 2: Build + manual check on a DB copy**
 
 ```bash
-scp nanoclaw:/home/eduardo/stack/study-app/data/study.db /tmp/study-copy.db
+scp nanoclaw:$VAULT_ROOT/data/study.db /tmp/study-copy.db
 # task id rejected:
 /opt/homebrew/bin/go run ./claw-cli confidence log --db /tmp/study-copy.db --session 1 --kc a377894f-5b2e-4338-b659-90663877e84f --value 0.5 --raw x; echo exit=$?  # expect exit=2
 ```

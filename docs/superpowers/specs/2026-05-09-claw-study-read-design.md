@@ -10,7 +10,7 @@ A SKILL.md hot-reloaded into Claw (the Telegram agent at `@HiroClawdBot`) so Edu
 
 ## Install path
 
-`/home/eduardo/stack/nanoclaw-v2/data/v2-sessions/ag-1777924890168-e1etn1/.claude-shared/skills/claw-study-read/SKILL.md`
+`/path/to/nanoclaw-v2/data/v2-sessions/ag-1777924890168-e1etn1/.claude-shared/skills/claw-study-read/SKILL.md`
 
 The skill-watcher polls `.claude-shared/skills/` every 5s and kills the agent container when a new skill appears, so the next Telegram message picks it up. No restart needed.
 

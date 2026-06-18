@@ -236,7 +236,7 @@ Expected: all `ok`.
 ```bash
 cd ~/Documents/ITA/claw-study
 git add claw-cli/main.go claw-cli/main_test.go
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho commit -m "$(cat <<'EOF'
+git -c user.email=you@example.com -c user.name=your-name commit -m "$(cat <<'EOF'
 feat(plan): claw-cli plan rewrite so the tutor can restructure a plan
 
 Wraps the existing validated ToolRewritePlan (parses, id must match course,
@@ -297,7 +297,7 @@ Expected: `1` (or more) — the rewrite instruction is in the template.
 ```bash
 cd ~/Documents/ITA/claw-study
 git add agent/sandbox.go
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho commit -m "$(cat <<'EOF'
+git -c user.email=you@example.com -c user.name=your-name commit -m "$(cat <<'EOF'
 feat(agent): tell the tutor the plan is editable via claw-cli plan rewrite
 
 Adds an "Editing the plan" block to the generated AGENTS.md: read plan show,
@@ -342,8 +342,8 @@ Expected: two ELF binaries (~20 MB study-app, ~15 MB claw-cli).
 
 ```bash
 cd ~/Documents/ITA/claw-study
-scp -q /tmp/study-app-linux nanoclaw:/home/eduardo/stack/study-app/bin/study-app.new
-scp -q /tmp/claw-cli-linux nanoclaw:/home/eduardo/stack/study-app/bin/claw-cli.new
+scp -q /tmp/study-app-linux nanoclaw:$VAULT_ROOT/bin/study-app.new
+scp -q /tmp/claw-cli-linux nanoclaw:$VAULT_ROOT/bin/claw-cli.new
 ssh nanoclaw 'cd ~/stack/study-app/bin && \
   cp study-app study-app.bak.2026-05-30-plan-rewrite && mv study-app.new study-app && chmod +x study-app && \
   cp claw-cli claw-cli.bak.2026-05-30-plan-rewrite && mv claw-cli.new claw-cli && chmod +x claw-cli && \
@@ -355,8 +355,8 @@ Expected: `active`.
 - [ ] **Step 5: Live smoke test (on a disposable plan)**
 
 ```bash
-DB=/home/eduardo/stack/study-app/data/study.db
-VR=/home/eduardo/stack/study-app
+DB=$VAULT_ROOT/data/study.db
+VR=$VAULT_ROOT
 # Seed a tiny plan via rewrite (also proves create-when-absent):
 ssh nanoclaw "printf '%s' '{\"id\":\"plan-smoke\",\"name\":\"Smoke\",\"phases\":[{\"title\":\"P\",\"tasks\":[{\"title\":\"One\"}]}]}' > /tmp/p.json && VAULT_ROOT=$VR /usr/local/bin/claw-cli plan rewrite --course plan-smoke --plan-file /tmp/p.json --db $DB"
 # Read it back, capture the generated id of task "One":

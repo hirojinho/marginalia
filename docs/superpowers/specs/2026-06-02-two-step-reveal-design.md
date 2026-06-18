@@ -44,4 +44,4 @@ Manual acceptance: deploy; next study completion with a partial recall, confirm 
 
 Two artifacts, because they ship differently:
 1. **`study-app` binary** — carries the always-on Rule (compiled from `sandbox.go`); `AGENTS.md` regenerates next turn. Standard cross-compile + scp + restart.
-2. **`SKILL.md`** — a mounted file, NOT compiled in. Pi reads skills from `SKILLS_DIR=/home/eduardo/stack/study-app/skills` (verified). The binary deploy does NOT sync it (the VPS copy is stale, dated 2026-05-30). So **explicitly** `scp skills/study-step-complete/SKILL.md nanoclaw:/home/eduardo/stack/study-app/skills/study-step-complete/SKILL.md`. No restart needed for the skill file (read per Pi launch), but restart anyway for the binary.
+2. **`SKILL.md`** — a mounted file, NOT compiled in. Pi reads skills from `SKILLS_DIR=$VAULT_ROOT/skills` (verified). The binary deploy does NOT sync it (the VPS copy is stale, dated 2026-05-30). So **explicitly** `scp skills/study-step-complete/SKILL.md nanoclaw:$VAULT_ROOT/skills/study-step-complete/SKILL.md`. No restart needed for the skill file (read per Pi launch), but restart anyway for the binary.

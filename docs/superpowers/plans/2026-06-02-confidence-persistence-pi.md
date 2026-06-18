@@ -179,7 +179,7 @@ Expected: all green, server binary builds.
 
 ```bash
 git add claw-cli/main.go claw-cli/main_test.go
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho commit -m "feat(claw-cli): add 'confidence log' subcommand for the Pi path"
+git -c user.email=you@example.com -c user.name=your-name commit -m "feat(claw-cli): add 'confidence log' subcommand for the Pi path"
 ```
 
 ---
@@ -244,7 +244,7 @@ Expected: all green.
 
 ```bash
 git add agent/sandbox.go agent/sandbox_test.go
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho commit -m "feat(pedagogy): Rule 3 persists confidence via claw-cli on the Pi path"
+git -c user.email=you@example.com -c user.name=your-name commit -m "feat(pedagogy): Rule 3 persists confidence via claw-cli on the Pi path"
 ```
 
 ---
@@ -266,8 +266,8 @@ Expected: two ELF binaries.
 - [ ] **Step 2: Deploy server + claw-cli**
 
 ```bash
-scp /tmp/study-app-linux nanoclaw:/home/eduardo/stack/study-app/bin/study-app.new
-scp /tmp/claw-cli-linux nanoclaw:/home/eduardo/stack/study-app/bin/claw-cli.new
+scp /tmp/study-app-linux nanoclaw:$VAULT_ROOT/bin/study-app.new
+scp /tmp/claw-cli-linux nanoclaw:$VAULT_ROOT/bin/claw-cli.new
 ssh nanoclaw 'cd ~/stack/study-app/bin && cp study-app study-app.bak && cp claw-cli claw-cli.bak && mv study-app.new study-app && mv claw-cli.new claw-cli && chmod +x study-app claw-cli && export XDG_RUNTIME_DIR=/run/user/$(id -u) && systemctl --user restart study-app.service'
 ```
 

@@ -16,8 +16,8 @@ echo 'export PATH=$HOME/.npm-global/bin:$PATH' >> ~/.bashrc
 npm install -g @earendil-works/pi-coding-agent@0.74.0
 ```
 
-- Install path: `/home/eduardo/.npm-global/lib/node_modules/@earendil-works/pi-coding-agent`
-- Binary: `/home/eduardo/.npm-global/bin/pi` (255 packages, ~18 s install).
+- Install path: `~/.npm-global/lib/node_modules/@earendil-works/pi-coding-agent`
+- Binary: `~/.npm-global/bin/pi` (255 packages, ~18 s install).
 - Pinned: `0.74.0` (current latest).
 - Quirk: `node-domexception@1.0.0` deprecation warning, harmless.
 - Pi created `~/.pi/agent/` on first run for sessions/extensions/skills (we passed

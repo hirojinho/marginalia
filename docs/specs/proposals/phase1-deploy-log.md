@@ -2,7 +2,7 @@
 
 Date: 2026-05-10
 Operator: Eduardo (via Claude)
-Target: `nanoclaw` VPS, service `study-app.service`, URL `https://study.claw-study.xyz`
+Target: `nanoclaw` VPS, service `study-app.service`, URL `https://your-host.example`
 
 ## Commit range
 
@@ -22,7 +22,7 @@ b90f9aa agent: add MemoryStore with save/search/load-by-scope
 
 - Cross-compiled three Linux/amd64 binaries on macOS with `/opt/homebrew/bin/go` (Go 1.26.3): `claw-cli` (10.9 MB), `seed-memory` (10.7 MB), `study-app` (17.5 MB).
 - Hot-swapped the server: backed up old binary to `study-app.bak`, moved `study-app.new` to `study-app`, restarted via `systemctl --user restart study-app.service`. Service came up `active` on first try.
-- Health check: `https://study.claw-study.xyz/debug/health` returned `200`.
+- Health check: `https://your-host.example/debug/health` returned `200`.
 
 ## Schema migration
 
@@ -30,7 +30,7 @@ b90f9aa agent: add MemoryStore with save/search/load-by-scope
 
 ## Seed run
 
-- Source: `~/.claude/projects/-Users-eduardohiroji-Documents-ITA-Mestrado/memory/` tarred and extracted to `/home/eduardo/stack/study-app/data/memory/` (74 markdown files).
+- Source: `~/.claude/projects/<project-slug>/` tarred and extracted to `$VAULT_ROOT/data/memory/` (74 markdown files).
 - `seed-memory` collected 24 candidate rows and seeded all 24. Matches the laptop dry-run.
 - Kind breakdown after seed:
 
@@ -77,7 +77,7 @@ Three Phase-2-prep fixes shipped. Commits: `9c346cb..65621aa`.
 
 Same hot-swap pattern as Phase 1: backed up `study-app` to `study-app.bak`, swapped in new build, `systemctl --user restart study-app.service` came up `active` on first try. Cross-compiled `study-app` (17.5 MB), `claw-cli` (10.9 MB), `seed-memory` (10.7 MB) for linux/amd64.
 
-Appended `CLAW_STUDY_ROOT=/home/eduardo/stack/study-app` to `~/stack/study-app/.env` (the only .env mutation).
+Appended `CLAW_STUDY_ROOT=$VAULT_ROOT` to `~/stack/study-app/.env` (the only .env mutation).
 
 Verification:
 - AGENTS.md from canonical cwd (`cd ~/stack/study-app`): 2664 bytes
@@ -112,7 +112,7 @@ e5d2586 claw-cli: fix flag order in web fetch test
 
 ### Subcommand smoke results
 
-All commands run from `cd /home/eduardo/stack/study-app` with `.env` sourced (`set -a; source .env; set +a`).
+All commands run from `cd $VAULT_ROOT` with `.env` sourced (`set -a; source .env; set +a`).
 
 | Subcommand | Result |
 |---|---|

@@ -148,7 +148,7 @@ On current main this fails at step 2 (the endpoint returns 404 because the route
 
 ### Human-eyeball notes (NOT part of the gate)
 
-- After deploy, manually `curl https://study.claw-study.xyz/api/sessions/stats?id=<real-session>` with the prod token and confirm a real session with chat history returns plausible counters (non-zero, monotonically related to what you see in the UI). Sanity check only; redundant with the gate.
+- After deploy, manually `curl https://your-host.example/api/sessions/stats?id=<real-session>` with the prod token and confirm a real session with chat history returns plausible counters (non-zero, monotonically related to what you see in the UI). Sanity check only; redundant with the gate.
 
 ## Done criteria
 

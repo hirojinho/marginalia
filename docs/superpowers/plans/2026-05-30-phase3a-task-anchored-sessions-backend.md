@@ -198,7 +198,7 @@ Expected: build OK, `ok study-app/agent`, `ok study-app/handler`.
 
 ```bash
 git add agent/types.go agent/db.go agent/db_test.go
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho commit -m "feat(sessions): add task_id/archived/hidden columns; ListSessions hides hidden (ADR 0014)"
+git -c user.email=you@example.com -c user.name=your-name commit -m "feat(sessions): add task_id/archived/hidden columns; ListSessions hides hidden (ADR 0014)"
 ```
 
 ---
@@ -323,7 +323,7 @@ Expected: PASS.
 
 ```bash
 git add agent/db.go agent/db_test.go
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho commit -m "feat(sessions): CreateSessionForTask + GetSessionByTask (1:1 anchor, ADR 0014)"
+git -c user.email=you@example.com -c user.name=your-name commit -m "feat(sessions): CreateSessionForTask + GetSessionByTask (1:1 anchor, ADR 0014)"
 ```
 
 ---
@@ -488,7 +488,7 @@ Expected: PASS.
 
 ```bash
 git add handler/sessions.go handler/handler.go handler/sessions_test.go
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho commit -m "feat(api): /api/sessions/for-task get-or-create (lazy task-session hook, ADR 0014)"
+git -c user.email=you@example.com -c user.name=your-name commit -m "feat(api): /api/sessions/for-task get-or-create (lazy task-session hook, ADR 0014)"
 ```
 
 ---
@@ -671,7 +671,7 @@ Expected: build OK; both packages `ok`.
 
 ```bash
 git add agent/db.go agent/db_test.go agent/app.go
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho commit -m "feat(sessions): one-time Phase-3 clean-break migration — hide synthetic, archive pre-redesign (ADR 0014)"
+git -c user.email=you@example.com -c user.name=your-name commit -m "feat(sessions): one-time Phase-3 clean-break migration — hide synthetic, archive pre-redesign (ADR 0014)"
 ```
 
 (Adjust the `git add` path in Step 7 to the file actually edited in Step 5 if it is not `agent/app.go`.)
@@ -763,7 +763,7 @@ Expected: PASS.
 
 ```bash
 git add handler/sessions.go handler/sessions_test.go
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho commit -m "feat(api): POST /api/sessions accepts optional task_id (ADR 0014)"
+git -c user.email=you@example.com -c user.name=your-name commit -m "feat(api): POST /api/sessions accepts optional task_id (ADR 0014)"
 ```
 
 ---
@@ -788,7 +788,7 @@ Expected: exit 0.
 
 Run:
 ```bash
-scp /tmp/study-app-linux nanoclaw:/home/eduardo/stack/study-app/bin/study-app.new
+scp /tmp/study-app-linux nanoclaw:$VAULT_ROOT/bin/study-app.new
 ssh nanoclaw 'cd ~/stack/study-app/bin && cp study-app study-app.bak.2026-05-30-phase3a && mv study-app.new study-app && chmod +x study-app && systemctl --user restart study-app.service && sleep 3 && systemctl --user is-active study-app.service && systemctl --user is-active study-app-tunnel.service'
 ```
 Expected: both `active`.
@@ -797,7 +797,7 @@ Expected: both `active`.
 
 Run:
 ```bash
-curl -s -o /dev/null -w "%{http_code}\n" https://study.claw-study.xyz/
+curl -s -o /dev/null -w "%{http_code}\n" https://your-host.example/
 ssh nanoclaw 'cd ~/stack/study-app && echo -n "migration flag: "; sqlite3 data/study.db "SELECT value FROM meta WHERE key=\"phase3_session_migration\";"; echo -n "hidden count: "; sqlite3 data/study.db "SELECT COUNT(*) FROM sessions WHERE hidden=1;"; echo -n "archived count: "; sqlite3 data/study.db "SELECT COUNT(*) FROM sessions WHERE archived=1;"; journalctl --user -u study-app.service -n 20 --no-pager | grep -i "phase3 session migration"'
 ```
 Expected: HTTP `401` (auth = healthy); `migration flag: 1`; `hidden count` ≈ 6 (2 verifier + 4 smoke, plus any 0-msg); `archived count` > 0; a log line `phase3 session migration applied rows=N`.

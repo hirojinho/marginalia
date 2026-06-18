@@ -161,7 +161,7 @@ Expected: `ok` (the existing `TestWriteAgentsMDParameterizesSteering` / `TestWri
 ```bash
 cd ~/Documents/ITA/claw-study
 git add agent/sandbox.go agent/sandbox_test.go
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho commit -m "$(cat <<'EOF'
+git -c user.email=you@example.com -c user.name=your-name commit -m "$(cat <<'EOF'
 feat(agent): authoring frame extends existing plans; suppress study framing
 
 writeAgentsMD skips the study-tuned sections (pedagogy rules, plan toggle
@@ -296,7 +296,7 @@ VAULT_ROOT=/tmp/claw-phaseB-vault LISTEN_ADDR=127.0.0.1:8096 AUTH_TOKEN= LLM_API
 ```bash
 cd ~/Documents/ITA/claw-study
 git add static/rail.js static/app.js
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho commit -m "$(cat <<'EOF'
+git -c user.email=you@example.com -c user.name=your-name commit -m "$(cat <<'EOF'
 feat(rail): per-course "Design plan" entry + dedicated Design section
 
 Splits mode=authoring sessions out of Scratch into a Design bucket below the
@@ -326,7 +326,7 @@ ls -la /tmp/study-app-linux
 
 - [ ] **Step 4: Deploy with backup + restart**
 ```bash
-scp -q /tmp/study-app-linux nanoclaw:/home/eduardo/stack/study-app/bin/study-app.new
+scp -q /tmp/study-app-linux nanoclaw:$VAULT_ROOT/bin/study-app.new
 ssh nanoclaw 'cd ~/stack/study-app/bin && cp study-app study-app.bak.2026-05-30-authoring-B && mv study-app.new study-app && chmod +x study-app && export XDG_RUNTIME_DIR=/run/user/$(id -u) && systemctl --user restart study-app.service && sleep 2 && systemctl --user is-active study-app.service'
 ```
 Expected: `active`.
@@ -335,10 +335,10 @@ Expected: `active`.
 ```bash
 TOKEN=$(ssh nanoclaw 'grep ^AUTH_TOKEN= ~/stack/study-app/.env | cut -d= -f2')
 # existing-course design session via API:
-rtk proxy curl -s -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{"course_id":"ce297","task_id":"","mode":"authoring","topic":"Design CE-297 plan"}' https://study.claw-study.xyz/api/sessions
+rtk proxy curl -s -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{"course_id":"ce297","task_id":"","mode":"authoring","topic":"Design CE-297 plan"}' https://your-host.example/api/sessions
 # confirm it lists; then open the UI, select CE-297, confirm the Design section + "+".
 # cleanup the smoke session:
-ssh nanoclaw "sqlite3 /home/eduardo/stack/study-app/data/study.db \"DELETE FROM sessions WHERE topic='Design CE-297 plan' AND mode='authoring';\""
+ssh nanoclaw "sqlite3 $VAULT_ROOT/data/study.db \"DELETE FROM sessions WHERE topic='Design CE-297 plan' AND mode='authoring';\""
 ```
 Expected: POST returns `mode:authoring, course_id:ce297`; cleanup removes it.
 

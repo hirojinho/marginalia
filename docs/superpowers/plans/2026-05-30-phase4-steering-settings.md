@@ -145,7 +145,7 @@ func TestUpsertCourseSettingsValidates(t *testing.T) {
 
 - [ ] **Step 3: Run tests to verify they fail**
 
-Run: `cd /Users/eduardohiroji/Documents/ITA/claw-study && go test ./agent/ -run 'CourseSetting' -v`
+Run: `cd ~/claw-study && go test ./agent/ -run 'CourseSetting' -v`
 Expected: FAIL — `undefined: CourseSettings`, `app.GetCourseSettings undefined`, etc.
 
 - [ ] **Step 4: Implement the data layer**
@@ -309,13 +309,13 @@ func parseBoolSetting(value string) (bool, error) {
 
 - [ ] **Step 5: Run tests to verify they pass**
 
-Run: `cd /Users/eduardohiroji/Documents/ITA/claw-study && go test ./agent/ -run 'CourseSetting' -v`
+Run: `cd ~/claw-study && go test ./agent/ -run 'CourseSetting' -v`
 Expected: PASS (all four tests).
 
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /Users/eduardohiroji/Documents/ITA/claw-study
+cd ~/claw-study
 git add agent/course_settings.go agent/course_settings_test.go agent/db.go
 git commit -m "feat(settings): course_settings table + data layer (ADR 0010/0016)"
 ```
@@ -386,7 +386,7 @@ func TestWriteAgentsMDUsesDefaultsWhenNoProvider(t *testing.T) {
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `cd /Users/eduardohiroji/Documents/ITA/claw-study && go test ./agent/ -run 'WriteAgentsMD' -v`
+Run: `cd ~/claw-study && go test ./agent/ -run 'WriteAgentsMD' -v`
 Expected: FAIL — `sm.Settings undefined`.
 
 - [ ] **Step 3: Add the `Settings` field to `SandboxManager`**
@@ -515,18 +515,18 @@ Note: the original Rule 9 ended with `\n\n` before the interest-log subheading; 
 
 - [ ] **Step 6: Run tests to verify they pass**
 
-Run: `cd /Users/eduardohiroji/Documents/ITA/claw-study && go test ./agent/ -run 'WriteAgentsMD|Sandbox' -v`
+Run: `cd ~/claw-study && go test ./agent/ -run 'WriteAgentsMD|Sandbox' -v`
 Expected: PASS (new tests + existing sandbox tests still green — `Create(...)` signature is unchanged).
 
 - [ ] **Step 7: Full agent build + vet**
 
-Run: `cd /Users/eduardohiroji/Documents/ITA/claw-study && go build ./... && go vet ./agent/`
+Run: `cd ~/claw-study && go build ./... && go vet ./agent/`
 Expected: no output (success).
 
 - [ ] **Step 8: Commit**
 
 ```bash
-cd /Users/eduardohiroji/Documents/ITA/claw-study
+cd ~/claw-study
 git add agent/sandbox.go agent/sandbox_test.go agent/app.go
 git commit -m "feat(settings): parameterize AGENTS.md pedagogy rules from course settings"
 ```
@@ -582,13 +582,13 @@ with:
 
 - [ ] **Step 3: Verify the edit**
 
-Run: `cd /Users/eduardohiroji/Documents/ITA/claw-study && grep -c "stop_after_task" skills/study-step-complete/SKILL.md`
+Run: `cd ~/claw-study && grep -c "stop_after_task" skills/study-step-complete/SKILL.md`
 Expected: `3` (Step 5 heading reference, the two state paragraphs reference it, red-flag row — at least 3 matches).
 
 - [ ] **Step 4: Commit**
 
 ```bash
-cd /Users/eduardohiroji/Documents/ITA/claw-study
+cd ~/claw-study
 git add skills/study-step-complete/SKILL.md
 git commit -m "feat(settings): study-step-complete defers to stop_after_task flag"
 ```
@@ -649,7 +649,7 @@ func TestCourseSettingsSetRejectsBadKey(t *testing.T) {
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `cd /Users/eduardohiroji/Documents/ITA/claw-study && go test ./claw-cli/ -run 'CourseSettings' -v`
+Run: `cd ~/claw-study && go test ./claw-cli/ -run 'CourseSettings' -v`
 Expected: FAIL — `unknown course subcommand: "settings"` (exit 2).
 
 - [ ] **Step 3: Add the dispatch + commands**
@@ -774,13 +774,13 @@ func courseSettingsSet(args []string, stdout, stderr io.Writer, dbPath string) i
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `cd /Users/eduardohiroji/Documents/ITA/claw-study && go test ./claw-cli/ -run 'CourseSettings' -v`
+Run: `cd ~/claw-study && go test ./claw-cli/ -run 'CourseSettings' -v`
 Expected: PASS (both tests).
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/eduardohiroji/Documents/ITA/claw-study
+cd ~/claw-study
 git add claw-cli/main.go claw-cli/main_test.go
 git commit -m "feat(settings): claw-cli course settings get|set (ADR 0016 tool path)"
 ```
@@ -863,7 +863,7 @@ func TestPutCourseSettingsRejectsBadChunk(t *testing.T) {
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `cd /Users/eduardohiroji/Documents/ITA/claw-study && go test ./handler/ -run 'CourseSettings' -v`
+Run: `cd ~/claw-study && go test ./handler/ -run 'CourseSettings' -v`
 Expected: FAIL — `h.handleCourseSettings undefined`.
 
 - [ ] **Step 3: Implement the handler**
@@ -940,13 +940,13 @@ In `handler/handler.go`, after line 55 (`mux.HandleFunc("/api/courses", h.handle
 
 - [ ] **Step 5: Run tests to verify they pass**
 
-Run: `cd /Users/eduardohiroji/Documents/ITA/claw-study && go test ./handler/ -run 'CourseSettings' -v`
+Run: `cd ~/claw-study && go test ./handler/ -run 'CourseSettings' -v`
 Expected: PASS (all three).
 
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /Users/eduardohiroji/Documents/ITA/claw-study
+cd ~/claw-study
 git add handler/course_settings.go handler/course_settings_test.go handler/handler.go
 git commit -m "feat(settings): GET/PUT /api/courses/settings"
 ```
@@ -1129,7 +1129,7 @@ Append to `static/style.css`:
 Build and run a local preview (recipe from Phase 3b — `loadConfig` requires an LLM key even locally; empty `AUTH_TOKEN` disables the gate; static is `//go:embed`-ed so a rebuild is required after JS/CSS changes):
 
 ```bash
-cd /Users/eduardohiroji/Documents/ITA/claw-study
+cd ~/claw-study
 rm -rf /tmp/claw-set-vault && mkdir -p /tmp/claw-set-vault
 VAULT_ROOT=/tmp/claw-set-vault LISTEN_ADDR=127.0.0.1:8099 AUTH_TOKEN= LLM_API_KEY=dummy AGENT_RUNTIME=pi go run . &
 sleep 2
@@ -1145,7 +1145,7 @@ Expected: all three hold. (No PDF is involved here, so the Phase-3b `openPdf` al
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/eduardohiroji/Documents/ITA/claw-study
+cd ~/claw-study
 git add static/settings.js static/rail.js static/style.css
 git commit -m "feat(settings): rail gear + course settings modal"
 ```
@@ -1158,7 +1158,7 @@ git commit -m "feat(settings): rail gear + course settings modal"
 
 - [ ] **Step 1: Full test suite + build + vet**
 
-Run: `cd /Users/eduardohiroji/Documents/ITA/claw-study && go build ./... && go vet ./... && go test ./...`
+Run: `cd ~/claw-study && go build ./... && go vet ./... && go test ./...`
 Expected: build clean, vet clean, all tests PASS.
 
 - [ ] **Step 2: Deploy `study-app`**
@@ -1168,7 +1168,7 @@ Follow the deploy cheat sheet in the `claw-study service` memory. Build the linu
 - [ ] **Step 3: Deploy `claw-cli` (REQUIRED — this phase changed it)**
 
 ```bash
-cd /Users/eduardohiroji/Documents/ITA/claw-study
+cd ~/claw-study
 go build -o /tmp/claw-cli-linux ./claw-cli
 ```
 
@@ -1183,13 +1183,13 @@ scp `skills/study-step-complete/SKILL.md` to `~/stack/study-app/skills/study-ste
 - `systemctl --user is-active study-app.service study-app-tunnel.service` → two `active`.
 - Public health returns 401 (bearer auth healthy).
 - On the VPS: `bin/claw-cli course settings get --course ce297` prints defaults (`chunk_pages: 8`, `stop_after_task: true`).
-- In the browser at `https://study.claw-study.xyz`, open a course's ⚙, set chunk size to 6, save; reopen to confirm it stuck.
+- In the browser at `https://your-host.example`, open a course's ⚙, set chunk size to 6, save; reopen to confirm it stuck.
 - Start a study session on that course and confirm the tutor's reading chunking reflects 6 pages (the `<reading_state>` flow) — i.e. AGENTS.md picked up the setting.
 
 - [ ] **Step 6: Final commit (if any deploy notes/scripts changed)**
 
 ```bash
-cd /Users/eduardohiroji/Documents/ITA/claw-study
+cd ~/claw-study
 git status   # commit any deploy-script tweaks; code is already committed per-task
 ```
 

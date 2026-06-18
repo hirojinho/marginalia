@@ -300,7 +300,7 @@ pi -p --mode json --provider deepseek --model deepseek-v4-pro --thinking low \
 - [ ] **Step 2: Independently confirm the ship (Claude Code)**
 
 ```bash
-curl -s https://study.claw-study.xyz/debug/version
+curl -s https://your-host.example/debug/version
 cd ~/Documents/ITA/claw-study && git fetch && git log --oneline -3 origin/main
 ```
 Expected: `/debug/version` returns the new commit; sm2 spec now in `specs/done/`. Run the spec's `### Post-acceptance` recipe against prod/staging and confirm exit 0.

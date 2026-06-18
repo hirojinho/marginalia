@@ -131,9 +131,9 @@ All commands must exit 0.
 
 ```bash
 cd ~/Documents/ITA/claw-study
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho \
+git -c user.email=you@example.com -c user.name=your-name \
   add STYLE.md CLAUDE.md
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho \
+git -c user.email=you@example.com -c user.name=your-name \
   commit -m "docs: add STYLE.md as code-style source of truth"
 ```
 
@@ -186,9 +186,9 @@ grep -c '^## ' ~/Documents/ITA/claw-study/docs/style/go.md  # should be ≥10
 - [ ] **Step 3: Commit**
 
 ```bash
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho \
+git -c user.email=you@example.com -c user.name=your-name \
   add docs/style/go.md
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho \
+git -c user.email=you@example.com -c user.name=your-name \
   commit -m "docs: Go style guide with examples"
 ```
 
@@ -238,9 +238,9 @@ grep -c '^## ' ~/Documents/ITA/claw-study/docs/style/js.md  # ≥10
 - [ ] **Step 3: Commit**
 
 ```bash
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho \
+git -c user.email=you@example.com -c user.name=your-name \
   add docs/style/js.md
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho \
+git -c user.email=you@example.com -c user.name=your-name \
   commit -m "docs: JS style guide with examples"
 ```
 
@@ -319,9 +319,9 @@ Record the count of violations. The repo was written before lint was enforced, s
 - [ ] **Step 4: Commit**
 
 ```bash
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho \
+git -c user.email=you@example.com -c user.name=your-name \
   add .golangci.yml
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho \
+git -c user.email=you@example.com -c user.name=your-name \
   commit -m "lint: add .golangci.yml ($N existing violations to clean up later)"
 ```
 
@@ -430,9 +430,9 @@ Expect: existing files have format/lint violations (the project was written befo
 - [ ] **Step 7: Commit**
 
 ```bash
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho \
+git -c user.email=you@example.com -c user.name=your-name \
   add package.json package-lock.json .prettierrc.json .eslintrc.cjs .gitignore
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho \
+git -c user.email=you@example.com -c user.name=your-name \
   commit -m "lint: add prettier + eslint configs (existing JS to be cleaned later)"
 ```
 
@@ -547,7 +547,7 @@ func   StyleSmokeTest( ) { fmt.Println( "bad" ) }
 EOF
 mv /tmp/style_smoke.go agent/style_smoke.go
 git add agent/style_smoke.go
-if git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho commit -m "smoke" 2>&1 | grep -q "FAIL: run 'gofmt"; then
+if git -c user.email=you@example.com -c user.name=your-name commit -m "smoke" 2>&1 | grep -q "FAIL: run 'gofmt"; then
   echo "OK: hook correctly blocked bad commit"
 else
   echo "BLOCKED: hook did not fire as expected"
@@ -581,9 +581,9 @@ The pre-commit hook runs `gofmt`, `golangci-lint`, `prettier`, and `eslint`. Sty
 
 ```bash
 cd ~/Documents/ITA/claw-study
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho \
+git -c user.email=you@example.com -c user.name=your-name \
   add scripts/install-hooks.sh scripts/git-hooks/pre-commit README.md
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho \
+git -c user.email=you@example.com -c user.name=your-name \
   commit -m "tooling: pre-commit hook + installer for format/lint enforcement"
 ```
 

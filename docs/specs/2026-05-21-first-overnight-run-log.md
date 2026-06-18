@@ -13,7 +13,7 @@
 | 2 | `systemd-run --user --collect` | **🟢 Shipped** | 358s (Pi 346s, gate 4s, deploy 1s) | `30c035f` |
 | 3 | After rollback + re-queue | **🟢 Shipped** (idempotency check) | 215s (Pi 205s, gate 2s, deploy 1s) | `8a05617` |
 
-End state: `https://study.claw-study.xyz/debug/version` returns `{"commit":"8a05617e...","built_at":"2026-05-21T15:06:28Z"}` matching `origin/main`.
+End state: `https://your-host.example/debug/version` returns `{"commit":"8a05617e...","built_at":"2026-05-21T15:06:28Z"}` matching `origin/main`.
 
 ## What worked first try
 

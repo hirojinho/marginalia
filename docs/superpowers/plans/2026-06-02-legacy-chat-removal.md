@@ -10,7 +10,7 @@
 
 **Spec:** `docs/superpowers/specs/2026-06-02-legacy-chat-removal-design.md`
 
-**Conventions:** build/test `/opt/homebrew/bin/go`; commit `git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho commit -m "..."`; branch main.
+**Conventions:** build/test `/opt/homebrew/bin/go`; commit `git -c user.email=you@example.com -c user.name=your-name commit -m "..."`; branch main.
 
 **Verified keep/delete facts (do not re-derive):**
 - KEEP: Pi path (`handler/chat_v2.go`, `agent/pi_runner.go`, `agent/sandbox.go`); `LLMClient`, `NewLLMClient`, `CallLLMNonStreaming`, `cleanTitle`, `GenerateTitle` (used by `chat_v2.go:124`), `GenerateSummary` (`sessions.go` summary path); `App.CreateCourse`, `App.CourseName`, `App.AppCourseName` (used by `db.go`), `readFileWithLog` (used by `tools_skill.go`); all `Tool*` methods claw-cli calls (`ToolUpdatePlan/ToolRewritePlan/ToolRAGSearch/ToolPDFExtract/ToolStudySkill/ToolSaveNote`); S1/S2 surface.
@@ -107,7 +107,7 @@ Expected: `TestLegacyChatRouteRemoved` PASSES; all other handler tests pass; bui
 
 ```bash
 git add -A
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho commit -m "refactor: remove legacy /chat, /api/runtime, /debug/tools routes + handlers; hardwire UI to /chat-v2"
+git -c user.email=you@example.com -c user.name=your-name commit -m "refactor: remove legacy /chat, /api/runtime, /debug/tools routes + handlers; hardwire UI to /chat-v2"
 ```
 
 ---
@@ -159,7 +159,7 @@ Expected: NO output (every match would be in docs/specs/worktrees, which are exc
 
 ```bash
 git add -A
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho commit -m "refactor: remove orphaned legacy tool-loop, tool registry, and system-prompt builders"
+git -c user.email=you@example.com -c user.name=your-name commit -m "refactor: remove orphaned legacy tool-loop, tool registry, and system-prompt builders"
 ```
 
 ---
@@ -178,15 +178,15 @@ ls -la /tmp/study-app-linux /tmp/claw-cli-linux
 
 - [ ] **Step 2: Deploy (back up, restart)**
 ```bash
-scp /tmp/study-app-linux nanoclaw:/home/eduardo/stack/study-app/bin/study-app.new
-scp /tmp/claw-cli-linux nanoclaw:/home/eduardo/stack/study-app/bin/claw-cli.new
+scp /tmp/study-app-linux nanoclaw:$VAULT_ROOT/bin/study-app.new
+scp /tmp/claw-cli-linux nanoclaw:$VAULT_ROOT/bin/claw-cli.new
 ssh nanoclaw 'cd ~/stack/study-app/bin && cp study-app study-app.bak && cp claw-cli claw-cli.bak && mv study-app.new study-app && mv claw-cli.new claw-cli && chmod +x study-app claw-cli && export XDG_RUNTIME_DIR=/run/user/$(id -u) && systemctl --user restart study-app.service && sleep 3 && systemctl --user is-active study-app.service'
 ```
 Expected: `active`.
 
 - [ ] **Step 3: Confirm `/chat` is gone and `/chat-v2`/health are alive**
 ```bash
-URL=https://study.claw-study.xyz
+URL=https://your-host.example
 TOKEN=$(ssh nanoclaw 'grep ^AUTH_TOKEN= ~/stack/study-app/.env | cut -d= -f2')
 rtk proxy curl -s -o /dev/null -w "chat=%{http_code}\n" -X POST -H "Authorization: Bearer $TOKEN" "$URL/chat"          # expect 404
 rtk proxy curl -s -o /dev/null -w "health=%{http_code}\n" -H "Authorization: Bearer $TOKEN" "$URL/debug/health"        # expect 200

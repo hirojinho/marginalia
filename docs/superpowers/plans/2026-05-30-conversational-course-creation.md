@@ -230,7 +230,7 @@ Expected: all packages `ok`.
 ```bash
 cd ~/Documents/ITA/claw-study
 git add claw-cli/main.go claw-cli/main_test.go
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho commit -m "$(cat <<'EOF'
+git -c user.email=you@example.com -c user.name=your-name commit -m "$(cat <<'EOF'
 feat(course): claw-cli course create with optional framing/exam_style
 
 Composes CreateCourse + SetCourseSetting (no new write logic); kebab-case
@@ -286,7 +286,7 @@ Expected: `ok`.
 ```bash
 cd ~/Documents/ITA/claw-study
 git add agent/sandbox.go
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho commit -m "$(cat <<'EOF'
+git -c user.email=you@example.com -c user.name=your-name commit -m "$(cat <<'EOF'
 feat(agent): tell the tutor it can create courses via claw-cli course create
 
 Adds a "## Creating a course" block to the generated AGENTS.md so the Pi
@@ -356,7 +356,7 @@ Expected: two matches (one in Self-Study Phase 4, one in Plan Mode Phase 1).
 ```bash
 cd ~/Documents/ITA/claw-study
 git add skills/course-study-path/SKILL.md
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho commit -m "$(cat <<'EOF'
+git -c user.email=you@example.com -c user.name=your-name commit -m "$(cat <<'EOF'
 docs(skill): course-study-path creates the course before saving its plan
 
 Closes the gap where the Authoring flow ran memory save / plan writes
@@ -400,13 +400,13 @@ Expected: two ELF binaries (~18 MB study-app).
 
 ```bash
 # study-app
-scp /tmp/study-app-linux nanoclaw:/home/eduardo/stack/study-app/bin/study-app.new
+scp /tmp/study-app-linux nanoclaw:$VAULT_ROOT/bin/study-app.new
 ssh nanoclaw 'cd ~/stack/study-app/bin && cp study-app study-app.bak.2026-05-30-course-create && mv study-app.new study-app && chmod +x study-app'
 # claw-cli
-scp /tmp/claw-cli-linux nanoclaw:/home/eduardo/stack/study-app/bin/claw-cli.new
+scp /tmp/claw-cli-linux nanoclaw:$VAULT_ROOT/bin/claw-cli.new
 ssh nanoclaw 'cd ~/stack/study-app/bin && cp claw-cli claw-cli.bak.2026-05-30-course-create && mv claw-cli.new claw-cli && chmod +x claw-cli'
 # skill (disk-mounted, not carried by the binary)
-scp skills/course-study-path/SKILL.md nanoclaw:/home/eduardo/stack/study-app/skills/course-study-path/SKILL.md
+scp skills/course-study-path/SKILL.md nanoclaw:$VAULT_ROOT/skills/course-study-path/SKILL.md
 # restart
 ssh nanoclaw 'export XDG_RUNTIME_DIR=/run/user/$(id -u) && systemctl --user restart study-app.service'
 ```
@@ -419,7 +419,7 @@ ssh nanoclaw 'export XDG_RUNTIME_DIR=/run/user/$(id -u); systemctl --user is-act
 ssh nanoclaw '/usr/local/bin/claw-cli course create --id smoke-course --name "Smoke Test" --framing "verify path"'
 ssh nanoclaw '/usr/local/bin/claw-cli course settings get --course smoke-course'   # expect framing: verify path
 TOKEN=$(ssh nanoclaw 'grep ^AUTH_TOKEN= ~/stack/study-app/.env | cut -d= -f2')
-rtk proxy curl -s -H "Authorization: Bearer $TOKEN" https://study.claw-study.xyz/api/courses | grep smoke-course   # expect it listed
+rtk proxy curl -s -H "Authorization: Bearer $TOKEN" https://your-host.example/api/courses | grep smoke-course   # expect it listed
 # cleanup the smoke course row:
 ssh nanoclaw 'sqlite3 ~/stack/study-app/data/study.db "DELETE FROM courses WHERE id=\"smoke-course\"; DELETE FROM course_settings WHERE course_id=\"smoke-course\";"'
 ```

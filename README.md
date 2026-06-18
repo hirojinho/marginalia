@@ -189,7 +189,7 @@ The app is shipped as a single Linux/amd64 binary, scp'd to the VPS, and managed
 GOOS=linux GOARCH=amd64 go build \
   -ldflags "-X main.buildCommit=$(git rev-parse HEAD) -X main.buildTimestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
   -o /tmp/study-app-linux .
-scp /tmp/study-app-linux nanoclaw:/home/eduardo/stack/study-app/bin/study-app.new
+scp /tmp/study-app-linux nanoclaw:$VAULT_ROOT/bin/study-app.new
 ssh nanoclaw 'cd ~/stack/study-app/bin \
   && cp study-app study-app.bak \
   && mv study-app.new study-app \

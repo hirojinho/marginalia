@@ -102,7 +102,7 @@ After implementation, run `git diff --numstat origin/main..HEAD` and sum the add
 Stage ONLY the files named in the plan by explicit path and commit. Never run `git add -A` or `git add .`, and never stage `*.bak`, `*.orig`, or build artifacts.
 
 ```
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho \
+git -c user.email=you@example.com -c user.name=your-name \
   commit -m "agent: <ticket-id> — <title>"
 ```
 

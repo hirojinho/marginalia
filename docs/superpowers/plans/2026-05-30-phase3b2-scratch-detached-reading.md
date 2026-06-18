@@ -199,10 +199,10 @@ Expected: `labels` contains "Scratch", "Detached task removed from plan", and "B
 
 - [ ] **Step 5: Commit Tasks 1+2.**
 ```bash
-cd /Users/eduardohiroji/Documents/ITA/claw-study
+cd ~/claw-study
 npm run format:write >/dev/null 2>&1
 git add static/rail.js static/style.css
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho commit -m "feat(rail): bucket task-less sessions into Scratch / Detached / Before-the-redesign (ADR 0014/0011)"
+git -c user.email=you@example.com -c user.name=your-name commit -m "feat(rail): bucket task-less sessions into Scratch / Detached / Before-the-redesign (ADR 0014/0011)"
 ```
 
 ---
@@ -261,7 +261,7 @@ Run the eval. Expected: after clicking t-aaa, the layout switches toward split (
 - [ ] **Step 4: Commit.**
 ```bash
 git add static/rail.js
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho commit -m "feat(rail): auto-open the task's learned PDF on session open (ADR 0012)"
+git -c user.email=you@example.com -c user.name=your-name commit -m "feat(rail): auto-open the task's learned PDF on session open (ADR 0012)"
 ```
 
 ---
@@ -311,7 +311,7 @@ to:
 - [ ] **Step 5: Commit.**
 ```bash
 git add agent/db.go agent/db_test.go
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho commit -m "fix(sessions): GetSessionByTask excludes archived rows (ADR 0014 hardening)"
+git -c user.email=you@example.com -c user.name=your-name commit -m "fix(sessions): GetSessionByTask excludes archived rows (ADR 0014 hardening)"
 ```
 
 ---
@@ -326,11 +326,11 @@ git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho commit -m 
 - [ ] **Step 2: Build linux binary.** `GOOS=linux GOARCH=amd64 /opt/homebrew/bin/go build -o /tmp/study-app-linux .` → exit 0.
 - [ ] **Step 3: Ship + swap + restart.**
 ```bash
-scp /tmp/study-app-linux nanoclaw:/home/eduardo/stack/study-app/bin/study-app.new
+scp /tmp/study-app-linux nanoclaw:$VAULT_ROOT/bin/study-app.new
 ssh nanoclaw 'cd ~/stack/study-app/bin && cp study-app study-app.bak.2026-05-30-phase3b2 && mv study-app.new study-app && chmod +x study-app && systemctl --user restart study-app.service && sleep 3 && systemctl --user is-active study-app.service && systemctl --user is-active study-app-tunnel.service'
 ```
 Expected: both `active`.
-- [ ] **Step 4: Verify live.** `curl -s -o /dev/null -w "%{http_code}\n" https://study.claw-study.xyz/` → 401. In the browser (logged in): the "Other chats" stub is gone, replaced by Scratch / Detached (if any) / collapsible "Before the redesign" holding the ~32 archived chats; opening a task with a prior PDF auto-opens reading.
+- [ ] **Step 4: Verify live.** `curl -s -o /dev/null -w "%{http_code}\n" https://your-host.example/` → 401. In the browser (logged in): the "Other chats" stub is gone, replaced by Scratch / Detached (if any) / collapsible "Before the redesign" holding the ~32 archived chats; opening a task with a prior PDF auto-opens reading.
 - [ ] **Step 5: Push.** `git push origin main`.
 
 ---

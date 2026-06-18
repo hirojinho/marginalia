@@ -10,7 +10,7 @@
 
 **Spec:** `docs/superpowers/specs/2026-06-02-two-step-reveal-design.md`
 
-**Conventions:** build/test `/opt/homebrew/bin/go`; commit `git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho commit -m "..."`; branch main.
+**Conventions:** build/test `/opt/homebrew/bin/go`; commit `git -c user.email=you@example.com -c user.name=your-name commit -m "..."`; branch main.
 
 ---
 
@@ -78,7 +78,7 @@ Expected: green.
 
 ```bash
 git add agent/sandbox.go agent/sandbox_test.go skills/study-step-complete/SKILL.md
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho commit -m "feat(pedagogy): two-step reveal — cue the gap before revealing on partial recall"
+git -c user.email=you@example.com -c user.name=your-name commit -m "feat(pedagogy): two-step reveal — cue the gap before revealing on partial recall"
 ```
 
 ---
@@ -95,14 +95,14 @@ GOOS=linux GOARCH=amd64 /opt/homebrew/bin/go build -o /tmp/study-app-linux .
 
 - [ ] **Step 2: Deploy the binary (back up, restart)**
 ```bash
-scp /tmp/study-app-linux nanoclaw:/home/eduardo/stack/study-app/bin/study-app.new
+scp /tmp/study-app-linux nanoclaw:$VAULT_ROOT/bin/study-app.new
 ssh nanoclaw 'cd ~/stack/study-app/bin && cp study-app study-app.bak && mv study-app.new study-app && chmod +x study-app && export XDG_RUNTIME_DIR=/run/user/$(id -u) && systemctl --user restart study-app.service && sleep 3 && systemctl --user is-active study-app.service'
 ```
 Expected: `active`.
 
 - [ ] **Step 3: Sync the SKILL.md (mounted file — not in the binary)**
 ```bash
-scp skills/study-step-complete/SKILL.md nanoclaw:/home/eduardo/stack/study-app/skills/study-step-complete/SKILL.md
+scp skills/study-step-complete/SKILL.md nanoclaw:$VAULT_ROOT/skills/study-step-complete/SKILL.md
 ssh nanoclaw 'grep -c "two-step reveal" ~/stack/study-app/skills/study-step-complete/SKILL.md'
 ```
 Expected: `1` (the new text is on the VPS).
@@ -115,7 +115,7 @@ Expected: `1` (compiled-in rule present).
 
 - [ ] **Step 5: Confirm service healthy**
 ```bash
-URL=https://study.claw-study.xyz
+URL=https://your-host.example
 TOKEN=$(ssh nanoclaw 'grep ^AUTH_TOKEN= ~/stack/study-app/.env | cut -d= -f2')
 rtk proxy curl -s -o /dev/null -w "health=%{http_code}\n" -H "Authorization: Bearer $TOKEN" "$URL/debug/health"
 ```

@@ -24,35 +24,35 @@ limited, focused windows. Pursuing the master's by personal choice — intrinsic
 - Engineering-oriented course; Eduardo engages through a formal lens to stay motivated
 - Syllabus: STAMP/STPA, CAST, AppSTPA, MIL-STD-882E, IEC 61508, PHI/ETA/FTA/FMEA/SIL/HAZOP, STRIDE
 - Primary refs: Leveson *Engineering a Safer World*, Dunn *Practical Design of Safety-Critical Computer Systems*
-- Notes live in `/home/eduardo/stack/study-app/data/courses/ce297/formal_notes.tex` (LaTeX)
-- Study plan (canonical): `/home/eduardo/stack/study-app/data/plans/ce297.json` — read via `claw-cli plan status --course ce297`, update via `claw-cli plan toggle`. Do not read or write any `study-plan.md` (retired 2026-05-14).
-- Interests: `/home/eduardo/stack/study-app/memory/courses/ce297/interests.md`
-- Fleeting notes: `/home/eduardo/stack/study-app/memory/courses/ce297/fleeting/`
+- Notes live in `$VAULT_ROOT/data/courses/ce297/formal_notes.tex` (LaTeX)
+- Study plan (canonical): `$VAULT_ROOT/data/plans/ce297.json` — read via `claw-cli plan status --course ce297`, update via `claw-cli plan toggle`. Do not read or write any `study-plan.md` (retired 2026-05-14).
+- Interests: `$VAULT_ROOT/memory/courses/ce297/interests.md`
+- Fleeting notes: `$VAULT_ROOT/memory/courses/ce297/fleeting/`
 
 ### DDIA — Designing Data-Intensive Applications (Kleppmann)
 - Goal: bridge SWE → product engineering decisions + distributed systems / DB internals depth
 - Systems-programming + infra-builder lens — NOT formal/theoretical
 - Two camps: Camp A (technical depth, 2/3 weight) vs Camp B (product breadth, 1/3 weight)
 - Baseline: strong NoSQL/Firebase; no relational transactions, replication, or distributed systems
-- Study plan (canonical): `/home/eduardo/stack/study-app/data/plans/ddia.json` — read via `claw-cli plan status --course ddia`, update via `claw-cli plan toggle`. Do not read or write any `study-plan.md` (retired 2026-05-14).
-- Interests: `/home/eduardo/stack/study-app/memory/courses/ddia/interests.md`
+- Study plan (canonical): `$VAULT_ROOT/data/plans/ddia.json` — read via `claw-cli plan status --course ddia`, update via `claw-cli plan toggle`. Do not read or write any `study-plan.md` (retired 2026-05-14).
+- Interests: `$VAULT_ROOT/memory/courses/ddia/interests.md`
 
 ### DSA Interview Prep
-- LeetCode-style problems; LaTeX notes in `/home/eduardo/stack/study-app/data/courses/dsa-interview/`
+- LeetCode-style problems; LaTeX notes in `$VAULT_ROOT/data/courses/dsa-interview/`
 - Always fetch problem + optimal solution from web before presenting anything
-- Interests: `/home/eduardo/stack/study-app/memory/courses/dsa-interview/interests.md`
+- Interests: `$VAULT_ROOT/memory/courses/dsa-interview/interests.md`
 
 ### Phase 1 — Broad Survey (thesis/PhD direction)
 - 6-cluster sensor-first sampler: structural complexity, type theory, combinatorial optimization,
   logic-meets-computation, process calculi, theoretical ML
 - ~18 weeks, ~5 hr/week. Target convergence by ~2026-10
 - Each cluster: one concrete proof attempt + one exercise = felt-data
-- Study plan (canonical): `/home/eduardo/stack/study-app/data/plans/thesis.json` — read via `claw-cli plan status --course thesis`, update via `claw-cli plan toggle`. Do not read or write any `study-plan.md` (retired 2026-05-14).
-- Interests: `/home/eduardo/stack/study-app/memory/thesis/interests.md`
+- Study plan (canonical): `$VAULT_ROOT/data/plans/thesis.json` — read via `claw-cli plan status --course thesis`, update via `claw-cli plan toggle`. Do not read or write any `study-plan.md` (retired 2026-05-14).
+- Interests: `$VAULT_ROOT/memory/thesis/interests.md`
 
 ### Software Architecture
-- Study plan (canonical): `/home/eduardo/stack/study-app/data/plans/software-arch.json` — read via `claw-cli plan status --course software-arch`, update via `claw-cli plan toggle`. Do not read or write any `study-plan.md` (retired 2026-05-14).
-- Interests: `/home/eduardo/stack/study-app/memory/courses/software-arch/interests.md`
+- Study plan (canonical): `$VAULT_ROOT/data/plans/software-arch.json` — read via `claw-cli plan status --course software-arch`, update via `claw-cli plan toggle`. Do not read or write any `study-plan.md` (retired 2026-05-14).
+- Interests: `$VAULT_ROOT/memory/courses/software-arch/interests.md`
 
 ---
 
@@ -118,8 +118,8 @@ limited, focused windows. Pursuing the master's by personal choice — intrinsic
 When Eduardo shows curiosity about something tangential, log it to the relevant course's
 `interests.md` — do NOT add it to the active plan unless asked.
 
-- CE-297 tangents → `/home/eduardo/stack/study-app/memory/courses/ce297/interests.md`
-- DDIA tangents → `/home/eduardo/stack/study-app/memory/courses/ddia/interests.md`
-- DSA tangents → `/home/eduardo/stack/study-app/memory/courses/dsa-interview/interests.md`
-- Software Arch tangents → `/home/eduardo/stack/study-app/memory/courses/software-arch/interests.md`
-- Thesis tangents → `/home/eduardo/stack/study-app/memory/thesis/interests.md`
+- CE-297 tangents → `$VAULT_ROOT/memory/courses/ce297/interests.md`
+- DDIA tangents → `$VAULT_ROOT/memory/courses/ddia/interests.md`
+- DSA tangents → `$VAULT_ROOT/memory/courses/dsa-interview/interests.md`
+- Software Arch tangents → `$VAULT_ROOT/memory/courses/software-arch/interests.md`
+- Thesis tangents → `$VAULT_ROOT/memory/thesis/interests.md`

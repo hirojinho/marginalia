@@ -121,7 +121,7 @@ JSON
 
 ```bash
 git add static/rail.js
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho commit -m "feat(rail): plan-spine rail data layer — load plan + index sessions by task_id (ADR 0011)"
+git -c user.email=you@example.com -c user.name=your-name commit -m "feat(rail): plan-spine rail data layer — load plan + index sessions by task_id (ADR 0011)"
 ```
 
 ---
@@ -279,7 +279,7 @@ export async function loadRail() {
 
 ```bash
 git add static/rail.js static/index.html static/app.js static/style.css
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho commit -m "feat(rail): render plan-spine rail (course switcher, phases, tasks, next/done) (ADR 0011)"
+git -c user.email=you@example.com -c user.name=your-name commit -m "feat(rail): render plan-spine rail (course switcher, phases, tasks, next/done) (ADR 0011)"
 ```
 
 ---
@@ -304,7 +304,7 @@ JSON
 
 ```bash
 git add static/rail.js
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho commit -m "fix(rail): course switcher persistence/swap"
+git -c user.email=you@example.com -c user.name=your-name commit -m "fix(rail): course switcher persistence/swap"
 ```
 
 ---
@@ -408,7 +408,7 @@ curl -s "127.0.0.1:8099/api/sessions/for-task?course_id=ce297&task_id=t-aaa"
 
 ```bash
 git add static/rail.js static/app.js static/sessions.js
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho commit -m "feat(rail): task click resolves/loads its Session; pending-task for empties (ADR 0014 lazy)"
+git -c user.email=you@example.com -c user.name=your-name commit -m "feat(rail): task click resolves/loads its Session; pending-task for empties (ADR 0014 lazy)"
 ```
 
 ---
@@ -450,7 +450,7 @@ In `openTask`: in the existing-session branch call `setBanner(title)`; in the pe
 
 ```bash
 git add static/rail.js static/index.html static/style.css
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho commit -m "feat(rail): workspace banner shows the open task (pending vs existing)"
+git -c user.email=you@example.com -c user.name=your-name commit -m "feat(rail): workspace banner shows the open task (pending vs existing)"
 ```
 
 ---
@@ -501,7 +501,7 @@ Then ensure the existing code uses the now-active session id (`getActiveSessionI
 
 ```bash
 git add static/chat.js static/rail.js
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho commit -m "feat(chat): first message lazily creates the task's Session (ADR 0014)"
+git -c user.email=you@example.com -c user.name=your-name commit -m "feat(chat): first message lazily creates the task's Session (ADR 0014)"
 ```
 
 ---
@@ -547,7 +547,7 @@ Add the import: `import { openTask, toggleTask } from './rail.js';` (merge with 
 
 ```bash
 git add static/app.js static/rail.js
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho commit -m "feat(rail): toggle task done from the rail checkbox"
+git -c user.email=you@example.com -c user.name=your-name commit -m "feat(rail): toggle task done from the rail checkbox"
 ```
 
 ---
@@ -574,7 +574,7 @@ Delete only those with no remaining references outside their own definition/expo
 
 ```bash
 git add static/sessions.js static/app.js
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho commit -m "refactor(rail): retire the flat session accordion; rail is the navigator (ADR 0011)"
+git -c user.email=you@example.com -c user.name=your-name commit -m "refactor(rail): retire the flat session accordion; rail is the navigator (ADR 0011)"
 ```
 
 ---
@@ -591,12 +591,12 @@ git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho commit -m 
 
 - [ ] **Step 3: Ship + swap + restart.**
 ```bash
-scp /tmp/study-app-linux nanoclaw:/home/eduardo/stack/study-app/bin/study-app.new
+scp /tmp/study-app-linux nanoclaw:$VAULT_ROOT/bin/study-app.new
 ssh nanoclaw 'cd ~/stack/study-app/bin && cp study-app study-app.bak.2026-05-30-phase3b1 && mv study-app.new study-app && chmod +x study-app && systemctl --user restart study-app.service && sleep 3 && systemctl --user is-active study-app.service && systemctl --user is-active study-app-tunnel.service'
 ```
 Expected: both `active`.
 
-- [ ] **Step 4: Verify live.** `curl -s -o /dev/null -w "%{http_code}\n" https://study.claw-study.xyz/` → 401 (auth healthy). Then in a browser at the live URL: the left rail shows the plan spine, switching courses works, clicking a task loads/opens its workspace, the checkbox toggles done, "Other chats" lists task-less sessions. Spot-check the browser console for errors.
+- [ ] **Step 4: Verify live.** `curl -s -o /dev/null -w "%{http_code}\n" https://your-host.example/` → 401 (auth healthy). Then in a browser at the live URL: the left rail shows the plan spine, switching courses works, clicking a task loads/opens its workspace, the checkbox toggles done, "Other chats" lists task-less sessions. Spot-check the browser console for errors.
 
 - [ ] **Step 5: Push.** `git push origin main` (after merging the branch per finishing-a-development-branch).
 

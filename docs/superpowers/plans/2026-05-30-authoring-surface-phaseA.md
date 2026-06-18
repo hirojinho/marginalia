@@ -182,7 +182,7 @@ Expected: both new tests PASS, build clean.
 ```bash
 cd ~/Documents/ITA/claw-study
 git add agent/types.go agent/db.go main.go agent/db_test.go
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho commit -m "$(cat <<'EOF'
+git -c user.email=you@example.com -c user.name=your-name commit -m "$(cat <<'EOF'
 feat(sessions): add mode discriminator (study|scratch|authoring) + migration
 
 Schema column + guarded backfill (task-less existing rows → scratch), threaded
@@ -294,7 +294,7 @@ and change the task-less branch (line 73):
 ```bash
 cd ~/Documents/ITA/claw-study
 git add agent/db.go handler/sessions.go agent/db_test.go
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho commit -m "$(cat <<'EOF'
+git -c user.email=you@example.com -c user.name=your-name commit -m "$(cat <<'EOF'
 feat(sessions): CreateSession takes a mode; POST /api/sessions accepts mode
 
 Lets the frontend start a task-less session with an explicit mode
@@ -390,7 +390,7 @@ and after the existing settings handling, just before `return 0` (line 685):
 ```bash
 cd ~/Documents/ITA/claw-study
 git add agent/db.go claw-cli/main.go claw-cli/main_test.go
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho commit -m "$(cat <<'EOF'
+git -c user.email=you@example.com -c user.name=your-name commit -m "$(cat <<'EOF'
 feat(course): course create --session re-tags an Authoring chat to the new course
 
 Adds App.UpdateSessionCourse and an optional --session flag so a course-less
@@ -490,7 +490,7 @@ Then, immediately before the function appends the pedagogical rules / at the end
 ```bash
 cd ~/Documents/ITA/claw-study
 git add agent/sandbox.go handler/chat_v2.go agent/sandbox_test.go
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho commit -m "$(cat <<'EOF'
+git -c user.email=you@example.com -c user.name=your-name commit -m "$(cat <<'EOF'
 feat(agent): Authoring frame in AGENTS.md for mode=authoring sessions
 
 writeAgentsMD now takes the session mode; an authoring session gets a
@@ -561,7 +561,7 @@ Drive headless Chrome (the reusable driver `/tmp/cdp.mjs` from prior frontend wo
 ```bash
 cd ~/Documents/ITA/claw-study
 git add static/rail.js static/app.js
-git -c user.email=eduardo.hiroji@brendi.com.br -c user.name=hirojinho commit -m "$(cat <<'EOF'
+git -c user.email=you@example.com -c user.name=your-name commit -m "$(cat <<'EOF'
 feat(rail): "+ new course" opens a conversational Authoring chat
 
 Adds a rail button that POSTs a task-less mode=authoring session and switches
@@ -593,8 +593,8 @@ ls -la /tmp/study-app-linux /tmp/claw-cli-linux
 - [ ] **Step 4: Deploy both with backups + restart**
 ```bash
 cd ~/Documents/ITA/claw-study
-scp -q /tmp/study-app-linux nanoclaw:/home/eduardo/stack/study-app/bin/study-app.new
-scp -q /tmp/claw-cli-linux nanoclaw:/home/eduardo/stack/study-app/bin/claw-cli.new
+scp -q /tmp/study-app-linux nanoclaw:$VAULT_ROOT/bin/study-app.new
+scp -q /tmp/claw-cli-linux nanoclaw:$VAULT_ROOT/bin/claw-cli.new
 ssh nanoclaw 'cd ~/stack/study-app/bin && \
   cp study-app study-app.bak.2026-05-30-authoring-A && mv study-app.new study-app && chmod +x study-app && \
   cp claw-cli claw-cli.bak.2026-05-30-authoring-A && mv claw-cli.new claw-cli && chmod +x claw-cli && \
@@ -605,12 +605,12 @@ Expected: `active`. Check `journalctl --user -u study-app.service --since "1 min
 
 - [ ] **Step 5: Live smoke**
 ```bash
-DB=/home/eduardo/stack/study-app/data/study.db
+DB=$VAULT_ROOT/data/study.db
 # create a throwaway authoring session, confirm mode persists:
 ssh nanoclaw "sqlite3 -json $DB \"SELECT id, mode, task_id FROM sessions ORDER BY id DESC LIMIT 3;\""
 # exercise the re-tag end-to-end via CLI (the agent's exact path):
-ssh nanoclaw "VAULT_ROOT=/home/eduardo/stack/study-app /usr/local/bin/claw-cli course create --id authoring-smoke --name 'Authoring Smoke' --db $DB --session 999999"  # bad session → exit 1, clear msg
-# (Then verify the UI: open https://study.claw-study.xyz, click "+ course", confirm a chat opens.)
+ssh nanoclaw "VAULT_ROOT=$VAULT_ROOT /usr/local/bin/claw-cli course create --id authoring-smoke --name 'Authoring Smoke' --db $DB --session 999999"  # bad session → exit 1, clear msg
+# (Then verify the UI: open https://your-host.example, click "+ course", confirm a chat opens.)
 # cleanup throwaway course:
 ssh nanoclaw "sqlite3 $DB \"DELETE FROM courses WHERE id='authoring-smoke';\""
 ```
