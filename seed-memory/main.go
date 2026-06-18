@@ -1,7 +1,6 @@
-// Command seed-memory imports Eduardo's existing memory store at
-// ~/.claude/projects/-Users-eduardohiroji-Documents-ITA-Mestrado/memory/
-// into the agent_memory SQLite table. Idempotent: deletes all rows for
-// the user before reseeding.
+// Command seed-memory imports a directory of markdown memory files into the
+// agent_memory SQLite table. Point -source at your memory directory.
+// Idempotent: deletes all rows for the user before reseeding.
 package main
 
 import (
@@ -17,13 +16,15 @@ import (
 	"study-app/agent"
 )
 
-const userID = "eduardo"
+var userID = "default"
 
 func main() {
-	source := flag.String("source", os.ExpandEnv("$HOME/.claude/projects/-Users-eduardohiroji-Documents-ITA-Mestrado/memory"), "source memory directory")
+	source := flag.String("source", "./memory", "source memory directory")
+	userFlag := flag.String("user", userID, "user id to seed memory under")
 	dbPath := flag.String("db", "data/study.db", "study.db path")
 	dryRun := flag.Bool("dry-run", false, "print what would be inserted; do not write")
 	flag.Parse()
+	userID = *userFlag
 
 	db, err := agent.OpenDB(*dbPath)
 	if err != nil {
