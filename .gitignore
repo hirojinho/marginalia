@@ -25,6 +25,9 @@ node_modules/
 *.bak[0-9]
 *.orig
 
+# machine-local agent instructions (not app source)
+/CLAUDE.local.md
+
 # postmortem: keep curated .md, drop bulky transcripts + intermediates
 docs/postmortem/*/raw/
 docs/postmortem/*/evidence-*.txt
