@@ -229,7 +229,4 @@ If you're reading the source, the conventions are:
 
 ## License
 
-No license is set yet, so default copyright applies (all rights reserved). A license
-will be chosen before the repository is made public — pick one (MIT for permissive reuse,
-or source-available if you want it readable but not freely reusable) and add a `LICENSE`
-file before sharing.
+[MIT](./LICENSE) © 2026 Eduardo Hiroji.
