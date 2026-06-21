@@ -101,7 +101,7 @@ export async function loadSessionMessages() {
         div.className = 'msg msg-user';
         div.innerHTML =
           '<div class="msg-label">You</div><div class="msg-content">' +
-          renderContent(m.content) +
+          escapeHtml(m.content) +
           '</div>';
         container.appendChild(div);
       } else if (m.role === 'assistant') {
